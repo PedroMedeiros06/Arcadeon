@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Termo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" />
+  <link href="../src/output.css" rel="stylesheet" />
+</head>
+<body class="w-dvw h-dvh bg-gray-900 text-white font-bold">
+  <header class="relative w-full h-[10vh] bg-gray-800 shadow-gray-950 shadow-2xl flex items-center justify-between px-6 z-30">
+    <!-- Esquerda -->
+    <section>
+      <ul>
+        <a href="../index.html" class="cursor-pointer "><i class="bi bi-house-door text-xl"></i></a>
+      </ul>
+    </section>
+
+    <!-- Centro -->
+    <h1 class="absolute left-1/2 transform -translate-x-1/2 text-3xl text-center">TERMO</h1>
+
+    <!-- Direita -->
+    <section class="flex gap-4">
+      <button class="ease duration-150 hover:scale-125" data-mode="2">DUETO</button>
+      <button class="ease duration-150 hover:scale-125" data-mode="3">TRIO</button>
+      <button class="ease duration-150 hover:scale-125" data-mode="4">QUARTETO</button>
+    </section>
+  </header>
+  <div id="game" class="w-full h-5/5 my-10 flex flex-col gap-2"></div>
+  <div id="keyboard" class="mt-8 flex flex-col items-center gap-2"></div>
+  
+<div id="modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center hidden z-50">
+  <div class="bg-gray-800 w-full max-w-md mx-4 p-8 rounded-2xl shadow-2xl text-white relative h-[70vh] flex flex-col justify-between">
+
+    <div>
+      <h1 id="resultH" class="text-center text-4xl font-bold text-yellow-400 mb-2">Derrota</h1>
+      <h3 class="text-center text-lg text-gray-400 mb-4">Resultados</h3>
+      <div class="text-center space-y-1">
+        <p class="text-gray-300 mt-2">
+          Tempo: <span id="resultTime" class="font-semibold">00:00</span>
+        </p>
+        <p id="resultD" class="text-sm text-green-400 mt-4">Temos uma pessoa brilhante entre nós</p>
+      </div>
+    </div>
+
+    <div class="flex justify-center mt-6">
+      <button id="restartGame" class="bg-yellow-400 hover:bg-yellow-300 text-black px-6 py-2 rounded-full text-lg font-semibold transition">
+        Recomeçar
+      </button>
+    </div>
+  </div>
+</div>
+
+
+  <script src="../scripts/termo.js"></script>
+</body>
+</html>
