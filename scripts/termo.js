@@ -114,16 +114,42 @@ function updateGrid() {
 function checkGuess() {
   const guess = currentGuess;
   const row = gameGrid.children[currentRow];
+  const letterCount = {};
 
+  // Conta quantas vezes cada letra aparece na palavra-alvo
+  for (let letter of targetWord) {
+    letterCount[letter] = (letterCount[letter] || 0) + 1;
+  }
+
+  // Primeiro passo: marcar verdes
+  const colors = Array(wordLength).fill("gray");
   for (let i = 0; i < wordLength; i++) {
-    const letter = guess[i];
+    if (guess[i] === targetWord[i]) {
+      colors[i] = "green";
+      letterCount[guess[i]]--;
+    }
+  }
+
+  // Segundo passo: marcar amarelos (apenas se ainda houver aquela letra restante)
+  for (let i = 0; i < wordLength; i++) {
+    if (colors[i] === "gray" && targetWord.includes(guess[i]) && letterCount[guess[i]] > 0) {
+      colors[i] = "yellow";
+      letterCount[guess[i]]--;
+    }
+  }
+
+  // Aplica cores na interface
+  for (let i = 0; i < wordLength; i++) {
     const box = row.children[i];
+    const letter = guess[i];
     const keyBtn = keyButtons[letter];
 
-    if (letter === targetWord[i]) {
+    box.textContent = letter.toUpperCase();
+
+    if (colors[i] === "green") {
       box.classList.add("bg-green-600", "text-white");
       updateKeyColor(keyBtn, "green");
-    } else if (targetWord.includes(letter)) {
+    } else if (colors[i] === "yellow") {
       box.classList.add("bg-yellow-500", "text-white");
       updateKeyColor(keyBtn, "yellow");
     } else {
@@ -132,27 +158,25 @@ function checkGuess() {
     }
   }
 
+  const attempt = currentRow + 1;
+
+  const endTime = Date.now();
+  const elapsedSeconds = Math.floor((endTime - startTime) / 1000);
+  const minutes = Math.floor(elapsedSeconds / 60);
+  const seconds = elapsedSeconds % 60;
+  const timeString = `${minutes}m ${seconds}s`;
+
   if (guess === targetWord) {
-    const attempt = currentRow + 1;
     let feedback = "";
-
-    const endTime = Date.now();
-    const elapsedSeconds = Math.floor((endTime - startTime) / 1000);
-    const minutes = Math.floor(elapsedSeconds / 60);
-    const seconds = elapsedSeconds % 60;
-    const timeString = `${minutes}m ${seconds}s`;
-
-
-
 
     if (attempt === 1) feedback = "Você é um gênio!";
     else if (attempt <= 3) feedback = "Incrível!";
     else if (attempt <= 5) feedback = "Muito bom!";
     else feedback = "Na última! Quase!";
 
-    showModal( 'VITORIA', `Parabéns! Você acertou em ${attempt} tentativa(s)!<br><strong>${feedback}</strong>`, `Tempo: <strong>${timeString}</strong>` );
+    showModal('VITORIA', `Parabéns! Você acertou em ${attempt} tentativa(s)!<br><strong>${feedback}</strong>`, `Tempo: <strong>${timeString}</strong>`);
   } else if (currentRow === maxAttempts - 1) {
-    showModal( 'DERROTA', `Fim de jogo! A palavra era: <strong>${targetWord.toUpperCase()}</strong>`, `Tempo: <strong>${timeString}</strong>` );
+    showModal('DERROTA', `Fim de jogo! A palavra era: <strong>${targetWord.toUpperCase()}</strong>`, `Tempo: <strong>${timeString}</strong>`);
   }
 
   currentRow++;
@@ -164,7 +188,7 @@ function updateKeyColor(button, color) {
   const colors = {
     green: "bg-green-600",
     yellow: "bg-yellow-500",
-    gray: "bg-gray-600"
+    gray: "bg-gray-800"
   };
 
   if (
@@ -174,9 +198,10 @@ function updateKeyColor(button, color) {
     return;
   }
 
-  button.classList.remove("bg-slate-600", "bg-green-600", "bg-yellow-500", "bg-gray-600");
+  button.classList.remove("bg-slate-600", "bg-green-600", "bg-yellow-500", "bg-gray-600", "bg-gray-800");
   button.classList.add(colors[color]);
 }
+
 
 function showModal(result, message, time) {
   resultH.innerHTML = result
