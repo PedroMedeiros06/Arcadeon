@@ -11,6 +11,14 @@ node_modules
 dist
 dist-ssr
 *.local
+.next
+.env
+.env.local
+
+# Claude Code tooling
+.agents/
+.mcp.json
+skills-lock.json
 
 # Editor directories and files
 .vscode/*
