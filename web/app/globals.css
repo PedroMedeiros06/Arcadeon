@@ -90,3 +90,76 @@ body {
     transform: scale(1) translateY(0);
   }
 }
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.1) translateY(-8px);
+  }
+}
+
+@keyframes floatBadge {
+  0%,
+  100% {
+    transform: translate(0, -50%) rotate(-4deg);
+  }
+  25% {
+    transform: translate(6px, calc(-50% - 8px)) rotate(2deg);
+  }
+  50% {
+    transform: translate(0, calc(-50% - 12px)) rotate(4deg);
+  }
+  75% {
+    transform: translate(-6px, calc(-50% - 8px)) rotate(-2deg);
+  }
+}
+
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 0.75;
+  }
+}
+
+@keyframes flipRevealFront {
+  0% {
+    transform: rotateX(0deg);
+    opacity: 1;
+  }
+  49.9% {
+    transform: rotateX(90deg);
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+    transform: rotateX(90deg);
+  }
+}
+
+@keyframes flipRevealBack {
+  0% {
+    transform: rotateX(-90deg);
+    opacity: 0;
+  }
+  50% {
+    opacity: 0;
+    transform: rotateX(-90deg);
+  }
+  50.1% {
+    opacity: 1;
+  }
+  100% {
+    transform: rotateX(0deg);
+    opacity: 1;
+  }
+}

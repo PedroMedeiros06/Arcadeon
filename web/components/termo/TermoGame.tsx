@@ -23,6 +23,53 @@ interface DailyResult {
   targetWords: string[];
 }
 
+const OFFENSIVE_TARGET_WORDS = new Set([
+  "buceta",
+  "caceta",
+  "cacete",
+  "cralho",
+  "piroca",
+  "punheta",
+  "corno",
+  "putao",
+  "putas",
+  "veado",
+  "bicha",
+  "baitola",
+  "escrota",
+  "escroto",
+  "fdp",
+  "otaria",
+  "otario",
+  "viado",
+  "xoxota",
+  "arrombado",
+  "arrombada",
+  "babaca",
+  "idiota",
+  "estupro",
+  "retardado",
+  "retardada",
+  "negrofobico",
+  "pinto",
+  "pinta",
+  "penis",
+  "vulva",
+  "anus",
+  "cu",
+  "cus",
+  "seios",
+  "vagina",
+  "testiculo",
+  "anais",
+  "xibiu",
+  "bunda",
+]);
+
+function filterOffensive(pool: string[]) {
+  return pool.filter((w) => !OFFENSIVE_TARGET_WORDS.has(w));
+}
+
 const MODES: { count: BoardCount; label: string }[] = [
   { count: 1, label: "Termo" },
   { count: 2, label: "Dueto" },
@@ -136,6 +183,20 @@ function evaluateGuess(guess: string, target: string): LetterState[] {
 
 const STATE_PRIORITY: Record<LetterState, number> = { correct: 3, present: 2, absent: 1, empty: 0 };
 
+function setKeyBoardState(
+  store: Record<string, LetterState[]>,
+  letter: string,
+  boardIndex: number,
+  count: number,
+  state: LetterState,
+) {
+  const arr = store[letter] ?? Array(count).fill("empty");
+  if (STATE_PRIORITY[state] > STATE_PRIORITY[arr[boardIndex] ?? "empty"]) {
+    arr[boardIndex] = state;
+  }
+  store[letter] = arr;
+}
+
 export function TermoGame() {
   const { user } = useAuth();
   const [playMode, setPlayMode] = useState<PlayMode>("daily");
@@ -156,7 +217,8 @@ export function TermoGame() {
   const [leaderboardRefresh, setLeaderboardRefresh] = useState(0);
   const [currentStreak, setCurrentStreak] = useState<number | undefined>(undefined);
   const [keyStatesVersion, setKeyStatesVersion] = useState(0);
-  const keyStates = useRef<Record<string, LetterState>>({});
+  const keyStates = useRef<Record<string, LetterState[]>>({});
+  const [revealRowIndex, setRevealRowIndex] = useState<number | null>(null);
 
   const checkDailyPlayed = useCallback(
     async (count: BoardCount): Promise<DailyResult | null> => {
@@ -236,17 +298,13 @@ export function TermoGame() {
           const evaluated: EvaluatedLetter[] = guess.split("").map((letter, i) => ({ letter, state: states[i] }));
           restoredBoardGuesses[boardIndex].push(evaluated);
           for (let i = 0; i < WORD_LENGTH; i++) {
-            const letter = guess[i];
-            const prev = keyStates.current[letter];
-            const next = states[i];
-            if (STATE_PRIORITY[next] > STATE_PRIORITY[prev ?? "empty"]) {
-              keyStates.current[letter] = next;
-            }
+            setKeyBoardState(keyStates.current, guess[i], boardIndex, count, states[i]);
           }
         });
       }
       setBoardGuesses(restoredBoardGuesses);
       setRawGuesses(restoredGuesses);
+      setRevealRowIndex(null);
       setCurrentLetters(Array(WORD_LENGTH).fill(""));
       setCursor(0);
       setStatus("playing");
@@ -280,8 +338,8 @@ export function TermoGame() {
           .map((w) => w.trim().toLowerCase())
           .filter((w) => w.length === WORD_LENGTH);
 
-      const targets = parse(targetText);
-      const accepted = new Set(parse(acceptedText));
+      const targets = filterOffensive(parse(targetText));
+      const accepted = new Set(filterOffensive(parse(acceptedText)));
 
       setTargetWordPool(targets);
       setAcceptedWords(accepted);
@@ -324,24 +382,24 @@ export function TermoGame() {
 
     setMessage(null);
 
+    const submittedRowIndex = rawGuesses.length;
     const newRawGuesses = [...rawGuesses, currentGuess];
     setRawGuesses(newRawGuesses);
+    setRevealRowIndex(submittedRowIndex);
 
     const newBoardGuesses = targetWords.map((target, boardIndex) => {
+      const alreadySolved = rawGuesses.includes(target);
       const states = evaluateGuess(currentGuess, target);
+
+      for (let i = 0; i < WORD_LENGTH; i++) {
+        setKeyBoardState(keyStates.current, currentGuess[i], boardIndex, boardCount, states[i]);
+      }
+
+      if (alreadySolved) return boardGuesses[boardIndex];
+
       const evaluated: EvaluatedLetter[] = currentGuess
         .split("")
         .map((letter, i) => ({ letter, state: states[i] }));
-
-      for (let i = 0; i < WORD_LENGTH; i++) {
-        const letter = currentGuess[i];
-        const prev = keyStates.current[letter];
-        const next = states[i];
-        if (STATE_PRIORITY[next] > STATE_PRIORITY[prev ?? "empty"]) {
-          keyStates.current[letter] = next;
-        }
-      }
-
       return [...boardGuesses[boardIndex], evaluated];
     });
     setBoardGuesses(newBoardGuesses);
@@ -366,12 +424,14 @@ export function TermoGame() {
       });
     }
 
-    if (allSolved) {
-      setStatus("won");
-      if (playMode === "daily") recordDailyResult(true, newRawGuesses.length, secondsTaken);
-    } else if (outOfAttempts) {
-      setStatus("lost");
-      if (playMode === "daily") recordDailyResult(false, newRawGuesses.length, secondsTaken);
+    if (allSolved || outOfAttempts) {
+      const revealDuration = WORD_LENGTH * 200 + 500;
+      setTimeout(() => {
+        setStatus(allSolved ? "won" : "lost");
+      }, revealDuration);
+      if (playMode === "daily") {
+        recordDailyResult(allSolved, newRawGuesses.length, secondsTaken);
+      }
     }
   }, [currentLetters, rawGuesses, boardGuesses, targetWords, acceptedWords, boardCount, playMode]);
 
@@ -505,6 +565,13 @@ export function TermoGame() {
     empty: "border-[var(--border)] bg-[var(--card)] text-[var(--fg)]",
   };
 
+  const keySliceBg: Record<LetterState, string> = {
+    correct: "bg-[#58cc02]",
+    present: "bg-[#ffc800]",
+    absent: "bg-[var(--border-hover)]",
+    empty: "bg-[var(--border)]",
+  };
+
   const keyClasses: Record<LetterState, string> = {
     correct: "bg-[#58cc02] text-white shadow-[0_3px_0_#4aa802]",
     present: "bg-[#ffc800] text-white shadow-[0_3px_0_#e6b400]",
@@ -554,11 +621,11 @@ export function TermoGame() {
       <div className="relative mx-auto flex w-full max-w-6xl flex-1 flex-col items-center gap-6 overflow-x-auto px-4 py-8">
         {modeSelector}
 
-        <div className={`flex justify-center ${boardCount === 4 ? "gap-6" : "gap-10"}`}>
+        <div className="flex justify-center gap-8">
           {Array.from({ length: boardCount }).map((_, boardIndex) => (
-            <div key={boardIndex} className={`flex shrink-0 flex-col ${boardCount === 4 ? "gap-2" : "gap-3"}`}>
+            <div key={boardIndex} className="flex shrink-0 flex-col gap-2.5">
               {Array.from({ length: maxAttemptsFor(boardCount) }).map((_, rowIndex) => (
-                <div key={rowIndex} className={`flex ${boardCount === 4 ? "gap-1.7" : "gap-5"}`}>
+                <div key={rowIndex} className="flex gap-2">
                   {Array.from({ length: WORD_LENGTH }).map((_, i) => (
                     <div
                       key={i}
@@ -573,16 +640,16 @@ export function TermoGame() {
           ))}
         </div>
 
-        <div className="flex flex-col items-center gap-2">
+        <div className="flex flex-col items-center gap-2.5">
           {KEY_ROWS.map((row, i) => (
-            <div key={i} className="flex gap-1.5">
+            <div key={i} className="flex gap-2">
               {row.map((key) => {
                 const isWide = key === "Enter" || key === "Back";
                 return (
                   <div
                     key={key}
                     className={`animate-pulse rounded-lg bg-[var(--border)]/40 ${
-                      isWide ? "h-11 px-4" : "h-11 min-w-9"
+                      isWide ? "h-14 px-5" : "h-14 min-w-11"
                     }`}
                   />
                 );
@@ -629,14 +696,16 @@ export function TermoGame() {
   const maxAttempts = maxAttemptsFor(boardCount);
 
   return (
-    <div className="relative mx-auto flex w-full max-w-6xl flex-1 flex-col items-center gap-6 overflow-x-auto px-4 py-8">
+    <div className="relative mx-auto flex w-full max-w-6xl flex-1 flex-col items-center gap-6 overflow-x-auto px-4 py-8 md:min-w-fit">
       {modeSelector}
 
-      <div className={`flex justify-center ${boardCount === 4 ? "gap-6" : "gap-10"}`}>
-        {targetWords.map((_, boardIndex) => (
-          <div key={boardIndex} className={`flex shrink-0 flex-col ${boardCount === 4 ? "gap-2" : "gap-3"}`}>
+      <div className="flex justify-center gap-8">
+        {targetWords.map((target, boardIndex) => {
+          const boardSolved = rawGuesses.includes(target);
+          return (
+          <div key={boardIndex} className={`flex shrink-0 flex-col gap-2.5 transition-opacity ${boardSolved ? "opacity-60" : ""}`}>
             {Array.from({ length: maxAttempts }).map((_, rowIndex) => {
-              const isCurrentRow = rowIndex === rawGuesses.length;
+              const isCurrentRow = rowIndex === rawGuesses.length && !boardSolved;
               const rowLetters = boardGuesses[boardIndex]?.[rowIndex]
                 ? boardGuesses[boardIndex][rowIndex]
                 : isCurrentRow
@@ -646,30 +715,62 @@ export function TermoGame() {
               return (
                 <div
                   key={rowIndex}
-                  className={`flex ${boardCount === 4 ? "gap-1.7" : "gap-5"} ${isCurrentRow && shakeRow ? "animate-[shake_0.4s_ease-in-out]" : ""}`}
+                  className={`flex gap-2 ${isCurrentRow && shakeRow ? "animate-[shake_0.4s_ease-in-out]" : ""}`}
                 >
-                  {rowLetters.map((cell, i) => (
-                    <div
-                      key={i}
-                      onClick={() => isCurrentRow && status === "playing" && setCursor(i)}
-                      className={`flex items-center justify-center rounded-xl border-2 font-extrabold uppercase transition-all duration-200 ${
-                        boardCount === 4 ? "h-12 w-12 text-xl" : boardCount === 2 ? "h-14 w-14 text-2xl" : "h-16 w-16 text-3xl"
-                      } ${cellClasses[cell.state]} ${
-                        isCurrentRow && cursor === i
-                          ? "border-[var(--accent)] ring-2 ring-[var(--accent)]/40 scale-105"
-                          : ""
-                      } ${cell.letter && cell.state === "empty" ? "scale-105 border-[var(--fg-muted)]" : ""} ${
-                        isCurrentRow ? "cursor-pointer" : ""
-                      }`}
-                    >
-                      {cell.letter}
-                    </div>
-                  ))}
+                  {rowLetters.map((cell, i) => {
+                    const isRevealing = rowIndex === revealRowIndex && cell.state !== "empty";
+                    const sizeClasses =
+                      boardCount === 4 ? "h-12 w-12 text-xl" : boardCount === 2 ? "h-14 w-14 text-2xl" : "h-16 w-16 text-3xl";
+
+                    if (isRevealing) {
+                      return (
+                        <div key={i} className={`relative ${sizeClasses}`} style={{ perspective: "400px" }}>
+                          <div
+                            className={`absolute inset-0 flex items-center justify-center rounded-xl border-2 font-extrabold uppercase ${cellClasses["empty"]}`}
+                            style={{
+                              animation: "flipRevealFront 0.5s ease-in both",
+                              animationDelay: `${i * 200}ms`,
+                              backfaceVisibility: "hidden",
+                            }}
+                          >
+                            {cell.letter}
+                          </div>
+                          <div
+                            className={`absolute inset-0 flex items-center justify-center rounded-xl border-2 font-extrabold uppercase ${cellClasses[cell.state]}`}
+                            style={{
+                              animation: "flipRevealBack 0.5s ease-out both",
+                              animationDelay: `${i * 200}ms`,
+                              backfaceVisibility: "hidden",
+                            }}
+                          >
+                            {cell.letter}
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div
+                        key={i}
+                        onClick={() => isCurrentRow && status === "playing" && setCursor(i)}
+                        className={`flex items-center justify-center rounded-xl border-2 font-extrabold uppercase transition-all duration-200 ${sizeClasses} ${cellClasses[cell.state]} ${
+                          isCurrentRow && cursor === i
+                            ? "border-[var(--accent)] ring-2 ring-[var(--accent)]/40 scale-105"
+                            : ""
+                        } ${cell.letter && cell.state === "empty" ? "scale-105 border-[var(--fg-muted)]" : ""} ${
+                          isCurrentRow ? "cursor-pointer" : ""
+                        }`}
+                      >
+                        {cell.letter}
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })}
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {message && (
@@ -678,19 +779,45 @@ export function TermoGame() {
         </p>
       )}
 
-      <div className="flex flex-col items-center gap-2">
+      <div className="flex flex-col items-center gap-2.5">
         {KEY_ROWS.map((row, i) => (
-          <div key={i} className="flex gap-1.5">
+          <div key={i} className="flex gap-2">
             {row.map((key) => {
-              const state = keyStates.current[key.toLowerCase()] ?? "empty";
               const isWide = key === "Enter" || key === "Back";
+              const isLetter = !isWide;
+              const boardStates = isLetter
+                ? (keyStates.current[key.toLowerCase()] ?? Array(boardCount).fill("empty"))
+                : null;
+              const soloState = boardStates ? boardStates[0] : "empty";
+
+              if (isLetter && boardCount > 1 && boardStates) {
+                return (
+                  <button
+                    key={key}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => handleKey(key)}
+                    className="relative h-14 min-w-11 overflow-hidden rounded-lg text-sm font-extrabold uppercase text-white transition active:scale-95"
+                  >
+                    <div className={`absolute inset-0 grid ${boardCount === 4 ? "grid-cols-2 grid-rows-2" : "grid-cols-2"}`}>
+                      {boardStates.map((s, i) => (
+                        <div key={i} className={keySliceBg[s]} />
+                      ))}
+                    </div>
+                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                      {key}
+                    </span>
+                  </button>
+                );
+              }
+
+              const state = isLetter ? soloState : "empty";
               return (
                 <button
                   key={key}
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => handleKey(key)}
-                  className={`rounded-lg text-xs font-extrabold uppercase transition active:scale-95 ${keyClasses[state]} ${
-                    isWide ? "px-4 py-3.5 text-[10px]" : "min-w-9 px-2.5 py-3.5"
+                  className={`rounded-lg text-sm font-extrabold uppercase transition active:scale-95 ${keyClasses[state]} ${
+                    isWide ? "px-5 py-4 text-xs" : "min-w-11 px-3 py-4"
                   }`}
                 >
                   {key === "Back" ? "⌫" : key}

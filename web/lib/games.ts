@@ -14,7 +14,7 @@ export const games: GameInfo[] = [
     title: "Buggle",
     description: "Encontre o maximo de palavras no tabuleiro de letras.",
     icon: "🔤",
-    status: "coming-soon",
-    multiplayer: false,
+    status: "available",
+    multiplayer: true,
   },
 ];
