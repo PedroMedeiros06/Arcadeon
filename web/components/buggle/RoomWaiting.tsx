@@ -55,6 +55,11 @@ export function RoomWaiting({
   const joinUrl =
     typeof window !== "undefined" ? `${window.location.origin}/games/buggle?join=${room.code}` : "";
 
+  if (typeof window !== "undefined") {
+    console.log("[Buggle QR debug] window.location.origin =", window.location.origin);
+    console.log("[Buggle QR debug] joinUrl =", joinUrl);
+  }
+
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden bg-linear-to-br from-[#7c3fe0] via-[#5a2fc2] to-[#26124f]">
       {/* estrelinhas decorativas */}
