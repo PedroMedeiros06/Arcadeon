@@ -2,12 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { getBuggleSocket } from "@/lib/buggle/socket";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { Lobby } from "./Lobby";
 import { RoomWaiting } from "./RoomWaiting";
 import { Board } from "./Board";
 import { ResultsScreen } from "./ResultsScreen";
+import { JoinNameModal } from "./JoinNameModal";
 import type { RoomConfig, RoomState, RoundEndedPayload, WordResult } from "@/lib/buggle/types";
 
 function GameHeader({ onLeaveRoom }: { onLeaveRoom?: () => void }) {
@@ -46,12 +48,15 @@ function GameHeader({ onLeaveRoom }: { onLeaveRoom?: () => void }) {
 }
 
 export function BuggleGame() {
-  const { username } = useAuth();
+  const { username, loading: authLoading } = useAuth();
+  const searchParams = useSearchParams();
+  const joinCodeFromUrl = searchParams.get("join");
   const [room, setRoom] = useState<RoomState | null>(null);
   const [roundResult, setRoundResult] = useState<RoundEndedPayload | null>(null);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<WordResult | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(0);
+  const [pendingAutoJoin, setPendingAutoJoin] = useState(!!joinCodeFromUrl);
   const socketRef = useRef(getBuggleSocket());
 
   useEffect(() => {
@@ -93,8 +98,23 @@ export function BuggleGame() {
     return () => clearInterval(interval);
   }, [room]);
 
+  useEffect(() => {
+    if (!joinCodeFromUrl || authLoading || room) return;
+    if (username) {
+      socketRef.current.emit("join-room", { code: joinCodeFromUrl, name: username });
+      setPendingAutoJoin(false);
+    }
+  }, [joinCodeFromUrl, authLoading, username, room]);
+
   function handleCreate(name: string, config: RoomConfig) {
     socketRef.current.emit("create-room", { name, config });
+  }
+
+  function handleJoinWithName(name: string) {
+    if (joinCodeFromUrl) {
+      socketRef.current.emit("join-room", { code: joinCodeFromUrl, name });
+      setPendingAutoJoin(false);
+    }
   }
 
   function handleJoin(name: string, code: string) {
@@ -126,6 +146,27 @@ export function BuggleGame() {
     if (room) socketRef.current.emit("leave-room", { code: room.code });
     setRoom(null);
     setRoundResult(null);
+  }
+
+  if (!room && joinCodeFromUrl && pendingAutoJoin) {
+    if (authLoading) {
+      return (
+        <>
+          <GameHeader />
+          <div className="flex flex-1 items-center justify-center">
+            <p className="font-semibold text-[var(--fg-muted)]">Carregando...</p>
+          </div>
+        </>
+      );
+    }
+    if (!username) {
+      return (
+        <>
+          <GameHeader />
+          <JoinNameModal onConfirm={handleJoinWithName} joinError={joinError} />
+        </>
+      );
+    }
   }
 
   if (!room) {
