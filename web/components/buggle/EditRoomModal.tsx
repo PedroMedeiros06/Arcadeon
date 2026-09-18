@@ -65,7 +65,7 @@ export function EditRoomModal({ config, currentPlayerCount, onSave, onClose }: E
             <input
               type="range"
               min={4}
-              max={10}
+              max={8}
               value={boardSize}
               onChange={(e) => setBoardSize(Number(e.target.value))}
               className="w-full accent-[#a78bfa]"

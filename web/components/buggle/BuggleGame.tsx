@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { Lobby } from "./Lobby";
 import { RoomWaiting } from "./RoomWaiting";
 import { Board } from "./Board";
+import { GamePlayScreen } from "./GamePlayScreen";
 import { ResultsScreen } from "./ResultsScreen";
 import { JoinNameModal } from "./JoinNameModal";
 import type { RoomConfig, RoomState, RoundEndedPayload, WordResult } from "@/lib/buggle/types";
@@ -238,33 +239,17 @@ export function BuggleGame() {
 
   return (
     <>
-    <GameHeader onLeaveRoom={handleLeaveRoom} />
-    <div className="flex flex-1 flex-col items-center gap-4 p-6">
-      <div className="flex w-full max-w-md items-center justify-between rounded-xl border-2 border-[var(--border)] bg-[var(--card)] px-4 py-2">
-        <span className="font-mono text-2xl font-extrabold text-[var(--primary)]">{secondsLeft}s</span>
-        <div className="flex gap-3 text-sm font-bold text-[var(--fg)]">
-          {room.players.map((p) => (
-            <span key={p.socketId}>
-              {p.name}: {p.score}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {room.board && <Board board={room.board} onWordSubmit={handleWordSubmit} />}
-
-      {lastResult && (
-        <p
-          className={`text-sm font-bold ${
-            lastResult.accepted ? "text-[var(--success-fg)]" : "text-[var(--danger)]"
-          }`}
-        >
-          {lastResult.accepted
-            ? `${lastResult.word} +${lastResult.points}${lastResult.isSecret ? " 🔒 SECRETA!" : ""}`
-            : `${lastResult.word} invalida`}
-        </p>
+      <GameHeader onLeaveRoom={handleLeaveRoom} />
+      {room.board && (
+        <GamePlayScreen
+          board={room.board}
+          players={room.players}
+          secondsLeft={secondsLeft}
+          totalSeconds={room.config.roundSeconds}
+          lastResult={lastResult}
+          onWordSubmit={handleWordSubmit}
+        />
       )}
-    </div>
     </>
   );
 }
