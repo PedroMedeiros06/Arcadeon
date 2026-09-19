@@ -1,16 +1,18 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #f4f7fb;
-  --fg: #22253a;
-  --fg-muted: #8a8fa8;
+  --bg: #f3f2fb;
+  --fg: #1c1a2e;
+  --fg-muted: #6b6890;
   --card: #ffffff;
-  --border: #e2e6ee;
-  --border-hover: #d3d8e6;
+  --sidebar: #ffffff;
+  --border: #e3e1f5;
+  --border-hover: #d0cdec;
 
-  --primary: #ff8c1a;
-  --primary-dark: #e6720a;
-  --primary-tint: #fff1e2;
+  --primary: #7c5cff;
+  --primary-dark: #6544e0;
+  --primary-tint: #efeaff;
+  --primary-2: #a855f7;
 
   --accent: #1cb0f6;
   --accent-dark: #0f9be8;
@@ -19,21 +21,23 @@
   --danger-bg: #fef2f2;
   --danger-border: #fecaca;
 
-  --success-bg: #fff1e2;
-  --success-fg: #e6720a;
+  --success-bg: #efeaff;
+  --success-fg: #6544e0;
 }
 
 .dark {
-  --bg: #14151f;
-  --fg: #edeef7;
-  --fg-muted: #8d92ab;
-  --card: #1d1f2d;
-  --border: #2c2f42;
-  --border-hover: #3a3d54;
+  --bg: #0c0b16;
+  --fg: #f0eefb;
+  --fg-muted: #8d89b3;
+  --card: #161426;
+  --sidebar: #120f20;
+  --border: #262239;
+  --border-hover: #38325a;
 
-  --primary: #ff8c1a;
-  --primary-dark: #cc6f14;
-  --primary-tint: #3a2716;
+  --primary: #8b6cff;
+  --primary-dark: #6d4ce0;
+  --primary-tint: #241d47;
+  --primary-2: #c084fc;
 
   --accent: #1cb0f6;
   --accent-dark: #1590cc;
@@ -42,8 +46,8 @@
   --danger-bg: #3a1a1a;
   --danger-border: #5c2626;
 
-  --success-bg: #3a2716;
-  --success-fg: #ff8c1a;
+  --success-bg: #241d47;
+  --success-fg: #b8a4ff;
 }
 
 @theme inline {
@@ -162,4 +166,129 @@ body {
     transform: rotateX(0deg);
     opacity: 1;
   }
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes floatSlow {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes popIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes growUp {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes wiggle {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-12deg);
+  }
+  75% {
+    transform: rotate(12deg);
+  }
+}
+
+@keyframes spinSlow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-fade-up {
+  animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+.animate-float-slow {
+  animation: floatSlow 4s ease-in-out infinite;
+}
+
+.animate-pop-in {
+  animation: popIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+
+.animate-spin-slow {
+  animation: spinSlow 20s linear infinite;
+}
+
+@keyframes fadeInSolid {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOutSolid {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes tileIn {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes tileOut {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+}
+
+.podium-bar {
+  transform: scaleY(0);
+  animation: growUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }

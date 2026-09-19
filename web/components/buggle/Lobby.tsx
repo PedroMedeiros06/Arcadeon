@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Globe, Lock, Users, X } from "lucide-react";
+import { Globe, Lock, Users, X, KeyRound, Plus } from "lucide-react";
 import type { RoomConfig } from "@/lib/buggle/types";
 
 interface LobbyProps {
@@ -10,6 +10,7 @@ interface LobbyProps {
   onCreate: (name: string, config: RoomConfig) => void;
   onJoin: (name: string, code: string) => void;
   joinError: string | null;
+  onModeChange?: (mode: "choose" | "create" | "join") => void;
 }
 
 const DURATION_OPTIONS = [30, 90, 120, 180, 250, 300];
@@ -27,9 +28,14 @@ function BoardPreview({ size }: { size: number }) {
   );
 }
 
-export function Lobby({ defaultName, isNameLocked, onCreate, onJoin, joinError }: LobbyProps) {
-  const [mode, setMode] = useState<"choose" | "create" | "join">("choose");
+export function Lobby({ defaultName, isNameLocked, onCreate, onJoin, joinError, onModeChange }: LobbyProps) {
+  const [mode, setModeState] = useState<"choose" | "create" | "join">("choose");
   const [name, setName] = useState(defaultName);
+
+  function setMode(next: "choose" | "create" | "join") {
+    setModeState(next);
+    onModeChange?.(next);
+  }
 
   useEffect(() => {
     if (isNameLocked) setName(defaultName);
@@ -44,24 +50,41 @@ export function Lobby({ defaultName, isNameLocked, onCreate, onJoin, joinError }
 
   if (mode === "choose") {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6">
-        <h2 className="text-2xl font-extrabold text-[var(--fg)]">Buggle</h2>
-        <p className="text-[var(--fg-muted)]">Encontre o maximo de palavras no tabuleiro.</p>
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => setMode("create")}
-            className="rounded-xl border-2 border-[var(--primary-dark)] bg-[var(--primary)] px-6 py-3 font-bold text-white shadow-[0_4px_0_var(--primary-dark)] transition active:translate-y-1 active:border-b-2 active:shadow-none"
-          >
-            Criar sala
-          </button>
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => setMode("join")}
-            className="rounded-xl border-2 border-[var(--accent-dark)] bg-[var(--accent)] px-6 py-3 font-bold text-white shadow-[0_4px_0_var(--accent-dark)] transition active:translate-y-1 active:border-b-2 active:shadow-none"
-          >
-            Entrar com codigo
-          </button>
+      <div className="flex flex-1 items-center justify-center bg-linear-to-br from-[var(--primary)] via-[var(--primary-dark)] to-[#1a0f38] p-6">
+        <div className="w-full max-w-lg">
+          <div className="mb-8 text-center">
+            <span className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 text-3xl font-extrabold text-white backdrop-blur">
+              abc
+            </span>
+            <h2 className="mb-2 text-3xl font-extrabold tracking-tight text-white">Buggle</h2>
+            <p className="font-medium text-white/70">Encontre o maximo de palavras no tabuleiro.</p>
+          </div>
+
+          <div className="flex flex-col gap-4 sm:flex-row">
+            <button
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => setMode("create")}
+              className="group flex flex-1 flex-col items-start gap-3 rounded-2xl border-2 border-white/15 bg-white/10 p-5 text-left backdrop-blur transition hover:-translate-y-1 hover:border-white/30 hover:bg-white/15"
+            >
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--primary)] text-white">
+                <Plus className="h-5 w-5" />
+              </span>
+              <span className="text-lg font-extrabold text-white">Criar sala</span>
+              <span className="text-sm font-medium text-white/60">Configure o tabuleiro e convide amigos</span>
+            </button>
+
+            <button
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => setMode("join")}
+              className="group flex flex-1 flex-col items-start gap-3 rounded-2xl border-2 border-white/15 bg-white/10 p-5 text-left backdrop-blur transition hover:-translate-y-1 hover:border-white/30 hover:bg-white/15"
+            >
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--accent)] text-white">
+                <KeyRound className="h-5 w-5" />
+              </span>
+              <span className="text-lg font-extrabold text-white">Entrar com codigo</span>
+              <span className="text-sm font-medium text-white/60">Tem um codigo? Entre em uma sala existente</span>
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -69,41 +92,47 @@ export function Lobby({ defaultName, isNameLocked, onCreate, onJoin, joinError }
 
   if (mode === "join") {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6">
-        <h2 className="text-xl font-extrabold text-[var(--fg)]">Entrar na sala</h2>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          readOnly={isNameLocked}
-          placeholder="Seu nome"
-          className={`w-64 rounded-lg border-2 border-[var(--border)] bg-[var(--card)] px-4 py-2 text-center text-[var(--fg)] ${
-            isNameLocked ? "opacity-70" : ""
-          }`}
-        />
-        <input
-          value={joinCode}
-          onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-          placeholder="Codigo da sala"
-          maxLength={5}
-          className="w-64 rounded-lg border-2 border-[var(--border)] bg-[var(--card)] px-4 py-2 text-center font-mono text-lg tracking-widest text-[var(--fg)]"
-        />
-        {joinError && <p className="text-sm font-semibold text-[var(--danger)]">{joinError}</p>}
-        <div className="flex gap-3">
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => setMode("choose")}
-            className="rounded-lg border-2 border-[var(--border)] px-4 py-2 font-bold text-[var(--fg-muted)]"
-          >
-            Voltar
-          </button>
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            disabled={!name.trim() || joinCode.length !== 5}
-            onClick={() => onJoin(name.trim(), joinCode)}
-            className="rounded-lg border-2 border-[var(--accent-dark)] bg-[var(--accent)] px-6 py-2 font-bold text-white shadow-[0_4px_0_var(--accent-dark)] disabled:opacity-50"
-          >
-            Entrar
-          </button>
+      <div className="flex flex-1 items-center justify-center bg-linear-to-br from-[var(--accent)] via-[var(--accent-dark)] to-[#0c2b3d] p-6">
+        <div className="w-full max-w-sm rounded-3xl border-2 border-white/15 bg-white/10 p-6 backdrop-blur">
+          <div className="relative mb-5 flex items-center justify-center">
+            <h2 className="text-lg font-extrabold text-white">Entrar na sala</h2>
+            <button
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => setMode("choose")}
+              className="absolute right-0 flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white transition hover:bg-white/25"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              readOnly={isNameLocked}
+              placeholder="Seu nome"
+              className={`w-full rounded-xl border-2 border-white/20 bg-black/20 px-4 py-2.5 text-center font-bold text-white placeholder:text-white/40 ${
+                isNameLocked ? "opacity-70" : ""
+              }`}
+            />
+            <input
+              value={joinCode}
+              onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+              placeholder="Codigo da sala"
+              maxLength={5}
+              className="w-full rounded-xl border-2 border-white/20 bg-black/20 px-4 py-2.5 text-center font-mono text-lg font-bold tracking-widest text-white placeholder:text-white/40"
+            />
+            {joinError && <p className="text-center text-sm font-semibold text-red-300">{joinError}</p>}
+
+            <button
+              onMouseDown={(e) => e.preventDefault()}
+              disabled={!name.trim() || joinCode.length !== 5}
+              onClick={() => onJoin(name.trim(), joinCode)}
+              className="mt-1 w-full rounded-xl border-2 border-white/20 bg-white py-2.5 font-extrabold text-[var(--accent-dark)] transition disabled:opacity-40"
+            >
+              Entrar
+            </button>
+          </div>
         </div>
       </div>
     );

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { ArrowLeft, LogOut } from "lucide-react";
 import { getBuggleSocket } from "@/lib/buggle/socket";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { Lobby } from "./Lobby";
@@ -15,34 +16,33 @@ import type { RoomConfig, RoomState, RoundEndedPayload, WordResult } from "@/lib
 
 function GameHeader({ onLeaveRoom }: { onLeaveRoom?: () => void }) {
   return (
-    <header className="border-b-4 border-[var(--border)] bg-[var(--card)] px-6 py-4">
-      <div className="mx-auto flex max-w-6xl items-center justify-between">
+    <header className="sticky top-0 z-40 border-b-2 border-[var(--border)] bg-[var(--card)] px-6 py-4">
+      <div className="flex items-center justify-between">
+        <Link
+          href="/"
+          className="flex items-center gap-1.5 rounded-2xl border-2 border-[var(--border)] bg-[var(--card)] px-4 py-2 text-sm font-extrabold text-[var(--fg-muted)] transition hover:bg-[var(--bg)]"
+        >
+          <ArrowLeft className="h-4 w-4" /> Hub
+        </Link>
+
+        <h1 className="flex items-center gap-2.5 text-lg font-extrabold tracking-tight text-[var(--fg)]">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--accent)] text-sm font-extrabold text-white">
+            abc
+          </span>
+          Buggle
+        </h1>
+
         {onLeaveRoom ? (
           <button
             onMouseDown={(e) => e.preventDefault()}
             onClick={onLeaveRoom}
-            className="flex items-center gap-1.5 text-sm font-bold text-[var(--danger)] transition hover:opacity-80"
+            className="flex items-center gap-1.5 rounded-2xl border-2 border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-2 text-sm font-extrabold text-[var(--danger)] transition hover:opacity-80"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            Sair da sala
+            <LogOut className="h-4 w-4" /> Sair da sala
           </button>
         ) : (
-          <Link
-            href="/"
-            className="flex items-center gap-1.5 text-sm font-bold text-[var(--fg-muted)] transition hover:text-[var(--fg)]"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            Hub
-          </Link>
+          <span className="w-[92px]" />
         )}
-        <h1 className="flex items-center gap-2 text-xl font-extrabold tracking-tight text-[var(--fg)]">
-          <span className="text-2xl">🔤</span> Buggle
-        </h1>
-        <span className="w-12" />
       </div>
     </header>
   );
@@ -58,6 +58,7 @@ export function BuggleGame() {
   const [lastResult, setLastResult] = useState<WordResult | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [pendingAutoJoin, setPendingAutoJoin] = useState(!!joinCodeFromUrl);
+  const [lobbyMode, setLobbyMode] = useState<"choose" | "create" | "join">("choose");
   const socketRef = useRef(getBuggleSocket());
 
   useEffect(() => {
@@ -173,13 +174,14 @@ export function BuggleGame() {
   if (!room) {
     return (
       <>
-        <GameHeader />
+        {lobbyMode !== "create" && <GameHeader />}
         <Lobby
           defaultName={username ?? ""}
           isNameLocked={!!username}
           onCreate={handleCreate}
           onJoin={handleJoin}
           joinError={joinError}
+          onModeChange={setLobbyMode}
         />
       </>
     );

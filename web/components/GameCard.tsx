@@ -1,33 +1,39 @@
-import Link from "next/link";
+"use client";
+
+import { Play } from "lucide-react";
+import { useBlockTransition } from "@/lib/transition/TransitionProvider";
 import type { GameInfo } from "@/lib/types";
 
 export function GameCard({ game }: { game: GameInfo }) {
   const isAvailable = game.status === "available";
+  const { navigate } = useBlockTransition();
 
   const card = (
     <div
-      className={`flex h-full flex-col items-center justify-center rounded-3xl border-2 bg-[var(--card)] p-8 text-center transition-all duration-200 ${
+      className={`group flex h-full flex-col rounded-3xl border-2 bg-[var(--card)] p-5 transition-all duration-300 ${
         isAvailable
-          ? "border-[var(--border)] shadow-[0_6px_0_var(--border)] hover:-translate-y-1 hover:border-[var(--primary)] hover:shadow-[0_8px_0_var(--primary-dark)]"
-          : "border-[var(--border)] opacity-60 shadow-[0_6px_0_var(--border)]"
+          ? "border-[var(--border)] hover:-translate-y-1.5 hover:border-[var(--primary)] hover:shadow-lg hover:shadow-[var(--primary)]/10"
+          : "border-[var(--border)] opacity-60"
       }`}
     >
-      <span className="mb-3 text-5xl">{game.icon}</span>
-      <h3 className="mb-2 text-2xl font-extrabold tracking-tight text-[var(--fg)]">{game.title}</h3>
-      <p className="mb-5 text-sm font-medium text-[var(--fg-muted)]">{game.description}</p>
+      <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--primary-tint)] text-3xl transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-110">
+        {game.icon}
+      </span>
+      <h3 className="mb-1 text-lg font-extrabold tracking-tight text-[var(--fg)]">{game.title}</h3>
+      <p className="mb-4 flex-1 text-sm font-medium text-[var(--fg-muted)]">{game.description}</p>
 
       {game.multiplayer && (
-        <span className="mb-3 rounded-full border-2 border-[#c9a8ff] bg-[#f3ebff] px-3 py-1 text-xs font-extrabold text-[#8b5cf6] dark:border-[#5b3d8a] dark:bg-[#2a1f3d] dark:text-[#c9a8ff]">
+        <span className="mb-3 w-fit rounded-full border-2 border-[var(--primary)]/30 bg-[var(--primary-tint)] px-3 py-1 text-xs font-extrabold text-[var(--primary)]">
           Multiplayer
         </span>
       )}
 
       {isAvailable ? (
-        <span className="mt-auto inline-block rounded-2xl border-b-4 border-[var(--primary-dark)] bg-[var(--primary)] px-6 py-2.5 text-sm font-extrabold text-white">
-          Jogar
+        <span className="inline-flex w-fit items-center gap-1.5 rounded-2xl bg-[var(--primary)] px-4 py-2 text-sm font-extrabold text-white transition-transform duration-200 group-hover:scale-105">
+          <Play className="h-4 w-4 fill-current transition-transform duration-200 group-hover:translate-x-0.5" /> Jogar
         </span>
       ) : (
-        <span className="mt-auto inline-block rounded-2xl border-2 border-[var(--border)] bg-[var(--bg)] px-6 py-2.5 text-sm font-extrabold text-[var(--fg-muted)]">
+        <span className="inline-flex w-fit items-center gap-1.5 rounded-2xl border-2 border-[var(--border)] bg-[var(--bg)] px-4 py-2 text-sm font-extrabold text-[var(--fg-muted)]">
           Em breve
         </span>
       )}
@@ -39,8 +45,12 @@ export function GameCard({ game }: { game: GameInfo }) {
   }
 
   return (
-    <Link href={`/games/${game.slug}`} className="block h-full">
+    <button
+      type="button"
+      onClick={() => navigate(`/games/${game.slug}`)}
+      className="block h-full w-full text-left"
+    >
       {card}
-    </Link>
+    </button>
   );
 }

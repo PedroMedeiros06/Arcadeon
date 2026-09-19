@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { awardCoinsForWin } from "@/lib/inventory";
 import { WinModal } from "./WinModal";
 
 const WORD_LENGTH = 5;
@@ -198,7 +199,7 @@ function setKeyBoardState(
 }
 
 export function TermoGame() {
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
   const [playMode, setPlayMode] = useState<PlayMode>("daily");
   const [boardCount, setBoardCount] = useState<BoardCount>(1);
   const [targetWordPool, setTargetWordPool] = useState<string[]>([]);
@@ -500,11 +501,20 @@ export function TermoGame() {
             .insert({ user_id: user?.id ?? null, attempts, time_seconds: timeSeconds, ...payload });
       if (writeError) console.error("Erro ao salvar score:", writeError);
 
+      if (won && user) {
+        try {
+          await awardCoinsForWin(user.id, 10, "termo_win");
+          await refreshProfile();
+        } catch (err) {
+          console.error("Erro ao dar moedas:", err);
+        }
+      }
+
       clearDailyProgress(boardCount);
       setCurrentStreak(nextStreak);
       setLeaderboardRefresh((n) => n + 1);
     },
-    [user, boardCount],
+    [user, boardCount, refreshProfile],
   );
 
   const handleKey = useCallback(

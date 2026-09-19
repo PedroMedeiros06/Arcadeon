@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
 import { ThemeProvider } from "@/lib/theme/ThemeProvider";
+import { TransitionProvider } from "@/lib/transition/TransitionProvider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -18,7 +19,7 @@ export const metadata: Metadata = {
   title: "Arcadeon",
   description: "Central de jogos multiplayer",
   icons: {
-    icon: "/arcadeon_light.png",
+    icon: "/Logo@4x.png",
   },
 };
 
@@ -42,7 +43,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body className="flex min-h-full flex-col bg-background font-semibold text-foreground">
         <ThemeProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <TransitionProvider>{children}</TransitionProvider>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
