@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import Link from "next/link";
+import { ArrowLeft, Grid3x3 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { awardCoinsForWin } from "@/lib/inventory";
@@ -100,18 +102,81 @@ function hashString(s: string) {
   return Math.abs(hash);
 }
 
+// Conta letras (unicas) compartilhadas entre duas palavras, ignorando posicao.
+function sharedLetterCount(a: string, b: string): number {
+  const setB = new Set(b);
+  let shared = 0;
+  for (const letter of new Set(a)) {
+    if (setB.has(letter)) shared++;
+  }
+  return shared;
+}
+
+// Conta quantas posicoes tem a mesma letra nas duas palavras (ex: JOIAS vs JOGAS = J,O,A,S nas mesmas posicoes = 4).
+function samePositionCount(a: string, b: string): number {
+  let same = 0;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] === b[i]) same++;
+  }
+  return same;
+}
+
+// Recusa combinar palavras muito parecidas (ex: JOIAS/JOGAS/JOVAS: so 1 letra muda de lugar em lugar),
+// pra evitar tabuleiros de Dueto/Quarteto onde uma dica resolve varias palavras de uma vez.
+const MAX_SHARED_LETTERS = 1;
+const MAX_SAME_POSITION = 0;
+
+function tooSimilarToAny(candidate: string, chosen: string[]): boolean {
+  return chosen.some(
+    (w) => sharedLetterCount(candidate, w) > MAX_SHARED_LETTERS || samePositionCount(candidate, w) > MAX_SAME_POSITION,
+  );
+}
+
 function pickDailyWords(pool: string[], boardCount: BoardCount, date: string): string[] {
   const words: string[] = [];
   const used = new Set<string>();
   let offset = 0;
+  let skippedForSimilarity = 0;
+  const maxSkips = pool.length * 4;
+
   while (words.length < boardCount) {
     const idx = hashString(`${date}-${boardCount}-${offset}`) % pool.length;
     const w = pool[idx];
-    if (!used.has(w)) {
-      used.add(w);
-      words.push(w);
-    }
     offset++;
+
+    if (used.has(w)) continue;
+
+    // Depois de tentar demais achar palavra distinta, desiste do criterio de similaridade
+    // pra nao travar em pools pequenos.
+    if (skippedForSimilarity < maxSkips && tooSimilarToAny(w, words)) {
+      skippedForSimilarity++;
+      continue;
+    }
+
+    used.add(w);
+    words.push(w);
+  }
+  return words;
+}
+
+function pickRandomWords(pool: string[], boardCount: BoardCount): string[] {
+  const words: string[] = [];
+  const used = new Set<string>();
+  let skippedForSimilarity = 0;
+  const maxSkips = pool.length * 4;
+
+  while (words.length < boardCount) {
+    const w = pool[Math.floor(Math.random() * pool.length)];
+
+    if (used.has(w)) continue;
+
+    if (skippedForSimilarity < maxSkips && tooSimilarToAny(w, words)) {
+      skippedForSimilarity++;
+      continue;
+    }
+
+    used.add(w);
+    words.push(w);
   }
   return words;
 }
@@ -270,20 +335,7 @@ export function TermoGame() {
       }
 
       const words =
-        mode === "daily"
-          ? pickDailyWords(pool, count, todayString())
-          : (() => {
-              const list: string[] = [];
-              const used = new Set<string>();
-              while (list.length < count) {
-                const w = pool[Math.floor(Math.random() * pool.length)];
-                if (!used.has(w)) {
-                  used.add(w);
-                  list.push(w);
-                }
-              }
-              return list;
-            })();
+        mode === "daily" ? pickDailyWords(pool, count, todayString()) : pickRandomWords(pool, count);
 
       const savedProgress = mode === "daily" ? loadDailyProgress(count) : null;
       const restoredGuesses = savedProgress?.rawGuesses ?? [];
@@ -322,8 +374,6 @@ export function TermoGame() {
           startedAt: startTimeRef.current,
         });
       }
-
-      console.log(`Palavra${count > 1 ? "s" : ""} secreta${count > 1 ? "s" : ""}:`, words.join(", "));
     },
     [checkDailyPlayed],
   );
@@ -569,78 +619,107 @@ export function TermoGame() {
   }, [handleKey]);
 
   const cellClasses: Record<LetterState, string> = {
-    correct: "bg-[#58cc02] border-[#4aa802] text-white shadow-[0_4px_0_#4aa802]",
-    present: "bg-[#ffc800] border-[#e6b400] text-white shadow-[0_4px_0_#e6b400]",
+    correct: "bg-[#8bbf6f] border-[#749f5c] text-white shadow-[0_4px_0_#749f5c]",
+    present: "bg-[#e0c26e] border-[#c2a558] text-white shadow-[0_4px_0_#c2a558]",
     absent: "bg-[var(--fg-muted)] border-[var(--border-hover)] text-white",
     empty: "border-[var(--border)] bg-[var(--card)] text-[var(--fg)]",
   };
 
   const keySliceBg: Record<LetterState, string> = {
-    correct: "bg-[#58cc02]",
-    present: "bg-[#ffc800]",
+    correct: "bg-[#8bbf6f]",
+    present: "bg-[#e0c26e]",
     absent: "bg-[var(--border-hover)]",
     empty: "bg-[var(--border)]",
   };
 
   const keyClasses: Record<LetterState, string> = {
-    correct: "bg-[#58cc02] text-white shadow-[0_3px_0_#4aa802]",
-    present: "bg-[#ffc800] text-white shadow-[0_3px_0_#e6b400]",
+    correct: "bg-[#8bbf6f] text-white shadow-[0_3px_0_#749f5c]",
+    present: "bg-[#e0c26e] text-white shadow-[0_3px_0_#c2a558]",
     absent: "bg-[var(--border-hover)] text-white",
     empty: "bg-[var(--border)] text-[var(--fg)] hover:bg-[var(--border-hover)]",
   };
 
+  const dailySwitch = (
+    <div className="flex gap-1 sm:gap-2">
+      {(["daily", "infinite"] as PlayMode[]).map((m) => (
+        <button
+          key={m}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => changePlayMode(m)}
+          className={`rounded-lg border-2 px-2 py-1 text-[10px] font-extrabold uppercase transition sm:rounded-xl sm:px-4 sm:py-1.5 sm:text-xs lg:px-3 lg:py-1 ${
+            playMode === m
+              ? "border-[var(--accent-dark)] bg-[var(--accent)] text-white"
+              : "border-[var(--border)] bg-[var(--card)] text-[var(--fg-muted)] hover:bg-[var(--bg)]"
+          }`}
+        >
+          {m === "daily" ? "Diário" : "Infinito"}
+        </button>
+      ))}
+    </div>
+  );
+
+  const header = (
+    <header className="sticky top-0 z-40 border-b-2 border-[var(--border)] bg-[var(--card)] px-3 py-2.5 sm:px-6 sm:py-4">
+      <div className="flex items-center justify-between gap-2 sm:gap-4">
+        <Link
+          href="/"
+          className="flex shrink-0 items-center gap-1.5 rounded-xl border-2 border-[var(--border)] bg-[var(--card)] px-2.5 py-1.5 text-xs font-extrabold text-[var(--fg-muted)] transition hover:bg-[var(--bg)] sm:rounded-2xl sm:px-4 sm:py-2 sm:text-sm"
+        >
+          <ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">Hub</span>
+        </Link>
+
+        <h1 className="flex min-w-0 shrink items-center gap-1.5 text-sm font-extrabold tracking-tight text-[var(--fg)] sm:gap-2.5 sm:text-lg">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--primary)] text-white sm:h-9 sm:w-9 sm:rounded-xl">
+            <Grid3x3 className="h-4 w-4 sm:h-5 sm:w-5" />
+          </span>
+          <span className="truncate">Termo</span>
+        </h1>
+
+        <div className="flex shrink-0 justify-end">{dailySwitch}</div>
+      </div>
+    </header>
+  );
+
   const modeSelector = (
-    <div className="flex flex-col items-center gap-3">
-      <div className="flex gap-2">
-        {(["daily", "infinite"] as PlayMode[]).map((m) => (
-          <button
-            key={m}
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => changePlayMode(m)}
-            className={`rounded-xl border-2 px-4 py-1.5 text-xs font-extrabold uppercase transition ${
-              playMode === m
-                ? "border-[var(--accent-dark)] bg-[var(--accent)] text-white"
-                : "border-[var(--border)] bg-[var(--card)] text-[var(--fg-muted)] hover:bg-[var(--bg)]"
-            }`}
-          >
-            {m === "daily" ? "Diário" : "Infinito"}
-          </button>
-        ))}
-      </div>
-      <div className="flex gap-2">
-        {MODES.map((mode) => (
-          <button
-            key={mode.count}
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => changeMode(mode.count)}
-            className={`rounded-xl border-2 px-4 py-1.5 text-xs font-extrabold uppercase transition ${
-              boardCount === mode.count
-                ? "border-[var(--primary-dark)] bg-[var(--primary)] text-white"
-                : "border-[var(--border)] bg-[var(--card)] text-[var(--fg-muted)] hover:bg-[var(--bg)]"
-            }`}
-          >
-            {mode.label}
-          </button>
-        ))}
-      </div>
+    <div className="flex gap-2">
+      {MODES.map((mode) => (
+        <button
+          key={mode.count}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => changeMode(mode.count)}
+          className={`rounded-xl border-2 px-4 py-1.5 text-xs font-extrabold uppercase transition lg:px-3 lg:py-1 ${
+            boardCount === mode.count
+              ? "border-[var(--primary-dark)] bg-[var(--primary)] text-white"
+              : "border-[var(--border)] bg-[var(--card)] text-[var(--fg-muted)] hover:bg-[var(--bg)]"
+          }`}
+        >
+          {mode.label}
+        </button>
+      ))}
     </div>
   );
 
   if (status === "loading") {
     return (
-      <div className="relative mx-auto flex w-full max-w-6xl flex-1 flex-col items-center gap-6 overflow-x-auto px-4 py-8">
+      <div className="flex flex-1 flex-col">
+        {header}
+        <div className="relative mx-auto flex w-full max-w-6xl flex-1 flex-col items-center gap-4 overflow-x-auto px-3 pb-6 pt-3 sm:gap-6 sm:px-4 sm:pb-8">
         {modeSelector}
 
-        <div className="flex justify-center gap-8">
+        <div className="flex justify-center gap-3 sm:gap-8">
           {Array.from({ length: boardCount }).map((_, boardIndex) => (
-            <div key={boardIndex} className="flex shrink-0 flex-col gap-2.5">
+            <div key={boardIndex} className="flex shrink-0 flex-col gap-1.5 sm:gap-2.5">
               {Array.from({ length: maxAttemptsFor(boardCount) }).map((_, rowIndex) => (
-                <div key={rowIndex} className="flex gap-2">
+                <div key={rowIndex} className="flex gap-1.5 sm:gap-2">
                   {Array.from({ length: WORD_LENGTH }).map((_, i) => (
                     <div
                       key={i}
                       className={`animate-pulse rounded-xl border-2 border-[var(--border)] bg-[var(--border)]/40 ${
-                        boardCount === 4 ? "h-12 w-12" : boardCount === 2 ? "h-14 w-14" : "h-16 w-16"
+                        boardCount === 4
+                          ? "h-9 w-9 sm:h-12 sm:w-12"
+                          : boardCount === 2
+                            ? "h-11 w-11 sm:h-14 sm:w-14"
+                            : "h-12 w-12 sm:h-16 sm:w-16"
                       }`}
                     />
                   ))}
@@ -650,16 +729,16 @@ export function TermoGame() {
           ))}
         </div>
 
-        <div className="flex flex-col items-center gap-2.5">
+        <div className="flex flex-col items-center gap-1.5 sm:gap-2.5">
           {KEY_ROWS.map((row, i) => (
-            <div key={i} className="flex gap-2">
+            <div key={i} className="flex gap-1 sm:gap-2">
               {row.map((key) => {
                 const isWide = key === "Enter" || key === "Back";
                 return (
                   <div
                     key={key}
                     className={`animate-pulse rounded-lg bg-[var(--border)]/40 ${
-                      isWide ? "h-14 px-5" : "h-14 min-w-11"
+                      isWide ? "h-11 px-3 sm:h-14 sm:px-5" : "h-11 min-w-8 sm:h-14 sm:min-w-11"
                     }`}
                   />
                 );
@@ -667,13 +746,16 @@ export function TermoGame() {
             </div>
           ))}
         </div>
+        </div>
       </div>
     );
   }
 
   if (alreadyPlayedToday) {
     return (
-      <div className="flex flex-1 flex-col items-center gap-6 py-8">
+      <div className="flex flex-1 flex-col">
+        {header}
+        <div className="flex flex-1 flex-col items-center gap-6 pb-8 pt-3">
         {modeSelector}
         <div className="flex max-w-sm flex-col items-center gap-4 rounded-3xl border-2 border-[var(--border)] bg-[var(--card)] p-8 text-center">
           <div className="text-5xl">{alreadyPlayedToday.won ? "🎉" : "😔"}</div>
@@ -699,21 +781,40 @@ export function TermoGame() {
             Jogar modo infinito
           </button>
         </div>
+        </div>
       </div>
     );
   }
 
   const maxAttempts = maxAttemptsFor(boardCount);
 
+  // Tamanho de célula calculado p/ caber tudo (board + teclado) sem scroll no desktop,
+  // dividindo o espaço disponível pelas linhas (altura) e colunas totais (largura).
+  const cellVh = boardCount === 4 ? 4.2 : boardCount === 2 ? 5.2 : 6.1;
+  const cellVw = boardCount === 4 ? 4.4 : boardCount === 2 ? 6.5 : 9.5;
+  const cellStyle = { "--cell": `clamp(2.25rem, min(${cellVw}vw, ${cellVh}vh), 4rem)` } as React.CSSProperties;
+
   return (
-    <div className="relative mx-auto flex w-full max-w-6xl flex-1 flex-col items-center gap-6 overflow-x-auto px-4 py-8 md:min-w-fit">
+    <div className="flex flex-1 flex-col">
+      {header}
+      <div
+        style={cellStyle}
+        className={`relative mx-auto flex w-full max-w-6xl flex-1 flex-col items-center justify-between overflow-x-auto px-3 sm:gap-6 sm:px-4 sm:pb-8 sm:pt-3 lg:gap-3 lg:overflow-visible lg:pb-4 lg:pt-3 ${boardCount === 4 ? "gap-1 pb-1 pt-1" : "gap-4 pb-6 pt-3"}`}
+      >
+      <div className={`flex flex-col items-center sm:gap-6 lg:mt-6 lg:flex-1 lg:justify-start lg:gap-3 ${boardCount === 4 ? "gap-1.5" : "gap-4"}`}>
       {modeSelector}
 
-      <div className="flex justify-center gap-8">
+      <div
+        className={
+          boardCount === 4
+            ? "grid grid-cols-2 gap-x-2 gap-y-1 sm:flex sm:justify-center sm:gap-8 lg:gap-4"
+            : `flex justify-center sm:gap-8 lg:gap-4 gap-4`
+        }
+      >
         {targetWords.map((target, boardIndex) => {
           const boardSolved = rawGuesses.includes(target);
           return (
-          <div key={boardIndex} className={`flex shrink-0 flex-col gap-2.5 transition-opacity ${boardSolved ? "opacity-60" : ""}`}>
+          <div key={boardIndex} className={`flex shrink-0 flex-col transition-opacity sm:gap-2.5 lg:gap-1.5 ${boardCount === 4 ? "gap-[3px]" : "gap-1.5"} ${boardSolved ? "opacity-60" : ""}`}>
             {Array.from({ length: maxAttempts }).map((_, rowIndex) => {
               const isCurrentRow = rowIndex === rawGuesses.length && !boardSolved;
               const rowLetters = boardGuesses[boardIndex]?.[rowIndex]
@@ -725,12 +826,16 @@ export function TermoGame() {
               return (
                 <div
                   key={rowIndex}
-                  className={`flex gap-2 ${isCurrentRow && shakeRow ? "animate-[shake_0.4s_ease-in-out]" : ""}`}
+                  className={`flex sm:gap-2 lg:gap-1.5 ${boardCount === 4 ? "gap-1" : "gap-1"} ${isCurrentRow && shakeRow ? "animate-[shake_0.4s_ease-in-out]" : ""}`}
                 >
                   {rowLetters.map((cell, i) => {
                     const isRevealing = rowIndex === revealRowIndex && cell.state !== "empty";
                     const sizeClasses =
-                      boardCount === 4 ? "h-12 w-12 text-xl" : boardCount === 2 ? "h-14 w-14 text-2xl" : "h-16 w-16 text-3xl";
+                      boardCount === 4
+                        ? "h-[min(8vw,3.7vh)] w-[min(8vw,3.7vh)] text-[10px] sm:h-12 sm:w-12 sm:text-xl lg:h-[var(--cell)] lg:w-[var(--cell)] lg:text-lg"
+                        : boardCount === 2
+                          ? "h-[7.8vw] w-[7.8vw] text-sm sm:h-14 sm:w-14 sm:text-2xl lg:h-[var(--cell)] lg:w-[var(--cell)] lg:text-xl"
+                          : "h-12 w-12 text-2xl sm:h-16 sm:w-16 sm:text-3xl lg:h-[var(--cell)] lg:w-[var(--cell)] lg:text-2xl";
 
                     if (isRevealing) {
                       return (
@@ -788,10 +893,11 @@ export function TermoGame() {
           {message}
         </p>
       )}
+      </div>
 
-      <div className="flex flex-col items-center gap-2.5">
+      <div className={`flex shrink-0 flex-col items-center sm:gap-2.5 lg:gap-1.5 ${boardCount === 4 ? "gap-1" : "gap-1.5"}`}>
         {KEY_ROWS.map((row, i) => (
-          <div key={i} className="flex gap-2">
+          <div key={i} className="flex gap-1 sm:gap-2 lg:gap-1.5">
             {row.map((key) => {
               const isWide = key === "Enter" || key === "Back";
               const isLetter = !isWide;
@@ -806,7 +912,7 @@ export function TermoGame() {
                     key={key}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => handleKey(key)}
-                    className="relative h-14 min-w-11 overflow-hidden rounded-lg text-sm font-extrabold uppercase text-white transition active:scale-95"
+                    className={`relative min-w-8 overflow-hidden rounded-lg text-xs font-extrabold uppercase text-white transition active:scale-95 sm:h-14 sm:min-w-11 sm:text-sm lg:h-11 lg:min-w-9 ${boardCount === 4 ? "h-9" : "h-11"}`}
                   >
                     <div className={`absolute inset-0 grid ${boardCount === 4 ? "grid-cols-2 grid-rows-2" : "grid-cols-2"}`}>
                       {boardStates.map((s, i) => (
@@ -826,8 +932,10 @@ export function TermoGame() {
                   key={key}
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => handleKey(key)}
-                  className={`rounded-lg text-sm font-extrabold uppercase transition active:scale-95 ${keyClasses[state]} ${
-                    isWide ? "px-5 py-4 text-xs" : "min-w-11 px-3 py-4"
+                  className={`rounded-lg text-xs font-extrabold uppercase transition active:scale-95 sm:text-sm ${keyClasses[state]} ${
+                    isWide
+                      ? `px-3 sm:px-5 sm:py-4 lg:py-3 ${boardCount === 4 ? "py-2" : "py-3"}`
+                      : `min-w-8 px-2 sm:min-w-11 sm:px-3 sm:py-4 lg:min-w-9 lg:py-3 ${boardCount === 4 ? "py-2" : "py-3"}`
                   }`}
                 >
                   {key === "Back" ? "⌫" : key}
@@ -850,6 +958,7 @@ export function TermoGame() {
         boardCount={boardCount}
         onPlayAgain={() => startGame(targetWordPool, boardCount, playMode)}
       />
+      </div>
     </div>
   );
 }

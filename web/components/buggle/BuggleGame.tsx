@@ -240,18 +240,15 @@ export function BuggleGame() {
   }
 
   return (
-    <>
-      <GameHeader onLeaveRoom={handleLeaveRoom} />
-      {room.board && (
-        <GamePlayScreen
-          board={room.board}
-          players={room.players}
-          secondsLeft={secondsLeft}
-          totalSeconds={room.config.roundSeconds}
-          lastResult={lastResult}
-          onWordSubmit={handleWordSubmit}
-        />
-      )}
-    </>
+    room.board && (
+      <GamePlayScreen
+        board={room.board}
+        secondsLeft={secondsLeft}
+        totalSeconds={room.config.roundSeconds}
+        lastResult={lastResult}
+        onWordSubmit={handleWordSubmit}
+        onLeaveRoom={handleLeaveRoom}
+      />
+    )
   );
 }

@@ -31,10 +31,6 @@ export default function Home() {
           </div>
         ))}
       </div>
-
-      <footer className="mt-8 border-t-2 border-[var(--border)] py-8 text-center text-sm font-medium text-[var(--fg-muted)]">
-        © {new Date().getFullYear()} Arcadeon
-      </footer>
     </main>
   );
 }

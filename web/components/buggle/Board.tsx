@@ -111,7 +111,7 @@ export function Board({ board, onWordSubmit, onPathChange }: BoardProps) {
     <div className="flex flex-col items-center gap-4 select-none">
       <div
         ref={gridRef}
-        className="relative grid gap-2.5 rounded-2xl bg-[#5a2fc2] p-3"
+        className="relative grid gap-2.5 rounded-2xl bg-[var(--primary-tint)] p-3"
         style={{
           gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))`,
           width: `min(90vw, ${maxBoardPx}px)`,
@@ -139,7 +139,7 @@ export function Board({ board, onWordSubmit, onPathChange }: BoardProps) {
             <polyline
               points={linePoints.map((p) => `${p.x},${p.y}`).join(" ")}
               fill="none"
-              stroke="#ef4444"
+              stroke="var(--primary)"
               strokeWidth={4}
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -183,8 +183,10 @@ export function Board({ board, onWordSubmit, onPathChange }: BoardProps) {
                 }}
                 data-row={cell.row}
                 data-col={cell.col}
-                className={`relative flex aspect-square w-full items-center justify-center rounded-lg font-extrabold uppercase transition ${
-                  selected ? "bg-[#ef4444] text-white" : "bg-white text-[#3b1f9e]"
+                className={`relative flex aspect-square w-full items-center justify-center rounded-lg border-2 font-extrabold uppercase transition ${
+                  selected
+                    ? "border-[var(--primary-dark)] bg-[var(--primary)] text-white scale-95"
+                    : "border-[var(--border)] bg-[var(--card)] text-[var(--fg)] hover:border-[var(--primary)]"
                 }`}
                 style={{ zIndex: 2, fontSize: `clamp(0.75rem, ${90 / size}%, 1.5rem)` }}
               >
