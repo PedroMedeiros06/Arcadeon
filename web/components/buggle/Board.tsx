@@ -1,36 +1,57 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { BoggleBoard } from "@/lib/buggle/types";
+import type { BoggleBoard, BoggleCell, WordResult } from "@/lib/buggle/types";
 
 interface BoardProps {
   board: BoggleBoard;
-  onWordSubmit: (word: string) => void;
+  onWordSubmit: (word: string, path: BoggleCell[]) => void;
   onPathChange?: (word: string) => void;
+  lastResult?: WordResult | null;
 }
 
 function isAdjacent(a: { row: number; col: number }, b: { row: number; col: number }): boolean {
   return Math.abs(a.row - b.row) <= 1 && Math.abs(a.col - b.col) <= 1 && !(a.row === b.row && a.col === b.col);
 }
 
-export function Board({ board, onWordSubmit, onPathChange }: BoardProps) {
+export function Board({ board, onWordSubmit, onPathChange, lastResult }: BoardProps) {
   const [path, setPath] = useState<{ row: number; col: number }[]>([]);
   const [linePoints, setLinePoints] = useState<{ x: number; y: number }[]>([]);
+  const [flashPath, setFlashPath] = useState<{ row: number; col: number }[]>([]);
+  const [flashColor, setFlashColor] = useState<"green" | "yellow">("green");
   const dragging = useRef(false);
   const gridRef = useRef<HTMLDivElement>(null);
   const cellRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const lastSubmittedPath = useRef<{ row: number; col: number }[]>([]);
+  const flashTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isSelected = (row: number, col: number) => path.some((p) => p.row === row && p.col === col);
+  const isFlashing = (row: number, col: number) => flashPath.some((p) => p.row === row && p.col === col);
 
   const reset = useCallback(() => setPath([]), []);
 
   const submit = useCallback(() => {
     if (path.length > 0) {
-      const word = path.map((p) => board[p.row][p.col].letter).join("");
-      onWordSubmit(word);
+      const cells = path.map((p) => board[p.row][p.col]);
+      const word = cells.map((c) => c.letter).join("");
+      lastSubmittedPath.current = path;
+      onWordSubmit(word, cells);
     }
     setPath([]);
   }, [path, board, onWordSubmit]);
+
+  // palavra aceita = verde; palavra ja encontrada antes por esse jogador = amarelo
+  useEffect(() => {
+    if (!lastResult) return;
+    if (!lastResult.accepted && !lastResult.alreadyFound) return;
+    setFlashColor(lastResult.accepted ? "green" : "yellow");
+    setFlashPath(lastSubmittedPath.current);
+    if (flashTimeout.current) clearTimeout(flashTimeout.current);
+    flashTimeout.current = setTimeout(() => setFlashPath([]), 500);
+    return () => {
+      if (flashTimeout.current) clearTimeout(flashTimeout.current);
+    };
+  }, [lastResult]);
 
   const cellFromPoint = useCallback(
     (x: number, y: number): { row: number; col: number } | null => {
@@ -50,7 +71,7 @@ export function Board({ board, onWordSubmit, onPathChange }: BoardProps) {
       const cellTop = row * cellSize;
       const localX = relX - cellLeft;
       const localY = relY - cellTop;
-      const margin = cellSize * 0.18;
+      const margin = cellSize * 0.14;
       if (
         localX < margin ||
         localX > cellSize - margin ||
@@ -103,18 +124,18 @@ export function Board({ board, onWordSubmit, onPathChange }: BoardProps) {
   }, [path, board, onPathChange]);
 
   const size = board.length;
-  // Board pequeno (4x4-6x6) ocupa quase toda a largura disponivel;
-  // boards maiores crescem menos por celula, mas o board em si fica maior.
-  const maxBoardPx = Math.min(420, 68 * size);
+  // Board sempre ocupa a largura inteira disponivel (eixo X cheio, igual referencia);
+  // boards maiores ficam mais largos ate um teto pra nao esticar demais em telas grandes.
+  const maxBoardPx = 130 * size;
 
   return (
-    <div className="flex flex-col items-center gap-4 select-none">
+    <div className="flex w-full flex-col items-center gap-4 select-none">
       <div
         ref={gridRef}
-        className="relative grid gap-2.5 rounded-2xl bg-[var(--primary-tint)] p-3"
+        className="relative grid w-full touch-none gap-2.5 rounded-3xl bg-[var(--primary-tint)] p-3 shadow-[0_6px_0_var(--border)]"
         style={{
           gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))`,
-          width: `min(90vw, ${maxBoardPx}px)`,
+          maxWidth: `${maxBoardPx}px`,
         }}
         onMouseMove={(e) => {
           if (!dragging.current) return;
@@ -151,6 +172,7 @@ export function Board({ board, onWordSubmit, onPathChange }: BoardProps) {
         {board.map((row) =>
           row.map((cell) => {
             const selected = isSelected(cell.row, cell.col);
+            const flashing = isFlashing(cell.row, cell.col);
             return (
               <button
                 key={`${cell.row}-${cell.col}`}
@@ -183,14 +205,23 @@ export function Board({ board, onWordSubmit, onPathChange }: BoardProps) {
                 }}
                 data-row={cell.row}
                 data-col={cell.col}
-                className={`relative flex aspect-square w-full items-center justify-center rounded-lg border-2 font-extrabold uppercase transition ${
-                  selected
-                    ? "border-[var(--primary-dark)] bg-[var(--primary)] text-white scale-95"
-                    : "border-[var(--border)] bg-[var(--card)] text-[var(--fg)] hover:border-[var(--primary)]"
+                className={`relative flex aspect-square w-full items-center justify-center rounded-xl font-extrabold uppercase text-white transition ${
+                  flashing
+                    ? flashColor === "green"
+                      ? "bg-[#4ade80] shadow-[0_4px_0_#16a34a]"
+                      : "bg-[#facc15] shadow-[0_4px_0_#ca8a04]"
+                    : selected
+                      ? "bg-[var(--primary)] shadow-[0_2px_0_var(--primary-dark)] scale-95"
+                      : "bg-[var(--primary-dark)] shadow-[0_4px_0_color-mix(in_srgb,var(--primary-dark)_60%,black)] hover:brightness-110"
                 }`}
-                style={{ zIndex: 2, fontSize: `clamp(0.75rem, ${90 / size}%, 1.5rem)` }}
+                style={{ zIndex: 2, fontSize: `clamp(1.5rem, ${220 / size}%, 3.5rem)` }}
               >
                 {cell.letter}
+                {/* debug: area tocavel real (zona central que cellFromPoint aceita) */}
+                <span
+                  className="pointer-events-none absolute bg-red-500/20"
+                  style={{ inset: "14%" }}
+                />
               </button>
             );
           })

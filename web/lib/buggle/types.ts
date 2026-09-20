@@ -19,14 +19,14 @@ export interface PlayerPublic {
   name: string;
   score: number;
   wordsFound: number;
-  isSpectator: boolean;
 }
 
 export type RoomPhase = "lobby" | "playing" | "results";
 
 export interface RoomState {
   code: string;
-  hostSocketId: string;
+  ownerSocketId: string;
+  hostSocketId: string | null;
   config: RoomConfig;
   phase: RoomPhase;
   board: BoggleBoard | null;
@@ -39,6 +39,7 @@ export interface WordResult {
   accepted: boolean;
   points: number;
   isSecret: boolean;
+  alreadyFound: boolean;
 }
 
 export interface RoundEndedPayload {

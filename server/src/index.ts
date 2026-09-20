@@ -10,9 +10,9 @@ import {
   startRound,
   submitWord,
   endRound,
-  setSpectator,
   updateConfig,
   transferHost,
+  renamePlayer,
   RoomConfig,
 } from "./rooms";
 
@@ -36,6 +36,7 @@ function publicRoomState(room: ReturnType<typeof getRoom>) {
   if (!room) return null;
   return {
     code: room.code,
+    ownerSocketId: room.ownerSocketId,
     hostSocketId: room.hostSocketId,
     config: room.config,
     phase: room.phase,
@@ -46,7 +47,6 @@ function publicRoomState(room: ReturnType<typeof getRoom>) {
       name: p.name,
       score: p.score,
       wordsFound: p.foundWords.size,
-      isSpectator: p.isSpectator,
     })),
   };
 }
@@ -54,8 +54,8 @@ function publicRoomState(room: ReturnType<typeof getRoom>) {
 io.on("connection", (socket) => {
   console.log(`socket connected: ${socket.id}`);
 
-  socket.on("create-room", (data: { name: string; config: RoomConfig }) => {
-    const room = createRoom(socket.id, data.name, data.config);
+  socket.on("create-room", (data: { config: RoomConfig }) => {
+    const room = createRoom(socket.id, data.config);
     socket.join(room.code);
     socket.emit("room-updated", publicRoomState(room));
   });
@@ -75,11 +75,12 @@ io.on("connection", (socket) => {
     io.to(room.code).emit("room-updated", publicRoomState(room));
   });
 
-  socket.on("set-spectator", (data: { code: string; isSpectator: boolean }) => {
+  socket.on("rename-player", (data: { code: string; name: string }) => {
     const room = getRoom(data.code);
-    if (!room || room.hostSocketId !== socket.id || room.phase !== "lobby") return;
-    setSpectator(room, socket.id, data.isSpectator);
-    io.to(room.code).emit("room-updated", publicRoomState(room));
+    if (!room) return;
+    if (renamePlayer(room, socket.id, data.name)) {
+      io.to(room.code).emit("room-updated", publicRoomState(room));
+    }
   });
 
   socket.on("update-config", (data: { code: string; config: RoomConfig }) => {
@@ -118,21 +119,19 @@ io.on("connection", (socket) => {
         room: publicRoomState(room),
         allWords: discoveredWords.map((w) => ({ word: w.word, path: w.path })),
         secretWord: room.secretWord ? { word: room.secretWord.word, path: room.secretWord.path } : null,
-        foundBy: Array.from(room.players.values())
-          .filter((p) => !p.isSpectator)
-          .map((p) => ({
-            socketId: p.socketId,
-            name: p.name,
-            foundWords: Array.from(p.foundWords),
-          })),
+        foundBy: Array.from(room.players.values()).map((p) => ({
+          socketId: p.socketId,
+          name: p.name,
+          foundWords: Array.from(p.foundWords),
+        })),
       });
     }, remainingMs);
   });
 
-  socket.on("submit-word", (data: { code: string; word: string }) => {
+  socket.on("submit-word", (data: { code: string; word: string; path?: { row: number; col: number; letter: string }[] }) => {
     const room = getRoom(data.code);
     if (!room) return;
-    const result = submitWord(room, socket.id, data.word);
+    const result = submitWord(room, socket.id, data.word, data.path);
     socket.emit("word-result", { word: data.word, ...result });
     if (result.accepted) {
       io.to(room.code).emit("room-updated", publicRoomState(room));
@@ -140,18 +139,22 @@ io.on("connection", (socket) => {
   });
 
   socket.on("leave-room", (data: { code: string }) => {
-    const room = leaveRoom(socket.id);
+    const { room, closedCode } = leaveRoom(socket.id);
     socket.leave(data.code);
     if (room) {
       io.to(room.code).emit("room-updated", publicRoomState(room));
+    } else if (closedCode) {
+      io.to(closedCode).emit("room-closed");
     }
   });
 
   socket.on("disconnect", () => {
     console.log(`socket disconnected: ${socket.id}`);
-    const room = leaveRoom(socket.id);
+    const { room, closedCode } = leaveRoom(socket.id);
     if (room) {
       io.to(room.code).emit("room-updated", publicRoomState(room));
+    } else if (closedCode) {
+      io.to(closedCode).emit("room-closed");
     }
   });
 });

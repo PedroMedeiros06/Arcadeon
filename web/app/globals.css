@@ -122,6 +122,33 @@ body {
   }
 }
 
+@keyframes dangerPulse {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 0.1;
+  }
+}
+
+@keyframes letterPop {
+  0% {
+    transform: scale(0.3) rotate(calc(var(--pop-rot, 8deg) * -1));
+    opacity: 0;
+  }
+  55% {
+    transform: scale(var(--pop-scale, 1.35)) rotate(var(--pop-rot, 4deg));
+    opacity: 1;
+  }
+  75% {
+    transform: scale(calc(2 - var(--pop-scale, 1.35))) rotate(calc(var(--pop-rot, 2deg) * -0.5));
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
 @keyframes twinkle {
   0%,
   100% {

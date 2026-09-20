@@ -7,7 +7,7 @@ import type { RoomConfig } from "@/lib/buggle/types";
 interface LobbyProps {
   defaultName: string;
   isNameLocked: boolean;
-  onCreate: (name: string, config: RoomConfig) => void;
+  onCreate: (config: RoomConfig) => void;
   onJoin: (name: string, code: string) => void;
   joinError: string | null;
   onModeChange?: (mode: "choose" | "create" | "join") => void;
@@ -153,15 +153,9 @@ export function Lobby({ defaultName, isNameLocked, onCreate, onJoin, joinError, 
         </div>
 
         <div className="rounded-2xl bg-[#26124f]/50 p-5 backdrop-blur">
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            readOnly={isNameLocked}
-            placeholder="Seu nome"
-            className={`w-full rounded-lg border-2 border-white/20 bg-[#1a0f38] px-4 py-2 text-center font-bold text-white ${
-              isNameLocked ? "opacity-70" : ""
-            }`}
-          />
+          <p className="text-center text-xs font-semibold text-white/60">
+            Esta tela vira a TV da sala — nao joga, so mostra o QR code e o placar.
+          </p>
 
           <div className="my-4 h-px bg-white/15" />
 
@@ -275,9 +269,8 @@ export function Lobby({ defaultName, isNameLocked, onCreate, onJoin, joinError, 
 
         <button
           onMouseDown={(e) => e.preventDefault()}
-          disabled={!name.trim()}
           onClick={() =>
-            onCreate(name.trim(), { boardSize, roundSeconds, minWordLength, visibility, maxPlayers })
+            onCreate({ boardSize, roundSeconds, minWordLength, visibility, maxPlayers })
           }
           className="mt-5 w-full rounded-2xl border-2 border-emerald-600 bg-emerald-400 py-3.5 text-base font-extrabold text-emerald-950 shadow-[0_4px_0_var(--color-emerald-600)] transition active:translate-y-1 active:border-b-2 active:shadow-none disabled:opacity-50"
         >

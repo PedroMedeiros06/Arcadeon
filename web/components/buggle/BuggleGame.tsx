@@ -12,7 +12,7 @@ import { Board } from "./Board";
 import { GamePlayScreen } from "./GamePlayScreen";
 import { ResultsScreen } from "./ResultsScreen";
 import { JoinNameModal } from "./JoinNameModal";
-import type { RoomConfig, RoomState, RoundEndedPayload, WordResult } from "@/lib/buggle/types";
+import type { BoggleCell, RoomConfig, RoomState, RoundEndedPayload, WordResult } from "@/lib/buggle/types";
 
 function GameHeader({ onLeaveRoom }: { onLeaveRoom?: () => void }) {
   return (
@@ -59,6 +59,7 @@ export function BuggleGame() {
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [pendingAutoJoin, setPendingAutoJoin] = useState(!!joinCodeFromUrl);
   const [lobbyMode, setLobbyMode] = useState<"choose" | "create" | "join">("choose");
+  const [roomClosed, setRoomClosed] = useState(false);
   const socketRef = useRef(getBuggleSocket());
 
   useEffect(() => {
@@ -78,17 +79,24 @@ export function BuggleGame() {
       setRoundResult(data);
       setRoom(data.room);
     }
+    function handleRoomClosed() {
+      setRoom(null);
+      setRoundResult(null);
+      setRoomClosed(true);
+    }
 
     socket.on("room-updated", handleRoomUpdated);
     socket.on("join-error", handleJoinError);
     socket.on("word-result", handleWordResult);
     socket.on("round-ended", handleRoundEnded);
+    socket.on("room-closed", handleRoomClosed);
 
     return () => {
       socket.off("room-updated", handleRoomUpdated);
       socket.off("join-error", handleJoinError);
       socket.off("word-result", handleWordResult);
       socket.off("round-ended", handleRoundEnded);
+      socket.off("room-closed", handleRoomClosed);
     };
   }, []);
 
@@ -108,8 +116,9 @@ export function BuggleGame() {
     }
   }, [joinCodeFromUrl, authLoading, username, room]);
 
-  function handleCreate(name: string, config: RoomConfig) {
-    socketRef.current.emit("create-room", { name, config });
+  function handleCreate(config: RoomConfig) {
+    setRoomClosed(false);
+    socketRef.current.emit("create-room", { config });
   }
 
   function handleJoinWithName(name: string) {
@@ -121,15 +130,12 @@ export function BuggleGame() {
 
   function handleJoin(name: string, code: string) {
     setJoinError(null);
+    setRoomClosed(false);
     socketRef.current.emit("join-room", { code, name });
   }
 
   function handleStart() {
     if (room) socketRef.current.emit("start-round", { code: room.code });
-  }
-
-  function handleToggleSpectator(isSpectator: boolean) {
-    if (room) socketRef.current.emit("set-spectator", { code: room.code, isSpectator });
   }
 
   function handleUpdateConfig(config: RoomConfig) {
@@ -140,8 +146,12 @@ export function BuggleGame() {
     if (room) socketRef.current.emit("transfer-host", { code: room.code, newHostSocketId });
   }
 
-  function handleWordSubmit(word: string) {
-    if (room) socketRef.current.emit("submit-word", { code: room.code, word });
+  function handleRenamePlayer(name: string) {
+    if (room) socketRef.current.emit("rename-player", { code: room.code, name });
+  }
+
+  function handleWordSubmit(word: string, path: BoggleCell[]) {
+    if (room) socketRef.current.emit("submit-word", { code: room.code, word, path });
   }
 
   function handleLeaveRoom() {
@@ -175,6 +185,11 @@ export function BuggleGame() {
     return (
       <>
         {lobbyMode !== "create" && <GameHeader />}
+        {roomClosed && (
+          <p className="mt-4 text-center text-sm font-bold text-[var(--danger)]">
+            A sala foi encerrada (o anfitriao/TV saiu).
+          </p>
+        )}
         <Lobby
           defaultName={username ?? ""}
           isNameLocked={!!username}
@@ -206,16 +221,16 @@ export function BuggleGame() {
         room={room}
         mySocketId={socketRef.current.id ?? ""}
         onStart={handleStart}
-        onToggleSpectator={handleToggleSpectator}
         onLeaveRoom={handleLeaveRoom}
         onUpdateConfig={handleUpdateConfig}
         onTransferHost={handleTransferHost}
+        onRenamePlayer={handleRenamePlayer}
       />
     );
   }
 
-  const me = room.players.find((p) => p.socketId === socketRef.current.id);
-  if (me?.isSpectator) {
+  const isOwner = room.ownerSocketId === socketRef.current.id;
+  if (isOwner) {
     return (
       <>
       <GameHeader onLeaveRoom={handleLeaveRoom} />
@@ -224,13 +239,11 @@ export function BuggleGame() {
         <div className="flex w-full max-w-md items-center justify-between rounded-xl border-2 border-[var(--border)] bg-[var(--card)] px-4 py-2">
           <span className="font-mono text-2xl font-extrabold text-[var(--primary)]">{secondsLeft}s</span>
           <div className="flex gap-3 text-sm font-bold text-[var(--fg)]">
-            {room.players
-              .filter((p) => !p.isSpectator)
-              .map((p) => (
-                <span key={p.socketId}>
-                  {p.name}: {p.score}
-                </span>
-              ))}
+            {room.players.map((p) => (
+              <span key={p.socketId}>
+                {p.name}: {p.score}
+              </span>
+            ))}
           </div>
         </div>
         {room.board && <Board board={room.board} onWordSubmit={() => {}} />}

@@ -14,14 +14,15 @@ export interface Player {
   name: string;
   score: number;
   foundWords: Set<string>;
-  isSpectator: boolean;
+  foundPaths: Map<string, BoggleCell[]>;
 }
 
 export type RoomPhase = "lobby" | "playing" | "results";
 
 export interface Room {
   code: string;
-  hostSocketId: string;
+  ownerSocketId: string; // quem criou a sala; e' a TV, nunca joga
+  hostSocketId: string | null; // primeiro jogador a entrar; tem privilegios de host
   config: RoomConfig;
   players: Map<string, Player>;
   phase: RoomPhase;
@@ -42,15 +43,14 @@ function generateCode(): string {
   return code;
 }
 
-export function createRoom(hostSocketId: string, hostName: string, config: RoomConfig): Room {
+export function createRoom(ownerSocketId: string, config: RoomConfig): Room {
   const code = generateCode();
   const room: Room = {
     code,
-    hostSocketId,
+    ownerSocketId,
+    hostSocketId: null,
     config,
-    players: new Map([
-      [hostSocketId, { socketId: hostSocketId, name: hostName, score: 0, foundWords: new Set(), isSpectator: false }],
-    ]),
+    players: new Map(),
     phase: "lobby",
     board: null,
     secretWord: null,
@@ -68,14 +68,19 @@ export function getRoom(code: string): Room | undefined {
 export function joinRoom(code: string, socketId: string, name: string): Room | null {
   const room = rooms.get(code);
   if (!room || room.phase !== "lobby") return null;
+  if (socketId === room.ownerSocketId) return null;
   if (room.players.size >= room.config.maxPlayers) return null;
-  room.players.set(socketId, { socketId, name, score: 0, foundWords: new Set(), isSpectator: false });
+  room.players.set(socketId, { socketId, name, score: 0, foundWords: new Set(), foundPaths: new Map() });
+  if (!room.hostSocketId) room.hostSocketId = socketId;
   return room;
 }
 
-export function setSpectator(room: Room, socketId: string, isSpectator: boolean): void {
+export function renamePlayer(room: Room, socketId: string, name: string): boolean {
   const player = room.players.get(socketId);
-  if (player) player.isSpectator = isSpectator;
+  const trimmed = name.trim().slice(0, 10);
+  if (!player || !trimmed) return false;
+  player.name = trimmed;
+  return true;
 }
 
 export function updateConfig(room: Room, config: RoomConfig): boolean {
@@ -90,21 +95,23 @@ export function transferHost(room: Room, newHostSocketId: string): boolean {
   return true;
 }
 
-export function leaveRoom(socketId: string): Room | null {
+/** Retorna o code da sala fechada (owner saiu), ou a Room atualizada, ou null se nada mudou. */
+export function leaveRoom(socketId: string): { room: Room | null; closedCode: string | null } {
   for (const room of rooms.values()) {
+    if (room.ownerSocketId === socketId) {
+      // owner (TV) saiu: sala inteira fecha
+      rooms.delete(room.code);
+      return { room: null, closedCode: room.code };
+    }
     if (room.players.has(socketId)) {
       room.players.delete(socketId);
-      if (room.players.size === 0) {
-        rooms.delete(room.code);
-        return null;
-      }
       if (room.hostSocketId === socketId) {
-        room.hostSocketId = room.players.keys().next().value!;
+        room.hostSocketId = room.players.keys().next().value ?? null;
       }
-      return room;
+      return { room, closedCode: null };
     }
   }
-  return null;
+  return { room: null, closedCode: null };
 }
 
 export function startRound(room: Room): void {
@@ -119,32 +126,38 @@ export function startRound(room: Room): void {
   for (const player of room.players.values()) {
     player.score = 0;
     player.foundWords.clear();
+    player.foundPaths.clear();
   }
 }
 
 export function submitWord(
   room: Room,
   socketId: string,
-  word: string
-): { accepted: boolean; points: number; isSecret: boolean } {
+  word: string,
+  path?: BoggleCell[]
+): { accepted: boolean; points: number; isSecret: boolean; alreadyFound: boolean } {
   const player = room.players.get(socketId);
-  if (!player || player.isSpectator || room.phase !== "playing")
-    return { accepted: false, points: 0, isSecret: false };
+  if (!player || room.phase !== "playing")
+    return { accepted: false, points: 0, isSecret: false, alreadyFound: false };
 
   const upper = word.toUpperCase();
-  if (upper.length < room.config.minWordLength) return { accepted: false, points: 0, isSecret: false };
-  if (player.foundWords.has(upper)) return { accepted: false, points: 0, isSecret: false };
+  if (upper.length < room.config.minWordLength)
+    return { accepted: false, points: 0, isSecret: false, alreadyFound: false };
 
   const match = room.allWordsOnBoard.find((w) => w.word === upper);
-  if (!match) return { accepted: false, points: 0, isSecret: false };
+  if (!match) return { accepted: false, points: 0, isSecret: false, alreadyFound: false };
+
+  if (player.foundWords.has(upper))
+    return { accepted: false, points: 0, isSecret: false, alreadyFound: true };
 
   const isSecret = room.secretWord?.word === upper;
   const points = isSecret ? scoreForWord(upper.length) * 3 : scoreForWord(upper.length);
 
   player.foundWords.add(upper);
+  player.foundPaths.set(upper, path ?? match.path);
   player.score += points;
 
-  return { accepted: true, points, isSecret };
+  return { accepted: true, points, isSecret, alreadyFound: false };
 }
 
 export function endRound(room: Room): void {

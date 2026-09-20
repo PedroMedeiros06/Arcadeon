@@ -85,7 +85,7 @@ export function ResultsScreen({ result, isHost, onPlayAgain }: ResultsScreenProp
       <h2 className="text-2xl font-extrabold text-[var(--fg)]">Fim de rodada</h2>
 
       <div className="flex h-40 items-end gap-4">
-        {result.room.players.filter((p) => !p.isSpectator).map((p) => {
+        {result.room.players.map((p) => {
           const score = scores[p.socketId] ?? 0;
           return (
             <div key={p.socketId} className="flex flex-col items-center gap-1">
