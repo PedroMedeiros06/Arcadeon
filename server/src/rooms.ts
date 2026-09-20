@@ -9,12 +9,19 @@ export interface RoomConfig {
   maxPlayers: number; // 2-24
 }
 
+export interface PlayerAvatar {
+  emoji: string | null;
+  bgColor: string | null;
+  imageUrl: string | null;
+}
+
 export interface Player {
   socketId: string;
   name: string;
   score: number;
   foundWords: Set<string>;
   foundPaths: Map<string, BoggleCell[]>;
+  avatar: PlayerAvatar | null;
 }
 
 export type RoomPhase = "lobby" | "playing" | "results";
@@ -65,12 +72,19 @@ export function getRoom(code: string): Room | undefined {
   return rooms.get(code);
 }
 
-export function joinRoom(code: string, socketId: string, name: string): Room | null {
+export function joinRoom(code: string, socketId: string, name: string, avatar?: PlayerAvatar | null): Room | null {
   const room = rooms.get(code);
   if (!room || room.phase !== "lobby") return null;
   if (socketId === room.ownerSocketId) return null;
   if (room.players.size >= room.config.maxPlayers) return null;
-  room.players.set(socketId, { socketId, name, score: 0, foundWords: new Set(), foundPaths: new Map() });
+  room.players.set(socketId, {
+    socketId,
+    name,
+    score: 0,
+    foundWords: new Set(),
+    foundPaths: new Map(),
+    avatar: avatar ?? null,
+  });
   if (!room.hostSocketId) room.hostSocketId = socketId;
   return room;
 }
@@ -80,6 +94,13 @@ export function renamePlayer(room: Room, socketId: string, name: string): boolea
   const trimmed = name.trim().slice(0, 10);
   if (!player || !trimmed) return false;
   player.name = trimmed;
+  return true;
+}
+
+export function updatePlayerAvatar(room: Room, socketId: string, avatar: PlayerAvatar): boolean {
+  const player = room.players.get(socketId);
+  if (!player) return false;
+  player.avatar = avatar;
   return true;
 }
 

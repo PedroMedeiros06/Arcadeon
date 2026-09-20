@@ -13,7 +13,9 @@ import {
   updateConfig,
   transferHost,
   renamePlayer,
+  updatePlayerAvatar,
   RoomConfig,
+  PlayerAvatar,
 } from "./rooms";
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3001;
@@ -47,6 +49,7 @@ function publicRoomState(room: ReturnType<typeof getRoom>) {
       name: p.name,
       score: p.score,
       wordsFound: p.foundWords.size,
+      avatar: p.avatar,
     })),
   };
 }
@@ -60,13 +63,13 @@ io.on("connection", (socket) => {
     socket.emit("room-updated", publicRoomState(room));
   });
 
-  socket.on("join-room", (data: { code: string; name: string }) => {
+  socket.on("join-room", (data: { code: string; name: string; avatar?: PlayerAvatar }) => {
     const existingRoom = getRoom(data.code.toUpperCase());
     if (existingRoom && existingRoom.players.size >= existingRoom.config.maxPlayers) {
       socket.emit("join-error", { message: "Sala cheia." });
       return;
     }
-    const room = joinRoom(data.code.toUpperCase(), socket.id, data.name);
+    const room = joinRoom(data.code.toUpperCase(), socket.id, data.name, data.avatar);
     if (!room) {
       socket.emit("join-error", { message: "Sala não encontrada ou já iniciada." });
       return;
@@ -79,6 +82,14 @@ io.on("connection", (socket) => {
     const room = getRoom(data.code);
     if (!room) return;
     if (renamePlayer(room, socket.id, data.name)) {
+      io.to(room.code).emit("room-updated", publicRoomState(room));
+    }
+  });
+
+  socket.on("update-avatar", (data: { code: string; avatar: PlayerAvatar }) => {
+    const room = getRoom(data.code);
+    if (!room) return;
+    if (updatePlayerAvatar(room, socket.id, data.avatar)) {
       io.to(room.code).emit("room-updated", publicRoomState(room));
     }
   });

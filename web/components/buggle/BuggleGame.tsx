@@ -8,8 +8,9 @@ import { getBuggleSocket } from "@/lib/buggle/socket";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { Lobby } from "./Lobby";
 import { RoomWaiting } from "./RoomWaiting";
-import { Board } from "./Board";
 import { GamePlayScreen } from "./GamePlayScreen";
+import { OwnerGameScreen } from "./OwnerGameScreen";
+import { RoundCountdown } from "./RoundCountdown";
 import { ResultsScreen } from "./ResultsScreen";
 import { JoinNameModal } from "./JoinNameModal";
 import type { BoggleCell, RoomConfig, RoomState, RoundEndedPayload, WordResult } from "@/lib/buggle/types";
@@ -49,7 +50,7 @@ function GameHeader({ onLeaveRoom }: { onLeaveRoom?: () => void }) {
 }
 
 export function BuggleGame() {
-  const { username, loading: authLoading } = useAuth();
+  const { username, loading: authLoading, equippedAvatar } = useAuth();
   const searchParams = useSearchParams();
   const joinCodeFromUrl = searchParams.get("join");
   const [room, setRoom] = useState<RoomState | null>(null);
@@ -60,6 +61,8 @@ export function BuggleGame() {
   const [pendingAutoJoin, setPendingAutoJoin] = useState(!!joinCodeFromUrl);
   const [lobbyMode, setLobbyMode] = useState<"choose" | "create" | "join">("choose");
   const [roomClosed, setRoomClosed] = useState(false);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const prevPhase = useRef<RoomState["phase"] | null>(null);
   const socketRef = useRef(getBuggleSocket());
 
   useEffect(() => {
@@ -108,6 +111,28 @@ export function BuggleGame() {
     return () => clearInterval(interval);
   }, [room]);
 
+  // countdown 3-2-1 (TV e celulares dos jogadores) quando a rodada comeca
+  useEffect(() => {
+    if (!room) {
+      prevPhase.current = null;
+      return;
+    }
+    if (prevPhase.current !== "playing" && room.phase === "playing") {
+      setCountdown(3);
+    }
+    prevPhase.current = room.phase;
+  }, [room]);
+
+  useEffect(() => {
+    if (countdown === null) return;
+    if (countdown <= 0) {
+      const t = setTimeout(() => setCountdown(null), 900);
+      return () => clearTimeout(t);
+    }
+    const t = setTimeout(() => setCountdown((c) => (c ?? 1) - 1), 800);
+    return () => clearTimeout(t);
+  }, [countdown]);
+
   useEffect(() => {
     if (!joinCodeFromUrl || authLoading || room) return;
     if (username) {
@@ -116,6 +141,14 @@ export function BuggleGame() {
     }
   }, [joinCodeFromUrl, authLoading, username, room]);
 
+  function currentAvatar() {
+    return {
+      emoji: equippedAvatar?.emoji ?? null,
+      bgColor: equippedAvatar?.bg_color ?? null,
+      imageUrl: equippedAvatar?.image_url ?? null,
+    };
+  }
+
   function handleCreate(config: RoomConfig) {
     setRoomClosed(false);
     socketRef.current.emit("create-room", { config });
@@ -123,7 +156,7 @@ export function BuggleGame() {
 
   function handleJoinWithName(name: string) {
     if (joinCodeFromUrl) {
-      socketRef.current.emit("join-room", { code: joinCodeFromUrl, name });
+      socketRef.current.emit("join-room", { code: joinCodeFromUrl, name, avatar: currentAvatar() });
       setPendingAutoJoin(false);
     }
   }
@@ -131,7 +164,7 @@ export function BuggleGame() {
   function handleJoin(name: string, code: string) {
     setJoinError(null);
     setRoomClosed(false);
-    socketRef.current.emit("join-room", { code, name });
+    socketRef.current.emit("join-room", { code, name, avatar: currentAvatar() });
   }
 
   function handleStart() {
@@ -148,6 +181,10 @@ export function BuggleGame() {
 
   function handleRenamePlayer(name: string) {
     if (room) socketRef.current.emit("rename-player", { code: room.code, name });
+  }
+
+  function handleUpdateAvatar(avatar: { emoji: string | null; bgColor: string | null; imageUrl: string | null }) {
+    if (room) socketRef.current.emit("update-avatar", { code: room.code, avatar });
   }
 
   function handleWordSubmit(word: string, path: BoggleCell[]) {
@@ -225,6 +262,7 @@ export function BuggleGame() {
         onUpdateConfig={handleUpdateConfig}
         onTransferHost={handleTransferHost}
         onRenamePlayer={handleRenamePlayer}
+        onUpdateAvatar={handleUpdateAvatar}
       />
     );
   }
@@ -233,23 +271,14 @@ export function BuggleGame() {
   if (isOwner) {
     return (
       <>
-      <GameHeader onLeaveRoom={handleLeaveRoom} />
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6">
-        <p className="text-lg font-bold text-[var(--fg)]">Modo TV — so exibindo</p>
-        <div className="flex w-full max-w-md items-center justify-between rounded-xl border-2 border-[var(--border)] bg-[var(--card)] px-4 py-2">
-          <span className="font-mono text-2xl font-extrabold text-[var(--primary)]">{secondsLeft}s</span>
-          <div className="flex gap-3 text-sm font-bold text-[var(--fg)]">
-            {room.players.map((p) => (
-              <span key={p.socketId}>
-                {p.name}: {p.score}
-              </span>
-            ))}
-          </div>
-        </div>
-        {room.board && <Board board={room.board} onWordSubmit={() => {}} />}
-      </div>
+        <GameHeader onLeaveRoom={handleLeaveRoom} />
+        <OwnerGameScreen room={room} secondsLeft={secondsLeft} countdown={countdown} />
       </>
     );
+  }
+
+  if (countdown !== null) {
+    return <RoundCountdown countdown={countdown} />;
   }
 
   return (

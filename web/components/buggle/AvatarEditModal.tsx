@@ -10,10 +10,11 @@ import type { Avatar as AvatarType, UserAvatar } from "@/lib/types";
 interface AvatarEditModalProps {
   name: string;
   onNameChange?: (name: string) => void;
+  onEquip?: (avatar: { emoji: string | null; bgColor: string | null; imageUrl: string | null }) => void;
   onClose: () => void;
 }
 
-export function AvatarEditModal({ name, onNameChange, onClose }: AvatarEditModalProps) {
+export function AvatarEditModal({ name, onNameChange, onEquip, onClose }: AvatarEditModalProps) {
   const { user, equippedAvatar, refreshProfile } = useAuth();
   const [catalog, setCatalog] = useState<AvatarType[]>([]);
   const [owned, setOwned] = useState<UserAvatar[]>([]);
@@ -43,6 +44,14 @@ export function AvatarEditModal({ name, onNameChange, onClose }: AvatarEditModal
     try {
       await equipAvatar(user.id, avatarId);
       await refreshProfile();
+      const equipped = catalog.find((a) => a.id === avatarId);
+      if (equipped) {
+        onEquip?.({
+          emoji: equipped.emoji ?? null,
+          bgColor: equipped.bg_color ?? null,
+          imageUrl: equipped.image_url ?? null,
+        });
+      }
     } finally {
       setBusyId(null);
     }

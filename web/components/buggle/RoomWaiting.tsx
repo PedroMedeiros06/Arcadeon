@@ -18,6 +18,7 @@ interface RoomWaitingProps {
   onUpdateConfig: (config: RoomConfig) => void;
   onTransferHost: (newHostSocketId: string) => void;
   onRenamePlayer: (name: string) => void;
+  onUpdateAvatar: (avatar: { emoji: string | null; bgColor: string | null; imageUrl: string | null }) => void;
 }
 
 const AVATAR_COLORS = ["#ef4444", "#f59e0b", "#22c55e", "#1cb0f6", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
@@ -51,6 +52,7 @@ export function RoomWaiting({
   onUpdateConfig,
   onTransferHost,
   onRenamePlayer,
+  onUpdateAvatar,
 }: RoomWaitingProps) {
   const { equippedAvatar } = useAuth();
   const isOwner = room.ownerSocketId === mySocketId;
@@ -261,6 +263,7 @@ export function RoomWaiting({
         <AvatarEditModal
           name={me?.name ?? ""}
           onNameChange={onRenamePlayer}
+          onEquip={onUpdateAvatar}
           onClose={() => setShowAvatarModal(false)}
         />
       )}

@@ -14,11 +14,18 @@ export interface BoggleCell {
 
 export type BoggleBoard = BoggleCell[][];
 
+export interface PlayerAvatar {
+  emoji: string | null;
+  bgColor: string | null;
+  imageUrl: string | null;
+}
+
 export interface PlayerPublic {
   socketId: string;
   name: string;
   score: number;
   wordsFound: number;
+  avatar: PlayerAvatar | null;
 }
 
 export type RoomPhase = "lobby" | "playing" | "results";
