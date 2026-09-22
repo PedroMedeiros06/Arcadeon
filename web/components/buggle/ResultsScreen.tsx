@@ -1,15 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Crown } from "lucide-react";
+import { BookOpen } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
 import type { RoundEndedPayload } from "@/lib/buggle/types";
 import { scoreForWord } from "@/lib/buggle/score";
 
 interface ResultsScreenProps {
   result: RoundEndedPayload;
-  isHost: boolean;
-  onPlayAgain: () => void;
+  fast?: boolean;
+  onRevealComplete?: () => void;
 }
 
 const LENGTH_COLORS: Record<number, string> = {
@@ -35,7 +35,8 @@ function ordinalFor(i: number) {
   return ORDINALS[i] ?? `${i + 1}th`;
 }
 
-export function ResultsScreen({ result, isHost, onPlayAgain }: ResultsScreenProps) {
+export function ResultsScreen({ result, fast, onRevealComplete }: ResultsScreenProps) {
+  const speed = fast ? 0.35 : 1;
   const secretFound = result.foundBy.some((p) =>
     result.secretWord ? p.foundWords.includes(result.secretWord.word) : false
   );
@@ -62,7 +63,7 @@ export function ResultsScreen({ result, isHost, onPlayAgain }: ResultsScreenProp
   useEffect(() => {
     if (revealIndex < 0 || revealIndex >= words.length) {
       if (revealIndex === words.length) {
-        const timeout = setTimeout(() => setSecretRevealed(true), 800);
+        const timeout = setTimeout(() => setSecretRevealed(true), 800 * speed);
         return () => clearTimeout(timeout);
       }
       return;
@@ -74,7 +75,7 @@ export function ResultsScreen({ result, isHost, onPlayAgain }: ResultsScreenProp
     const intensity = Math.min(word.word.length, 10);
     const letterDelayMs = (0.05 + intensity * 0.012) * 1000;
     const typeDurationMs = word.word.length * letterDelayMs + 250; // 250ms = duracao do letterPop
-    const readPauseMs = 1200;
+    const readPauseMs = 1200 * speed;
     const leaveAt = typeDurationMs + readPauseMs;
     const advanceAfterLeaveMs = 400; // duracao do fadeOut
 
@@ -108,13 +109,18 @@ export function ResultsScreen({ result, isHost, onPlayAgain }: ResultsScreenProp
       clearTimeout(leaveTimer);
       clearTimeout(advanceTimer);
     };
-  }, [revealIndex, words, result.foundBy]);
+  }, [revealIndex, words, result.foundBy, speed]);
 
   const currentWord = revealIndex >= 0 && revealIndex < words.length ? words[revealIndex] : null;
   const currentPoints = currentWord ? scoreForWord(currentWord.word.length) : 0;
   const board = result.room.board;
   const totalWords = words.length;
   const countedSoFar = Math.max(0, revealIndex + 1);
+
+  useEffect(() => {
+    if (secretRevealed) onRevealComplete?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [secretRevealed]);
 
   // secreta (encontrada ou nao) fica marcada fixa no board quando revelada, por ultimo
   const showFixedSecret = secretRevealed && !!result.secretWord;
@@ -170,6 +176,8 @@ export function ResultsScreen({ result, isHost, onPlayAgain }: ResultsScreenProp
       [...result.room.players].sort((a, b) => (scores[b.socketId] ?? 0) - (scores[a.socketId] ?? 0)),
     [result.room.players, scores]
   );
+  const podium = ranking.slice(0, 10);
+  const rest = ranking.slice(10);
 
   return (
     <div className="flex flex-1 flex-col items-center gap-5 overflow-hidden p-4 sm:p-6">
@@ -296,51 +304,90 @@ export function ResultsScreen({ result, isHost, onPlayAgain }: ResultsScreenProp
         )}
       </div>
 
-      <div className="h-14 w-full" />
+      <div className="min-h-4 w-full flex-1" />
 
-      <div className="flex flex-wrap items-end justify-center gap-4">
-        {ranking.map((p, i) => {
-          const score = scores[p.socketId] ?? 0;
-          const wordsFoundCount = result.foundBy.find((f) => f.socketId === p.socketId)?.foundWords.length ?? 0;
-          const gain = gainFlash[p.socketId];
-          return (
-            <div key={p.socketId} className="relative flex flex-col items-center gap-1">
-              {gain && (
-                <span
-                  key={`${p.socketId}-${revealIndex}`}
-                  className="absolute -top-6 text-sm font-extrabold text-[var(--primary)]"
-                  style={{ animation: "floatUpFade 1.2s ease-out forwards" }}
-                >
-                  +{gain}
+      {(() => {
+        const podiumScores = podium.map((p) => scores[p.socketId] ?? 0);
+        const maxScore = Math.max(1, ...podiumScores);
+        const minStandHeight = 64;
+        const maxStandHeight = 168;
+        return (
+          <div className="flex flex-wrap items-end justify-center gap-4 pb-1">
+            {podium.map((p, i) => {
+              const score = scores[p.socketId] ?? 0;
+              const wordsFoundCount = result.foundBy.find((f) => f.socketId === p.socketId)?.foundWords.length ?? 0;
+              const gain = gainFlash[p.socketId];
+              const isHostPlayer = p.socketId === result.room.hostSocketId;
+              const standHeight = minStandHeight + (maxStandHeight - minStandHeight) * (score / maxScore);
+              return (
+                <div key={p.socketId} className="relative flex flex-col items-center gap-1.5">
+                  {gain && (
+                    <span
+                      key={`${p.socketId}-${revealIndex}`}
+                      className="absolute -top-4 text-base font-extrabold text-[var(--primary)]"
+                      style={{ animation: "floatUpFade 1.2s ease-out forwards" }}
+                    >
+                      +{gain}
+                    </span>
+                  )}
+                  <Avatar
+                    emoji={p.avatar?.emoji}
+                    bgColor={p.avatar?.bgColor ?? colorFor(p.socketId)}
+                    imageUrl={p.avatar?.imageUrl}
+                    fallbackLetter={p.name.trim().charAt(0).toUpperCase()}
+                    size="xl"
+                    shape="circle"
+                  />
+                  <div className="flex flex-col items-center gap-0.5">
+                    {isHostPlayer && (
+                      <span className="rounded-full bg-yellow-400 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-[#2c1568]">
+                        Host
+                      </span>
+                    )}
+                    <span className="text-sm font-extrabold text-[var(--fg)]">{p.name}</span>
+                    <span className="flex items-center gap-1 text-[11px] font-bold text-[var(--fg-muted)]">
+                      <BookOpen size={11} />
+                      {wordsFoundCount} {wordsFoundCount === 1 ? "palavra" : "palavras"}
+                    </span>
+                  </div>
+                  <div
+                    className="flex w-24 flex-col items-center justify-center rounded-t-xl bg-[var(--primary)] px-5 py-2.5 text-white shadow-[0_4px_0_var(--primary-dark)] transition-[height] duration-500"
+                    style={{ height: `${standHeight}px` }}
+                  >
+                    <span className="text-xl font-extrabold">{score}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wide">{ordinalFor(i)}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
+
+      {rest.length > 0 && (
+        <div className="fixed right-4 top-[88px] z-40 flex max-h-[60vh] w-56 flex-col gap-1.5 overflow-y-auto rounded-2xl border-2 border-[var(--border)] bg-[var(--card)] p-2.5 shadow-[0_6px_0_var(--border)]">
+          {rest.map((p, i) => {
+            const score = scores[p.socketId] ?? 0;
+            return (
+              <div key={p.socketId} className="flex items-center gap-2 rounded-xl px-1.5 py-1">
+                <span className="w-5 shrink-0 text-center text-[11px] font-extrabold text-[var(--fg-muted)]">
+                  {i + 11}
                 </span>
-              )}
-              <div className="relative">
                 <Avatar
                   emoji={p.avatar?.emoji}
                   bgColor={p.avatar?.bgColor ?? colorFor(p.socketId)}
                   imageUrl={p.avatar?.imageUrl}
                   fallbackLetter={p.name.trim().charAt(0).toUpperCase()}
-                  size="lg"
-                  shape="square"
+                  size="sm"
+                  shape="circle"
                 />
-                {p.socketId === result.room.hostSocketId && (
-                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-yellow-400 p-1 shadow">
-                    <Crown size={10} className="fill-[#2c1568] text-[#2c1568]" />
-                  </span>
-                )}
+                <span className="min-w-0 flex-1 truncate text-xs font-bold text-[var(--fg)]">{p.name}</span>
+                <span className="shrink-0 text-xs font-extrabold text-[var(--primary)]">{score}</span>
               </div>
-              <span className="text-xs font-bold text-[var(--fg)]">{p.name}</span>
-              <span className="text-[11px] font-semibold text-[var(--fg-muted)]">
-                {wordsFoundCount} {wordsFoundCount === 1 ? "palavra" : "palavras"}
-              </span>
-              <div className="flex flex-col items-center rounded-t-xl bg-[var(--primary)] px-4 py-2 text-white shadow-[0_4px_0_var(--primary-dark)]">
-                <span className="text-lg font-extrabold">{score}</span>
-                <span className="text-[10px] font-bold uppercase tracking-wide">{ordinalFor(i)}</span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {secretRevealed && result.secretWord && (() => {
         const finders = result.foundBy.filter((p) => p.foundWords.includes(result.secretWord!.word));
@@ -358,14 +405,8 @@ export function ResultsScreen({ result, isHost, onPlayAgain }: ResultsScreenProp
         );
       })()}
 
-      {isHost && secretRevealed && (
-        <button
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={onPlayAgain}
-          className="rounded-xl border-2 border-[var(--primary-dark)] bg-[var(--primary)] px-8 py-3 font-bold text-white shadow-[0_4px_0_var(--primary-dark)]"
-        >
-          Jogar novamente
-        </button>
+      {secretRevealed && (
+        <p className="text-sm font-bold text-[var(--fg-muted)]">Aguardando o host iniciar a proxima rodada...</p>
       )}
     </div>
   );

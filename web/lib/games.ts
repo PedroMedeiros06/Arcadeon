@@ -17,4 +17,12 @@ export const games: GameInfo[] = [
     status: "available",
     multiplayer: true,
   },
+  {
+    slug: "drawit",
+    title: "DrawIt",
+    description: "Desenhe e adivinhe com seus amigos em tempo real.",
+    icon: "🎨",
+    status: "available",
+    multiplayer: true,
+  },
 ];

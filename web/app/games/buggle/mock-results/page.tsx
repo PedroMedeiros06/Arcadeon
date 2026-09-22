@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ResultsScreen } from "@/components/buggle/ResultsScreen";
+import { MobileResultsScreen } from "@/components/buggle/MobileResultsScreen";
 import type { BoggleBoard, BoggleCell, RoundEndedPayload } from "@/lib/buggle/types";
 
 const NAMES = [
@@ -87,11 +88,16 @@ function makeResult(
   });
   const secretWord = allWords[Math.floor(allWords.length / 2)] ?? null;
 
-  const foundBy = players.map((p, playerIndex) => {
+  const foundBy = players.map((p, i) => {
+    // skill bem espalhado: 1o jogador sempre forte (lider claro pro teste),
+    // resto usa curva quadratica (Math.random()^2) pra empurrar a maioria pra
+    // baixo e deixar so alguns poucos com pontuacao alta — evita "todo mundo
+    // com pontuacao parecida"
+    const skill = i === 0 ? 0.9 : 0.05 + Math.random() * Math.random() * 0.85;
     const found = allWords
       .filter((w) => {
         if (secretWord && w.word === secretWord.word) return secretFound;
-        return Math.random() > 0.4;
+        return Math.random() < skill;
       })
       .map((w) => w.word);
     return { socketId: p.socketId, name: p.name, foundWords: found };
@@ -126,12 +132,17 @@ export default function BuggleMockResultsPage() {
   const [maxLen, setMaxLen] = useState(6);
   const [secretFound, setSecretFound] = useState(true);
   const [seed, setSeed] = useState(0);
+  const [fast, setFast] = useState(false);
+  const [revealDone, setRevealDone] = useState(false);
+  const [viewMobile, setViewMobile] = useState(false);
+  const [mobileIsHost, setMobileIsHost] = useState(true);
   // board usa Math.random, entao so gera depois de montar no client
   // (evita mismatch de hidratacao com o SSR)
   const [board, setBoard] = useState<BoggleBoard | null>(null);
 
   useEffect(() => {
     setBoard(makeBoard(boardSize));
+    setRevealDone(false);
   }, [boardSize, seed]);
 
   const result = useMemo(
@@ -220,9 +231,30 @@ export default function BuggleMockResultsPage() {
         >
           Regenerar
         </button>
+        <label className="flex items-center gap-1.5 text-xs font-bold text-[var(--fg-muted)]">
+          <input type="checkbox" checked={viewMobile} onChange={(e) => setViewMobile(e.target.checked)} />
+          Ver como celular
+        </label>
+        {viewMobile && (
+          <label className="flex items-center gap-1.5 text-xs font-bold text-[var(--fg-muted)]">
+            <input type="checkbox" checked={mobileIsHost} onChange={(e) => setMobileIsHost(e.target.checked)} />
+            Sou host
+          </label>
+        )}
       </div>
 
-      <ResultsScreen key={seed} result={result} isHost onPlayAgain={() => alert("Jogar novamente (mock)")} />
+      <div className={viewMobile ? "hidden" : "contents"}>
+        <ResultsScreen key={seed} result={result} fast={fast} onRevealComplete={() => setRevealDone(true)} />
+      </div>
+      {viewMobile && (
+        <MobileResultsScreen
+          isHost={mobileIsHost}
+          fast={fast}
+          onChangeFast={setFast}
+          revealDone={revealDone}
+          onPlayAgain={() => alert("Jogar novamente (mock)")}
+        />
+      )}
     </div>
   );
 }

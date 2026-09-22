@@ -12,6 +12,7 @@ import { GamePlayScreen } from "./GamePlayScreen";
 import { OwnerGameScreen } from "./OwnerGameScreen";
 import { RoundCountdown } from "./RoundCountdown";
 import { ResultsScreen } from "./ResultsScreen";
+import { MobileResultsScreen } from "./MobileResultsScreen";
 import { JoinNameModal } from "./JoinNameModal";
 import type { BoggleCell, RoomConfig, RoomState, RoundEndedPayload, WordResult } from "@/lib/buggle/types";
 
@@ -62,6 +63,8 @@ export function BuggleGame() {
   const [lobbyMode, setLobbyMode] = useState<"choose" | "create" | "join">("choose");
   const [roomClosed, setRoomClosed] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [resultsFast, setResultsFast] = useState(false);
+  const [resultsRevealDone, setResultsRevealDone] = useState(false);
   const prevPhase = useRef<RoomState["phase"] | null>(null);
   const socketRef = useRef(getBuggleSocket());
 
@@ -81,6 +84,14 @@ export function BuggleGame() {
     function handleRoundEnded(data: RoundEndedPayload) {
       setRoundResult(data);
       setRoom(data.room);
+      setResultsFast(false);
+      setResultsRevealDone(false);
+    }
+    function handleResultsSpeedChanged(data: { fast: boolean }) {
+      setResultsFast(data.fast);
+    }
+    function handleResultsRevealDone() {
+      setResultsRevealDone(true);
     }
     function handleRoomClosed() {
       setRoom(null);
@@ -93,6 +104,8 @@ export function BuggleGame() {
     socket.on("word-result", handleWordResult);
     socket.on("round-ended", handleRoundEnded);
     socket.on("room-closed", handleRoomClosed);
+    socket.on("results-speed-changed", handleResultsSpeedChanged);
+    socket.on("results-reveal-done", handleResultsRevealDone);
 
     return () => {
       socket.off("room-updated", handleRoomUpdated);
@@ -100,6 +113,7 @@ export function BuggleGame() {
       socket.off("word-result", handleWordResult);
       socket.off("round-ended", handleRoundEnded);
       socket.off("room-closed", handleRoomClosed);
+      socket.off("results-speed-changed", handleResultsSpeedChanged);
     };
   }, []);
 
@@ -187,6 +201,11 @@ export function BuggleGame() {
     if (room) socketRef.current.emit("update-avatar", { code: room.code, avatar });
   }
 
+  function handleChangeResultsSpeed(fast: boolean) {
+    setResultsFast(fast);
+    if (room) socketRef.current.emit("set-results-speed", { code: room.code, fast });
+  }
+
   function handleWordSubmit(word: string, path: BoggleCell[]) {
     if (room) socketRef.current.emit("submit-word", { code: room.code, word, path });
   }
@@ -240,14 +259,29 @@ export function BuggleGame() {
   }
 
   if (roundResult) {
+    const amOwner = room.ownerSocketId === socketRef.current.id;
+    const amHost = room.hostSocketId === socketRef.current.id;
     return (
       <>
         <GameHeader onLeaveRoom={handleLeaveRoom} />
-        <ResultsScreen
-          result={roundResult}
-          isHost={room.hostSocketId === socketRef.current.id}
-          onPlayAgain={handleStart}
-        />
+        {amOwner ? (
+          <ResultsScreen
+            result={roundResult}
+            fast={resultsFast}
+            onRevealComplete={() => {
+              setResultsRevealDone(true);
+              socketRef.current.emit("results-reveal-done", { code: room.code });
+            }}
+          />
+        ) : (
+          <MobileResultsScreen
+            isHost={amHost}
+            fast={resultsFast}
+            onChangeFast={handleChangeResultsSpeed}
+            revealDone={resultsRevealDone}
+            onPlayAgain={handleStart}
+          />
+        )}
       </>
     );
   }
