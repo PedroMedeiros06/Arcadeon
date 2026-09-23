@@ -38,6 +38,7 @@ import {
   DrawRoom,
   DrawRoomConfig,
 } from "./drawRooms";
+import { registerRaceNamespace } from "./raceSocket";
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3001;
 const CLIENT_ORIGIN = (process.env.CLIENT_ORIGIN ?? "http://localhost:3000").replace(/\/$/, "");
@@ -53,6 +54,14 @@ app.get("/health", (_req, res) => {
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: { origin: CLIENT_ORIGIN },
+});
+
+// evita CDN/proxy (Render/Cloudflare) cacheando respostas de polling do
+// Engine.IO, o que corrompe sessoes com "Session ID unknown"
+io.engine.on("connection", (rawSocket) => {
+  rawSocket.on("headers", (headers: Record<string, string>) => {
+    headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private";
+  });
 });
 
 function publicRoomState(room: ReturnType<typeof getRoom>) {
@@ -401,6 +410,9 @@ drawNsp.on("connection", (socket) => {
     else if (closedCode) drawNsp.to(closedCode).emit("room-closed");
   });
 });
+
+// ---------- Corrida do Conhecimento ----------
+registerRaceNamespace(io);
 
 httpServer.listen(PORT, () => {
   console.log(`server listening on http://localhost:${PORT}`);
