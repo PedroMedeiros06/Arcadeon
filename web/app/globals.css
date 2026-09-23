@@ -396,3 +396,119 @@ body {
   transform: scaleY(0);
   animation: growUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* ---------- Corrida do Conhecimento ---------- */
+
+@keyframes race-flame-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.5);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes race-flame-out {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.3);
+  }
+}
+
+@keyframes race-ice-form {
+  0% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* estilhaco/particula: direcao vem de --dx/--dy inline */
+@keyframes race-fly {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), var(--dy)) rotate(var(--rot, 90deg)) scale(0.4);
+  }
+}
+
+@keyframes race-exhaust {
+  0% {
+    opacity: 0.7;
+    transform: translateX(0) scale(0.5);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-26px) scale(1.5);
+  }
+}
+
+@keyframes race-speedline {
+  0% {
+    opacity: 0;
+    transform: scaleX(0);
+  }
+  30% {
+    opacity: 0.8;
+    transform: scaleX(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes race-overtake {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  40% {
+    transform: translateY(-4px) scale(1.15);
+  }
+}
+
+@keyframes race-drive {
+  0% {
+    transform: translateX(0);
+  }
+  70%,
+  100% {
+    transform: translateX(var(--to));
+  }
+}
+
+@keyframes race-wave {
+  0%,
+  100% {
+    transform: rotate(-8deg);
+  }
+  50% {
+    transform: rotate(8deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .race-motion,
+  .race-motion * {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}

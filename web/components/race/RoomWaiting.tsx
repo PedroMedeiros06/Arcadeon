@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { ArrowLeft, Crown, Pencil, Settings, Smartphone, Users } from "lucide-react";
+import { ArrowLeft, CircleHelp, Crown, Pencil, Settings, Smartphone, Users } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
 import { AvatarEditModal } from "@/components/buggle/AvatarEditModal";
 import { EditRoomModal, TransferHostModal } from "./RoomModals";
+import { SoundToggle } from "./SoundToggle";
 import type { PlayerAvatar, RaceRoomConfig, RaceRoomState } from "@/lib/race/types";
 
 interface RoomWaitingProps {
@@ -17,6 +18,7 @@ interface RoomWaitingProps {
   onTransferHost: (newHostSocketId: string) => void;
   onRename: (name: string) => void;
   onUpdateAvatar: (avatar: PlayerAvatar) => void;
+  onHowToPlay: () => void;
 }
 
 export function RoomWaiting({
@@ -28,6 +30,7 @@ export function RoomWaiting({
   onTransferHost,
   onRename,
   onUpdateAvatar,
+  onHowToPlay,
 }: RoomWaitingProps) {
   const isHost = room.hostSocketId === mySocketId;
   const me = room.players.find((p) => p.socketId === mySocketId);
@@ -47,9 +50,20 @@ export function RoomWaiting({
           <ArrowLeft size={14} strokeWidth={2.5} />
           Sair
         </button>
-        <div className="flex items-center gap-1.5 rounded-full bg-black/25 px-3 py-1.5 text-sm font-bold text-white backdrop-blur">
-          <Users size={16} strokeWidth={2.5} />
-          {room.players.length}/{room.config.maxPlayers}
+        <div className="flex items-center gap-2">
+          <button
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={onHowToPlay}
+            aria-label="Como jogar"
+            className="flex h-9 items-center gap-1 rounded-xl bg-black/25 px-2.5 text-xs font-bold text-white/80 transition hover:text-white"
+          >
+            <CircleHelp size={16} /> <span className="hidden sm:inline">Como jogar</span>
+          </button>
+          <SoundToggle variant="dark" />
+          <div className="flex items-center gap-1.5 rounded-full bg-black/25 px-3 py-1.5 text-sm font-bold text-white backdrop-blur">
+            <Users size={16} strokeWidth={2.5} />
+            {room.players.length}/{room.config.maxPlayers}
+          </div>
         </div>
       </div>
 
@@ -87,7 +101,7 @@ export function RoomWaiting({
         </div>
 
         <div className="text-center text-xs text-white/60">
-          {room.config.questionCount} perguntas · {room.config.questionSeconds}s por pergunta ·{" "}
+          Até a linha de chegada · {room.config.questionSeconds}s por pergunta ·{" "}
           {room.config.visibility === "public" ? "pública" : "privada"}
         </div>
 

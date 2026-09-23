@@ -3,10 +3,18 @@ import type { RaceDifficulty } from "./raceQuestions";
 // Respostas dentro dessa janela inicial ganham velocidade maxima — apaga a vantagem de ping
 // na faixa mais rapida (ninguem le e responde em menos de 1s de verdade).
 export const SPEED_GRACE_MS = 1000;
-export const DISTANCE_BASE = 70;
+
+// A corrida termina quando alguem chega aqui. Acertando tudo rapido: ~10 perguntas;
+// jogador tipico (~70% de acerto, velocidade media): ~16-18 perguntas.
+export const FINISH_PROGRESS = 1000;
+// Failsafe: so encerra por aqui se ninguem cruzar a linha (todos errando muito).
+export const MAX_QUESTIONS = 30;
+
+export const DISTANCE_BASE = 60;
 export const DISTANCE_SPEED = 30;
+export const STREAK_BONUS_STEP = 5;
+export const STREAK_BONUS_MAX_STEPS = 4;
 export const POINTS_BASE = 100;
-export const FINISH_LINE_PER_QUESTION = 80;
 
 const DIFFICULTY_MULTIPLIER: Record<RaceDifficulty, number> = { 1: 1, 2: 1.2, 3: 1.5 };
 
@@ -18,16 +26,23 @@ export function speedFactor(responseMs: number, questionMs: number): number {
   return Math.min(1, Math.max(0, 1 - late / window));
 }
 
-/** Distancia nao depende da dificuldade: todos recebem a mesma pergunta, cada uma pesa igual na corrida. */
-export function distanceFor(correct: boolean, responseMs: number, questionMs: number): number {
-  if (!correct) return 0;
-  return DISTANCE_BASE + Math.round(DISTANCE_SPEED * speedFactor(responseMs, questionMs));
+/**
+ * Bonus pela sequencia JA contando o acerto atual: 🔥1 +0, 🔥2 +5, 🔥3 +10, 🔥4 +15, 🔥5+ +20.
+ * Teto baixo de proposito: recompensa manter a sequencia sem desequilibrar a corrida.
+ */
+export function streakBonus(streakAfter: number): number {
+  return STREAK_BONUS_STEP * Math.min(Math.max(0, streakAfter - 1), STREAK_BONUS_MAX_STEPS);
 }
 
-export function pointsFor(correct: boolean, responseMs: number, questionMs: number, difficulty: RaceDifficulty): number {
-  if (!correct) return 0;
+/** Avanco na pista de um acerto sem congelamento: 60..110. Nao depende da dificuldade. */
+export function distanceFor(responseMs: number, questionMs: number, streakAfter: number): number {
+  return DISTANCE_BASE + Math.round(DISTANCE_SPEED * speedFactor(responseMs, questionMs)) + streakBonus(streakAfter);
+}
+
+/** Pontos so servem de desempate/estatistica. */
+export function pointsFor(responseMs: number, questionMs: number, difficulty: RaceDifficulty, streakAfter: number): number {
   const s = speedFactor(responseMs, questionMs);
-  return Math.round(POINTS_BASE * DIFFICULTY_MULTIPLIER[difficulty] * (0.5 + 0.5 * s));
+  return Math.round(POINTS_BASE * DIFFICULTY_MULTIPLIER[difficulty] * (0.5 + 0.5 * s)) + streakBonus(streakAfter);
 }
 
 export interface StandingStats {

@@ -1,11 +1,11 @@
 import { Server, Socket } from "socket.io";
 import { CATEGORY_LABELS } from "./raceQuestions";
+import { FINISH_PROGRESS } from "./raceScoring";
 import {
   RaceRoom,
   createRaceRoom,
   currentQuestion,
   endQuestionIfAllAnswered,
-  finishLine,
   getRoomForSocket,
   joinRaceRoom,
   leaveRaceRoom,
@@ -29,6 +29,17 @@ const RATE_LIMIT_MS = 150;
  * Snapshot publico — igual pra todos na sala. Nunca contem correctIndex antes do reveal,
  * nem perguntas futuras, nem a alternativa escolhida pelos outros durante a pergunta.
  */
+/**
+ * Gelo visivel: do reveal em que a sequencia foi perdida ate o fim da pergunta congelada.
+ * No reveal da rodada congelada ja vem false — o cliente mostra o gelo quebrando ali (wasFrozen).
+ */
+function isFrozenForDisplay(room: RaceRoom, frozenQ: number | null): boolean {
+  if (frozenQ === null) return false;
+  if (room.phase === "question") return frozenQ === room.questionIndex;
+  if (room.phase === "question-results") return frozenQ === room.questionIndex + 1;
+  return false;
+}
+
 export function publicRaceRoomState(room: RaceRoom) {
   const question = currentQuestion(room);
   const showQuestion = room.phase === "question" || room.phase === "question-results";
@@ -39,11 +50,12 @@ export function publicRaceRoomState(room: RaceRoom) {
     config: room.config,
     phase: room.phase,
     questionIndex: room.questionIndex,
-    totalQuestions: room.questions.length || room.config.questionCount,
     phaseStartsAt: room.phaseStartsAt,
     phaseEndsAt: room.phaseEndsAt,
     serverNow: Date.now(),
-    finishLine: finishLine(room),
+    finishProgress: FINISH_PROGRESS,
+    finishing: room.finishing,
+    winnerSocketId: room.winnerSocketId,
     endReason: room.endReason,
     question:
       showQuestion && question
@@ -67,6 +79,9 @@ export function publicRaceRoomState(room: RaceRoom) {
       avgResponseMs: p.answeredCount > 0 ? Math.round(p.answeredTimeMsTotal / p.answeredCount) : null,
       answered: room.phase === "question" ? !!p.answer : false,
       rank: ranking.indexOf(p.socketId) + 1,
+      streak: p.streak,
+      maxStreak: p.maxStreak,
+      frozen: isFrozenForDisplay(room, p.frozenQuestionIndex),
     })),
   };
 }

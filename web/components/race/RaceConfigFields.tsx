@@ -3,7 +3,6 @@
 import { Globe, Lock, Users } from "lucide-react";
 import type { RaceRoomConfig } from "@/lib/race/types";
 
-const QUESTION_COUNTS: RaceRoomConfig["questionCount"][] = [5, 10, 15];
 const QUESTION_SECONDS: RaceRoomConfig["questionSeconds"][] = [10, 15, 20];
 
 function Segmented<T extends string | number>({
@@ -48,16 +47,6 @@ export function RaceConfigFields({
 }) {
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
-        <p className="text-sm font-bold text-white/90">Perguntas</p>
-        <Segmented
-          options={QUESTION_COUNTS}
-          value={config.questionCount}
-          onChange={(questionCount) => onChange({ ...config, questionCount })}
-          render={(v) => v}
-        />
-      </div>
-
       <div className="flex flex-col gap-2">
         <p className="text-sm font-bold text-white/90">Tempo por pergunta</p>
         <Segmented

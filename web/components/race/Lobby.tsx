@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Flag, KeyRound, Plus, X } from "lucide-react";
+import { CircleHelp, Flag, KeyRound, Plus, X } from "lucide-react";
 import { RaceConfigFields } from "./RaceConfigFields";
 import type { RaceRoomConfig } from "@/lib/race/types";
 
@@ -13,16 +13,16 @@ interface LobbyProps {
   onJoin: (name: string, code: string) => void;
   joinError: string | null;
   onModeChange?: (mode: "choose" | "create" | "join") => void;
+  onHowToPlay: () => void;
 }
 
-export function Lobby({ defaultName, isNameLocked, connected, onCreate, onJoin, joinError, onModeChange }: LobbyProps) {
+export function Lobby({ defaultName, isNameLocked, connected, onCreate, onJoin, joinError, onModeChange, onHowToPlay }: LobbyProps) {
   const [mode, setModeState] = useState<"choose" | "create" | "join">("choose");
   const [typedName, setName] = useState(defaultName);
   // logado: nome vem da conta e nao e editavel
   const name = isNameLocked ? defaultName : typedName;
   const [joinCode, setJoinCode] = useState("");
   const [config, setConfig] = useState<RaceRoomConfig>({
-    questionCount: 10,
     questionSeconds: 15,
     visibility: "private",
     maxPlayers: 8,
@@ -87,6 +87,13 @@ export function Lobby({ defaultName, isNameLocked, connected, onCreate, onJoin, 
               <span className="text-sm font-medium text-white/60">Tem um código? Entre em uma sala existente</span>
             </button>
           </div>
+          <button
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={onHowToPlay}
+            className="mx-auto mt-5 flex items-center gap-1.5 rounded-full bg-white/10 px-4 py-2 text-sm font-bold text-white/90 transition hover:bg-white/20"
+          >
+            <CircleHelp size={16} /> Como jogar
+          </button>
           {connecting}
         </div>
       </div>

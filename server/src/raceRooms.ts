@@ -1,9 +1,8 @@
 import { PlayerAvatar } from "./rooms";
 import { RACE_QUESTIONS, RaceCategory, RaceDifficulty, RaceQuestion } from "./raceQuestions";
-import { FINISH_LINE_PER_QUESTION, compareStandings, distanceFor, pointsFor } from "./raceScoring";
+import { FINISH_PROGRESS, MAX_QUESTIONS, compareStandings, distanceFor, pointsFor } from "./raceScoring";
 
 export interface RaceRoomConfig {
-  questionCount: 5 | 10 | 15;
   questionSeconds: 10 | 15 | 20;
   visibility: "public" | "private";
   maxPlayers: number; // 2-16
@@ -27,6 +26,10 @@ export interface RacePlayer {
   correctTimeMsTotal: number;
   answeredCount: number;
   answeredTimeMsTotal: number;
+  streak: number;
+  maxStreak: number;
+  /** indice da pergunta em que o jogador esta congelado (nao anda). null = livre. */
+  frozenQuestionIndex: number | null;
   answer: RaceAnswer | null;
 }
 
@@ -39,6 +42,13 @@ export interface RevealEntry {
   responseMs: number | null;
   distanceGained: number;
   pointsGained: number;
+  /** estava congelado nesta rodada — nao andou mesmo acertando */
+  wasFrozen: boolean;
+  streakAfter: number;
+  /** tinha sequencia e errou/nao respondeu */
+  lostStreak: boolean;
+  /** vai ficar congelado na proxima rodada */
+  froze: boolean;
 }
 
 export interface QuestionReveal {
@@ -47,7 +57,7 @@ export interface QuestionReveal {
   entries: RevealEntry[];
 }
 
-export type GameEndReason = "completed" | "players-left";
+export type GameEndReason = "finished" | "limit" | "players-left";
 
 export interface RaceRoom {
   code: string;
@@ -61,26 +71,34 @@ export interface RaceRoom {
   phaseStartsAt: number | null;
   phaseEndsAt: number | null;
   lastReveal: QuestionReveal | null;
+  /** alguem cruzou a linha nesta rodada: o reveal atual e' o ultimo */
+  finishing: boolean;
+  winnerSocketId: string | null;
   endReason: GameEndReason | null;
   recentQuestionIds: string[];
   timer: NodeJS.Timeout | null;
   timerToken: number;
 }
 
+// RACE_FAST_TIMERS so encurta duracoes (simulador); regras e validacoes sao as mesmas
+const FAST = process.env.RACE_FAST_TIMERS === "1";
 // "3, 2, 1" (3s) + "VAI!" (0.8s)
-export const COUNTDOWN_MS = 3800;
+export const COUNTDOWN_MS = FAST ? 1200 : 3800;
 // pergunta chega antes do relogio comecar — todos recebem antes de poder responder
-export const QUESTION_LEAD_MS = 600;
+export const QUESTION_LEAD_MS = FAST ? 200 : 600;
 // respostas ate endsAt + isso ainda contam (rede lenta)
 export const LATE_GRACE_MS = 400;
-export const QUESTION_RESULTS_MS = 4500;
+export const QUESTION_RESULTS_MS = FAST ? 800 : 4500;
 const RECENT_QUESTIONS_LIMIT = 80;
 
-const DIFFICULTY_TEMPLATES: Record<RaceRoomConfig["questionCount"], RaceDifficulty[]> = {
-  5: [1, 2, 1, 3, 2],
-  10: [1, 1, 2, 2, 1, 2, 3, 2, 3, 3],
-  15: [1, 1, 2, 1, 2, 2, 3, 2, 1, 2, 3, 2, 3, 2, 3],
-};
+// primeiras 10 com a curva de aquecimento, depois ciclo equilibrado
+const OPENING_DIFFICULTIES: RaceDifficulty[] = [1, 1, 2, 2, 1, 2, 3, 2, 3, 3];
+const CYCLE_DIFFICULTIES: RaceDifficulty[] = [2, 3, 2, 1, 3, 2];
+
+function difficultyFor(index: number): RaceDifficulty {
+  if (index < OPENING_DIFFICULTIES.length) return OPENING_DIFFICULTIES[index];
+  return CYCLE_DIFFICULTIES[(index - OPENING_DIFFICULTIES.length) % CYCLE_DIFFICULTIES.length];
+}
 
 const rooms = new Map<string, RaceRoom>();
 const socketToRoom = new Map<string, string>();
@@ -97,11 +115,9 @@ export function setRaceAutoAdvanceListener(listener: RoomListener): void {
 
 export function sanitizeConfig(input: unknown): RaceRoomConfig {
   const c = (typeof input === "object" && input !== null ? input : {}) as Record<string, unknown>;
-  const questionCount = c.questionCount === 5 || c.questionCount === 15 ? c.questionCount : 10;
   const questionSeconds = c.questionSeconds === 10 || c.questionSeconds === 20 ? c.questionSeconds : 15;
   const rawMax = typeof c.maxPlayers === "number" && Number.isFinite(c.maxPlayers) ? Math.round(c.maxPlayers) : 8;
   return {
-    questionCount,
     questionSeconds,
     visibility: c.visibility === "public" ? "public" : "private",
     maxPlayers: Math.min(16, Math.max(2, rawMax)),
@@ -149,6 +165,9 @@ function newPlayer(socketId: string, name: string, avatar: PlayerAvatar | null, 
     correctTimeMsTotal: 0,
     answeredCount: 0,
     answeredTimeMsTotal: 0,
+    streak: 0,
+    maxStreak: 0,
+    frozenQuestionIndex: null,
     answer: null,
   };
 }
@@ -176,6 +195,8 @@ export function createRaceRoom(
     phaseStartsAt: null,
     phaseEndsAt: null,
     lastReveal: null,
+    finishing: false,
+    winnerSocketId: null,
     endReason: null,
     recentQuestionIds: [],
     timer: null,
@@ -266,13 +287,14 @@ function withShuffledOptions(q: RaceQuestion): RaceQuestion {
   };
 }
 
+/** Sorteia ate MAX_QUESTIONS (o failsafe). Normalmente a corrida acaba bem antes, na linha de chegada. */
 function pickQuestions(room: RaceRoom): RaceQuestion[] {
-  const template = DIFFICULTY_TEMPLATES[room.config.questionCount];
   const recent = new Set(room.recentQuestionIds);
   const used = new Set<string>();
   const picked: RaceQuestion[] = [];
 
-  for (const difficulty of template) {
+  for (let index = 0; index < MAX_QUESTIONS; index++) {
+    const difficulty = difficultyFor(index);
     const prevCats = picked.slice(-2).map((q) => q.category);
     const blockedCat: RaceCategory | null = prevCats.length === 2 && prevCats[0] === prevCats[1] ? prevCats[0] : null;
     const fits = (q: RaceQuestion) => !used.has(q.id) && q.category !== blockedCat;
@@ -295,7 +317,7 @@ function pickQuestions(room: RaceRoom): RaceQuestion[] {
         break;
       }
     }
-    if (!chosen) break; // banco menor que a partida — joga com o que tiver
+    if (!chosen) break; // banco menor que o failsafe — o limite vira o tamanho do banco
     used.add(chosen.id);
     picked.push(chosen);
   }
@@ -306,18 +328,14 @@ function pickQuestions(room: RaceRoom): RaceQuestion[] {
 
 // ---------- fases ----------
 
-export function finishLine(room: RaceRoom): number {
-  return room.config.questionCount * FINISH_LINE_PER_QUESTION;
-}
-
 export function startRaceGame(room: RaceRoom): boolean {
   if (room.phase !== "lobby" || room.players.size < 2) return false;
-  for (const [socketId, player] of room.players) {
-    room.players.set(socketId, newPlayer(socketId, player.name, player.avatar, player.joinSeq));
-  }
+  resetPlayers(room);
   room.questions = pickQuestions(room);
   room.questionIndex = -1;
   room.lastReveal = null;
+  room.finishing = false;
+  room.winnerSocketId = null;
   room.endReason = null;
   room.phase = "countdown";
   room.phaseStartsAt = Date.now();
@@ -329,7 +347,7 @@ export function startRaceGame(room: RaceRoom): boolean {
 function startNextQuestion(room: RaceRoom): void {
   room.questionIndex++;
   if (room.questionIndex >= room.questions.length) {
-    finishGame(room, "completed");
+    finishGame(room, "limit");
     return;
   }
   for (const player of room.players.values()) player.answer = null;
@@ -346,6 +364,7 @@ export function currentQuestion(room: RaceRoom): RaceQuestion | null {
 
 export type AnswerRejection = "not-in-game" | "stale" | "too-early" | "late" | "duplicate" | "invalid";
 
+/** So le questionId e answerIndex — qualquer outro campo do cliente (streak, frozen, progress...) e' ignorado. */
 export function submitRaceAnswer(
   room: RaceRoom,
   socketId: string,
@@ -380,19 +399,51 @@ export function allPlayersAnswered(room: RaceRoom): boolean {
   return true;
 }
 
-/** Idempotente: so age se ainda estiver em "question". Calcula tudo em lote, independente da ordem de chegada. */
+/** Congelado na pergunta atual (servidor e' a unica fonte). */
+export function isFrozenNow(room: RaceRoom, player: RacePlayer): boolean {
+  return player.frozenQuestionIndex !== null && player.frozenQuestionIndex === room.questionIndex;
+}
+
+/**
+ * Idempotente: so age se ainda estiver em "question". Calcula tudo em lote, independente da ordem de chegada.
+ * Regras por jogador:
+ *  - congelado nesta rodada: nao anda, sequencia nao muda (acertar nao inicia sequencia), gelo sai no fim
+ *  - acertou: sequencia +1, anda (velocidade + bonus de sequencia)
+ *  - errou/nao respondeu com sequencia > 0: sequencia 0, congela na proxima rodada
+ *  - errou/nao respondeu sem sequencia: nada acontece
+ */
 export function endQuestion(room: RaceRoom): void {
   const question = currentQuestion(room);
   if (room.phase !== "question" || !question) return;
   const questionMs = room.config.questionSeconds * 1000;
+  const index = room.questionIndex;
 
   const entries: RevealEntry[] = [];
   for (const player of room.players.values()) {
     const answer = player.answer;
     const correct = !!answer && answer.answerIndex === question.correctIndex;
-    const responseMs = answer ? answer.responseMs : null;
-    const distanceGained = distanceFor(correct, responseMs ?? questionMs, questionMs);
-    const pointsGained = pointsFor(correct, responseMs ?? questionMs, questionMs, question.difficulty);
+    const wasFrozen = isFrozenNow(room, player);
+    let distanceGained = 0;
+    let pointsGained = 0;
+    let lostStreak = false;
+    let froze = false;
+
+    if (wasFrozen) {
+      // rodada congelada: responde, ve a resposta, mas nao anda nem inicia sequencia
+      if (correct) pointsGained = pointsFor(answer!.responseMs, questionMs, question.difficulty, 0);
+      player.frozenQuestionIndex = null;
+    } else if (correct) {
+      player.streak++;
+      player.maxStreak = Math.max(player.maxStreak, player.streak);
+      distanceGained = distanceFor(answer!.responseMs, questionMs, player.streak);
+      pointsGained = pointsFor(answer!.responseMs, questionMs, question.difficulty, player.streak);
+    } else if (player.streak > 0) {
+      // errar ou deixar o tempo acabar com sequencia: perde e congela (nao responder nao foge do risco)
+      player.streak = 0;
+      player.frozenQuestionIndex = index + 1;
+      lostStreak = true;
+      froze = true;
+    }
 
     player.distance += distanceGained;
     player.points += pointsGained;
@@ -408,9 +459,13 @@ export function endQuestion(room: RaceRoom): void {
       socketId: player.socketId,
       answerIndex: answer ? answer.answerIndex : null,
       correct,
-      responseMs,
+      responseMs: answer ? answer.responseMs : null,
       distanceGained,
       pointsGained,
+      wasFrozen,
+      streakAfter: player.streak,
+      lostStreak,
+      froze,
     });
   }
 
@@ -418,7 +473,17 @@ export function endQuestion(room: RaceRoom): void {
   room.phase = "question-results";
   room.phaseStartsAt = Date.now();
   room.phaseEndsAt = room.phaseStartsAt + QUESTION_RESULTS_MS;
-  scheduleRoomTimer(room, room.phaseEndsAt, startNextQuestion);
+
+  // o reveal roda normalmente (todos veem o carro cruzar) e so depois vem o resultado — nenhuma pergunta nova
+  const someoneFinished = Array.from(room.players.values()).some((p) => p.distance >= FINISH_PROGRESS);
+  if (someoneFinished) {
+    room.finishing = true;
+    scheduleRoomTimer(room, room.phaseEndsAt, (r) => finishGame(r, "finished"));
+  } else if (index + 1 >= room.questions.length) {
+    scheduleRoomTimer(room, room.phaseEndsAt, (r) => finishGame(r, "limit"));
+  } else {
+    scheduleRoomTimer(room, room.phaseEndsAt, startNextQuestion);
+  }
 }
 
 /** Encerra a pergunta agora se ninguem mais precisa responder. Chamado apos resposta ou saida de jogador. */
@@ -432,8 +497,17 @@ function finishGame(room: RaceRoom, reason: GameEndReason): void {
   clearRoomTimer(room);
   room.phase = "results";
   room.endReason = reason;
+  room.finishing = false;
+  // vencedor = maior progresso real (se dois cruzarem juntos, quem foi mais longe) + desempate padrao
+  room.winnerSocketId = rankedPlayers(room)[0]?.socketId ?? null;
   room.phaseStartsAt = Date.now();
   room.phaseEndsAt = null;
+}
+
+function resetPlayers(room: RaceRoom): void {
+  for (const [socketId, player] of room.players) {
+    room.players.set(socketId, newPlayer(socketId, player.name, player.avatar, player.joinSeq));
+  }
 }
 
 export function restartRaceGame(room: RaceRoom): boolean {
@@ -445,10 +519,10 @@ export function restartRaceGame(room: RaceRoom): boolean {
   room.phaseStartsAt = null;
   room.phaseEndsAt = null;
   room.lastReveal = null;
+  room.finishing = false;
+  room.winnerSocketId = null;
   room.endReason = null;
-  for (const [socketId, player] of room.players) {
-    room.players.set(socketId, newPlayer(socketId, player.name, player.avatar, player.joinSeq));
-  }
+  resetPlayers(room);
   return true;
 }
 

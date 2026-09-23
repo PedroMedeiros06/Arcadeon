@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { Check, X } from "lucide-react";
 import type { QuestionReveal, RaceQuestionPublic } from "@/lib/race/types";
 
@@ -7,6 +8,15 @@ const LETTERS = ["A", "B", "C", "D"];
 // cor fixa por letra: ajuda a achar a alternativa rapido, sem depender de hover
 const LETTER_COLORS = ["#8b6cff", "#1cb0f6", "#f59e0b", "#ec4899"];
 const CORRECT_COLOR = "#8bbf6f";
+// faiscas quando EU acerto (combustivel entrando)
+const SPARKS = [
+  { dx: "-34px", dy: "-22px" },
+  { dx: "30px", dy: "-26px" },
+  { dx: "-40px", dy: "8px" },
+  { dx: "42px", dy: "6px" },
+  { dx: "-10px", dy: "-34px" },
+  { dx: "12px", dy: "-32px" },
+];
 
 interface QuestionCardProps {
   question: RaceQuestionPublic;
@@ -57,7 +67,7 @@ export function QuestionCard({ question, lockedIndex, pendingIndex, reveal, open
               onMouseDown={(e) => e.preventDefault()}
               disabled={!canAnswer}
               onClick={() => onAnswer(i)}
-              className={`flex min-h-14 items-center gap-3 rounded-2xl border-2 px-3 py-2.5 text-left transition active:scale-[0.98] disabled:active:scale-100 ${
+              className={`relative flex min-h-14 items-center gap-3 rounded-2xl border-2 px-3 py-2.5 text-left transition active:scale-[0.98] disabled:active:scale-100 ${
                 dimmed ? "opacity-45" : ""
               } ${isChosen && !reveal ? "ring-4 ring-offset-0" : ""} ${!open && !reveal ? "cursor-wait" : ""}`}
               style={{
@@ -76,6 +86,17 @@ export function QuestionCard({ question, lockedIndex, pendingIndex, reveal, open
               <span className={`flex-1 text-sm font-bold sm:text-base ${filled ? "text-white" : "text-[var(--fg)]"}`}>
                 {option}
               </span>
+              {reveal && isCorrect && isChosen && (
+                <span className="pointer-events-none absolute left-1/2 top-1/2" aria-hidden>
+                  {SPARKS.map((sp, k) => (
+                    <span
+                      key={k}
+                      className="absolute h-1.5 w-1.5 rounded-full bg-yellow-300 opacity-0"
+                      style={{ "--dx": sp.dx, "--dy": sp.dy, animation: `race-fly 0.7s ease-out ${0.1 + k * 0.03}s` } as CSSProperties}
+                    />
+                  ))}
+                </span>
+              )}
             </button>
           );
         })}
