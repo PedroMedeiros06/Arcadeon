@@ -172,7 +172,14 @@ export function DrawGame() {
 
   function handleCreate(config: DrawRoomConfig, name: string) {
     setRoomClosed(false);
-    socketRef.current.emit("create-room", { config, name });
+    const socket = socketRef.current;
+    if (!socket.connected) {
+      console.log("[drawit] socket desconectado ao criar sala, forcando reconexao");
+      socket.connect();
+      socket.once("connect", () => socket.emit("create-room", { config, name }));
+      return;
+    }
+    socket.emit("create-room", { config, name });
   }
 
   function handleJoinWithName(name: string) {
