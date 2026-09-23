@@ -43,12 +43,15 @@ import { registerRaceNamespace } from "./raceSocket";
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3001;
 const CLIENT_ORIGIN = (process.env.CLIENT_ORIGIN ?? "http://localhost:3000").replace(/\/$/, "");
 
+const BOOT_ID = `${Date.now()}-${process.pid}`;
+console.log(`[boot] processo iniciado boot=${BOOT_ID} pid=${process.pid} em ${new Date().toISOString()}`);
+
 const app = express();
 app.use(cors({ origin: CLIENT_ORIGIN }));
 app.use(express.json());
 
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok" });
+  res.json({ status: "ok", boot: BOOT_ID, uptime_s: Math.round(process.uptime()) });
 });
 
 const httpServer = createServer(app);
@@ -62,6 +65,12 @@ io.engine.on("connection", (rawSocket) => {
   rawSocket.on("headers", (headers: Record<string, string>) => {
     headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private";
   });
+});
+
+io.engine.on("connection_error", (err) => {
+  console.log(
+    `[engine-error] boot=${BOOT_ID} code=${err.code} message="${err.message}" context=${JSON.stringify(err.context ?? {})}`
+  );
 });
 
 function publicRoomState(room: ReturnType<typeof getRoom>) {
@@ -280,8 +289,23 @@ function finishTurn(io: Server | Namespace, room: DrawRoom, reason: "timeout" | 
 }
 
 const drawNsp = io.of("/draw");
+console.log(`[boot] namespace /draw registrado boot=${BOOT_ID}`);
+
 drawNsp.on("connection", (socket) => {
+  console.log(
+    `[draw:connect] boot=${BOOT_ID} socket=${socket.id} transport=${socket.conn.transport.name} em ${new Date().toISOString()}`
+  );
+
+  socket.conn.on("upgrade", (transport) => {
+    console.log(`[draw:upgrade] boot=${BOOT_ID} socket=${socket.id} novo_transport=${transport.name}`);
+  });
+
+  socket.on("disconnect", (reason) => {
+    console.log(`[draw:disconnect] boot=${BOOT_ID} socket=${socket.id} reason=${reason}`);
+  });
+
   socket.on("create-room", (data: { config: DrawRoomConfig; name: string }) => {
+    console.log(`[draw:create-room] boot=${BOOT_ID} socket=${socket.id} name=${data.name}`);
     const room = createDrawRoom(socket.id, data.config, data.name);
     socket.join(room.code);
     socket.emit("room-updated", publicDrawRoomState(room, socket.id));
