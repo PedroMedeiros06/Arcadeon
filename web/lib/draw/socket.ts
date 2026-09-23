@@ -6,7 +6,10 @@ let socket: Socket | null = null;
 
 export function getDrawSocket(): Socket {
   if (!socket) {
-    socket = io(`${SERVER_URL}/draw`, { autoConnect: true });
+    // upgrade automatico pra websocket quebra a sessao atras do proxy do
+    // Render/Cloudflare neste namespace ("Session ID unknown" apos o upgrade
+    // falhar) - fica so em polling, mais lento mas confiavel
+    socket = io(`${SERVER_URL}/draw`, { autoConnect: true, transports: ["polling"], upgrade: false });
   }
   return socket;
 }
