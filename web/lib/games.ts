@@ -25,4 +25,12 @@ export const games: GameInfo[] = [
     status: "available",
     multiplayer: true,
   },
+  {
+    slug: "corrida",
+    title: "Corrida do Conhecimento",
+    description: "Responda rapido e acelere ate a linha de chegada.",
+    icon: "🏁",
+    status: "available",
+    multiplayer: true,
+  },
 ];
