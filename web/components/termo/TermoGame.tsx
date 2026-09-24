@@ -2,11 +2,15 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
-import { ArrowLeft, Grid3x3 } from "lucide-react";
+import { ArrowLeft, CircleHelp, Grid3x3 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { claimTermoWinReward } from "@/lib/inventory";
+import { useLocalFlag } from "@/lib/race/useLocalFlag";
 import { WinModal } from "./WinModal";
+import { TermoTutorial } from "./TermoTutorial";
+
+const TUTORIAL_KEY = "termoTutorialSeen";
 
 const WORD_LENGTH = 5;
 type BoardCount = 1 | 2 | 4;
@@ -285,6 +289,15 @@ export function TermoGame() {
   const [keyStatesVersion, setKeyStatesVersion] = useState(0);
   const keyStates = useRef<Record<string, LetterState[]>>({});
   const [revealRowIndex, setRevealRowIndex] = useState<number | null>(null);
+  const [tutorialSeen, setTutorialSeen] = useLocalFlag(TUTORIAL_KEY, true);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
+  // primeira visita abre sozinho; depois so pelo botao "Como jogar"
+  const showTutorial = tutorialOpen || !tutorialSeen;
+
+  function closeTutorial() {
+    setTutorialSeen(true);
+    setTutorialOpen(false);
+  }
 
   const checkDailyPlayed = useCallback(
     async (count: BoardCount): Promise<DailyResult | null> => {
@@ -610,13 +623,15 @@ export function TermoGame() {
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
+      // com o tutorial aberto, teclas pertencem a ele (setas/Esc), nao ao jogo
+      if (showTutorial) return;
       if (e.key === "Backspace") handleKey("Back");
       else if (e.key === "Enter") handleKey("Enter");
       else if (/^[a-zA-Z]$/.test(e.key)) handleKey(e.key.toUpperCase());
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [handleKey]);
+  }, [handleKey, showTutorial]);
 
   const cellClasses: Record<LetterState, string> = {
     correct: "bg-[#8bbf6f] border-[#749f5c] text-white shadow-[0_4px_0_#749f5c]",
@@ -628,14 +643,14 @@ export function TermoGame() {
   const keySliceBg: Record<LetterState, string> = {
     correct: "bg-[#8bbf6f]",
     present: "bg-[#e0c26e]",
-    absent: "bg-[var(--border-hover)]",
+    absent: "bg-[var(--key-absent)]",
     empty: "bg-[var(--border)]",
   };
 
   const keyClasses: Record<LetterState, string> = {
     correct: "bg-[#8bbf6f] text-white shadow-[0_3px_0_#749f5c]",
     present: "bg-[#e0c26e] text-white shadow-[0_3px_0_#c2a558]",
-    absent: "bg-[var(--border-hover)] text-white",
+    absent: "bg-[var(--key-absent)] text-[var(--key-absent-fg)]",
     empty: "bg-[var(--border)] text-[var(--fg)] hover:bg-[var(--border-hover)]",
   };
 
@@ -675,10 +690,23 @@ export function TermoGame() {
           <span className="truncate">Termo</span>
         </h1>
 
-        <div className="flex shrink-0 justify-end">{dailySwitch}</div>
+        <div className="flex shrink-0 items-center justify-end gap-1.5 sm:gap-2">
+          <button
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => setTutorialOpen(true)}
+            aria-label="Como jogar"
+            title="Como jogar"
+            className="flex items-center gap-1.5 rounded-lg border-2 border-[var(--border)] bg-[var(--card)] p-1 text-xs font-extrabold text-[var(--fg-muted)] transition hover:bg-[var(--bg)] sm:rounded-xl sm:px-3 sm:py-1 lg:py-0.5"
+          >
+            <CircleHelp className="h-4 w-4" /> <span className="hidden sm:inline">Como jogar</span>
+          </button>
+          {dailySwitch}
+        </div>
       </div>
     </header>
   );
+
+  const tutorial = showTutorial ? <TermoTutorial onClose={closeTutorial} /> : null;
 
   const modeSelector = (
     <div className="flex gap-2">
@@ -703,6 +731,7 @@ export function TermoGame() {
     return (
       <div className="flex flex-1 flex-col">
         {header}
+        {tutorial}
         <div className="relative mx-auto flex w-full max-w-6xl flex-1 flex-col items-center gap-4 overflow-x-auto px-3 pb-6 pt-3 sm:gap-6 sm:px-4 sm:pb-8">
         {modeSelector}
 
@@ -755,6 +784,7 @@ export function TermoGame() {
     return (
       <div className="flex flex-1 flex-col">
         {header}
+        {tutorial}
         <div className="flex flex-1 flex-col items-center gap-6 pb-8 pt-3">
         {modeSelector}
         <div className="flex max-w-sm flex-col items-center gap-4 rounded-3xl border-2 border-[var(--border)] bg-[var(--card)] p-8 text-center">
@@ -797,6 +827,7 @@ export function TermoGame() {
   return (
     <div className="flex flex-1 flex-col">
       {header}
+      {tutorial}
       <div
         style={cellStyle}
         className={`relative mx-auto flex w-full max-w-6xl flex-1 flex-col items-center justify-between overflow-x-auto px-3 sm:gap-6 sm:px-4 sm:pb-8 sm:pt-3 lg:gap-3 lg:overflow-visible lg:pb-4 lg:pt-3 ${boardCount === 4 ? "gap-1 pb-1 pt-1" : "gap-4 pb-6 pt-3"}`}

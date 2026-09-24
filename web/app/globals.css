@@ -23,6 +23,10 @@
 
   --success-bg: #efeaff;
   --success-fg: #6544e0;
+
+  /* tecla do Termo cuja letra nao esta na palavra: mais escura que a tecla neutra */
+  --key-absent: #6b6890;
+  --key-absent-fg: #d0cdec;
 }
 
 .dark {
@@ -48,6 +52,9 @@
 
   --success-bg: #241d47;
   --success-fg: #b8a4ff;
+
+  --key-absent: #09080f;
+  --key-absent-fg: #4a4568;
 }
 
 @theme inline {
