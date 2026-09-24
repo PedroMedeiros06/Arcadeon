@@ -16,12 +16,15 @@ import {
   sanitizeConfig,
   sanitizeName,
   setRaceAutoAdvanceListener,
+  setRaceGameFinishedListener,
+  setRacePlayerUser,
   startRaceGame,
   submitRaceAnswer,
   transferRaceHost,
   updateRaceConfig,
   updateRacePlayerAvatar,
 } from "./raceRooms";
+import { recordRaceResults, verifyAccessToken } from "./raceStats";
 
 const RATE_LIMIT_MS = 150;
 
@@ -95,6 +98,12 @@ export function registerRaceNamespace(io: Server): void {
   }
 
   setRaceAutoAdvanceListener(broadcast);
+  setRaceGameFinishedListener(recordRaceResults);
+
+  // socket -> conta Supabase verificada (via evento "identify")
+  const identities = new Map<string, string>();
+  // descarta verificacao antiga se um identify mais novo chegou no meio
+  const identifySeq = new Map<string, number>();
 
   /** Descarta evento se o socket repete o mesmo evento rapido demais (limite por tipo de evento). */
   function throttled(socket: Socket, event: string): boolean {
@@ -131,11 +140,23 @@ export function registerRaceNamespace(io: Server): void {
   }
 
   nsp.on("connection", (socket) => {
+    // sem throttle: connect + troca de sessao podem chegar juntos e o mais novo nao pode se perder
+    socket.on("identify", async (raw: unknown) => {
+      const seq = (identifySeq.get(socket.id) ?? 0) + 1;
+      identifySeq.set(socket.id, seq);
+      const userId = await verifyAccessToken(asObject(raw).accessToken);
+      if (identifySeq.get(socket.id) !== seq || !socket.connected) return;
+      if (userId) identities.set(socket.id, userId);
+      else identities.delete(socket.id);
+      setRacePlayerUser(socket.id, userId);
+    });
+
     socket.on("create-room", (raw: unknown) => {
       if (throttled(socket, "create-room")) return;
       if (getRoomForSocket(socket.id)) handleLeave(socket);
       const data = asObject(raw);
       const room = createRaceRoom(socket.id, sanitizeConfig(data.config), sanitizeName(data.name), sanitizeAvatar(data.avatar));
+      setRacePlayerUser(socket.id, identities.get(socket.id) ?? null);
       socket.join(room.code);
       broadcast(room);
     });
@@ -150,6 +171,7 @@ export function registerRaceNamespace(io: Server): void {
         socket.emit("join-error", { message: result.error });
         return;
       }
+      setRacePlayerUser(socket.id, identities.get(socket.id) ?? null);
       socket.join(result.room.code);
       broadcast(result.room);
     });
@@ -214,6 +236,8 @@ export function registerRaceNamespace(io: Server): void {
 
     socket.on("disconnect", () => {
       lastEventAt.delete(socket.id);
+      identities.delete(socket.id);
+      identifySeq.delete(socket.id);
       handleLeave(socket);
     });
   });

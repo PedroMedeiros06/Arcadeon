@@ -62,7 +62,7 @@ function GameHeader({ onLeaveRoom }: { onLeaveRoom?: () => void }) {
 }
 
 export function RaceGame() {
-  const { username, loading: authLoading, equippedAvatar } = useAuth();
+  const { username, loading: authLoading, equippedAvatar, session } = useAuth();
   const searchParams = useSearchParams();
   const joinCodeFromUrl = searchParams.get("join");
   const [socket] = useState(getRaceSocket);
@@ -171,6 +171,13 @@ export function RaceGame() {
   useEffect(() => {
     initRaceSound();
   }, []);
+
+  // identifica a conta pro servidor (ranking); ele valida o token, nunca confia no cliente
+  const accessToken = session?.access_token ?? null;
+  useEffect(() => {
+    if (!connected || authLoading) return;
+    socket.emit("identify", { accessToken });
+  }, [connected, authLoading, accessToken, socket]);
 
   // sair da pagina = sair da sala
   useEffect(() => {

@@ -33,12 +33,13 @@ export async function equipAvatar(userId: string, avatarId: string): Promise<voi
   if (error) throw error;
 }
 
-export async function awardCoinsForWin(userId: string, amount: number, reason: string): Promise<void> {
+/** Valor e elegibilidade decididos no banco (uma vez por dia/modo, so com vitoria registrada). */
+export async function claimTermoWinReward(boardCount: number, playDate: string): Promise<number> {
   const supabase = createClient();
-  const { error } = await supabase.rpc("award_coins_and_check_achievements", {
-    p_user_id: userId,
-    p_amount: amount,
-    p_reason: reason,
+  const { data, error } = await supabase.rpc("claim_termo_win_reward", {
+    p_board_count: boardCount,
+    p_play_date: playDate,
   });
   if (error) throw error;
+  return data ?? 0;
 }

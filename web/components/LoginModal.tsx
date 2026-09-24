@@ -24,14 +24,38 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
     setLoading(true);
 
     const supabase = createClient();
-    const { error } =
-      mode === "signin"
-        ? await supabase.auth.signInWithPassword({ email, password })
-        : await supabase.auth.signUp({
-            email,
-            password,
-            options: { data: { username } },
-          });
+
+    if (mode === "signin") {
+      // email ou nome de usuario: resolvido no servidor (/auth/login)
+      const res = await fetch("/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier: email, password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setLoading(false);
+        setError(data.error ?? "Erro ao entrar");
+        return;
+      }
+      const { error } = await supabase.auth.setSession({
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+      });
+      setLoading(false);
+      if (error) {
+        setError(error.message);
+        return;
+      }
+      onClose();
+      return;
+    }
+
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { username } },
+    });
 
     setLoading(false);
 
@@ -126,9 +150,10 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
               <path d="M2 6h20v12H2z" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             <input
-              type="email"
+              type={mode === "signin" ? "text" : "email"}
               required
-              placeholder="Email"
+              autoComplete={mode === "signin" ? "username" : "email"}
+              placeholder={mode === "signin" ? "Email ou nome de usuario" : "Email"}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full rounded-2xl border-2 border-[var(--border)] bg-[var(--bg)] py-3 pl-11 pr-4 text-sm font-medium text-[var(--fg)] outline-none transition focus:border-[var(--primary)] focus:bg-[var(--card)]"

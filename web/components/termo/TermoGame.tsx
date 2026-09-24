@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Grid3x3 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { awardCoinsForWin } from "@/lib/inventory";
+import { claimTermoWinReward } from "@/lib/inventory";
 import { WinModal } from "./WinModal";
 
 const WORD_LENGTH = 5;
@@ -553,7 +553,7 @@ export function TermoGame() {
 
       if (won && user) {
         try {
-          await awardCoinsForWin(user.id, 10, "termo_win");
+          await claimTermoWinReward(boardCount, date);
           await refreshProfile();
         } catch (err) {
           console.error("Erro ao dar moedas:", err);

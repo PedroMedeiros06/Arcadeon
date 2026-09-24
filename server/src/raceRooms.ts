@@ -19,6 +19,8 @@ export interface RacePlayer {
   socketId: string;
   name: string;
   avatar: PlayerAvatar | null;
+  /** conta Supabase verificada pelo servidor (null = convidado, nao entra no ranking) */
+  userId: string | null;
   joinSeq: number;
   distance: number;
   points: number;
@@ -111,6 +113,19 @@ export function setRaceAutoAdvanceListener(listener: RoomListener): void {
   onAutoAdvance = listener;
 }
 
+let onGameFinished: RoomListener = () => {};
+
+/** Disparado uma vez quando a partida entra em "results" (gravar estatisticas). */
+export function setRaceGameFinishedListener(listener: RoomListener): void {
+  onGameFinished = listener;
+}
+
+/** Associa a conta verificada ao jogador (se ele ja estiver numa sala). */
+export function setRacePlayerUser(socketId: string, userId: string | null): void {
+  const player = getRoomForSocket(socketId)?.players.get(socketId);
+  if (player) player.userId = userId;
+}
+
 // ---------- sanitizacao de input ----------
 
 export function sanitizeConfig(input: unknown): RaceRoomConfig {
@@ -153,11 +168,18 @@ function generateCode(): string {
   return code;
 }
 
-function newPlayer(socketId: string, name: string, avatar: PlayerAvatar | null, joinSeq: number): RacePlayer {
+function newPlayer(
+  socketId: string,
+  name: string,
+  avatar: PlayerAvatar | null,
+  joinSeq: number,
+  userId: string | null = null
+): RacePlayer {
   return {
     socketId,
     name,
     avatar,
+    userId,
     joinSeq,
     distance: 0,
     points: 0,
@@ -502,11 +524,12 @@ function finishGame(room: RaceRoom, reason: GameEndReason): void {
   room.winnerSocketId = rankedPlayers(room)[0]?.socketId ?? null;
   room.phaseStartsAt = Date.now();
   room.phaseEndsAt = null;
+  onGameFinished(room);
 }
 
 function resetPlayers(room: RaceRoom): void {
   for (const [socketId, player] of room.players) {
-    room.players.set(socketId, newPlayer(socketId, player.name, player.avatar, player.joinSeq));
+    room.players.set(socketId, newPlayer(socketId, player.name, player.avatar, player.joinSeq, player.userId));
   }
 }
 
