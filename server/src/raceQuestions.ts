@@ -1,6 +1,7 @@
 // Banco de perguntas da Corrida do Conhecimento.
-// Lote inicial escrito a mao pra desenvolvimento. O banco completo (300-500) vira de fonte
-// externa via script de importacao — ver plano/notas do Obsidian.
+// Tudo autoral: o lote inicial abaixo + o banco principal em raceQuestionBank.ts.
+
+import { QUESTION_BANK } from "./raceQuestionBank";
 
 export type RaceCategory =
   | "historia"
@@ -36,7 +37,7 @@ export const CATEGORY_LABELS: Record<RaceCategory, string> = {
   curiosidades: "Curiosidades",
 };
 
-export const RACE_QUESTIONS: RaceQuestion[] = [
+const STARTER_QUESTIONS: RaceQuestion[] = [
   // historia
   { id: "his-001", question: "Em que ano o Brasil declarou sua independência?", options: ["1500", "1808", "1822", "1889"], correctIndex: 2, category: "historia", difficulty: 1 },
   { id: "his-002", question: "Quem proclamou a República no Brasil?", options: ["Dom Pedro II", "Marechal Deodoro da Fonseca", "Getúlio Vargas", "Tiradentes"], correctIndex: 1, category: "historia", difficulty: 1 },
@@ -118,12 +119,18 @@ export const RACE_QUESTIONS: RaceQuestion[] = [
   { id: "cur-007", question: "Qual fruta tem as sementes do lado de fora?", options: ["Uva", "Morango", "Kiwi", "Maçã"], correctIndex: 1, category: "curiosidades", difficulty: 2 },
 ];
 
+export const RACE_QUESTIONS: RaceQuestion[] = [...STARTER_QUESTIONS, ...QUESTION_BANK];
+
 /** Falha no load do modulo se o banco tiver erro estrutural — melhor quebrar o boot que servir pergunta quebrada. */
 function validateQuestions(questions: RaceQuestion[]): void {
   const ids = new Set<string>();
+  const texts = new Set<string>();
   for (const q of questions) {
     if (ids.has(q.id)) throw new Error(`raceQuestions: id duplicado ${q.id}`);
     ids.add(q.id);
+    const text = q.question.trim().toLowerCase();
+    if (texts.has(text)) throw new Error(`raceQuestions: pergunta repetida ${q.id}`);
+    texts.add(text);
     if (q.options.length !== 4) throw new Error(`raceQuestions: ${q.id} precisa de 4 opcoes`);
     if (new Set(q.options.map((o) => o.trim().toLowerCase())).size !== 4) {
       throw new Error(`raceQuestions: ${q.id} tem opcoes repetidas`);
