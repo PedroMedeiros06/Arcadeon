@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { ArrowLeft, Crown, Settings, Smartphone, Users } from "lucide-react";
+import { ArrowLeft, CircleHelp, Crown, Settings, Smartphone, Users } from "lucide-react";
 import { EditRoomModal } from "./EditRoomModal";
 import { TransferHostModal } from "./TransferHostModal";
 import type { DrawRoomConfig, DrawRoomState } from "@/lib/draw/types";
@@ -14,6 +14,7 @@ interface RoomWaitingProps {
   onLeaveRoom: () => void;
   onUpdateConfig: (config: DrawRoomConfig) => void;
   onTransferHost: (newHostSocketId: string) => void;
+  onHowToPlay: () => void;
 }
 
 const AVATAR_COLORS = ["#ef4444", "#f59e0b", "#22c55e", "#1cb0f6", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
@@ -24,7 +25,15 @@ function colorFor(id: string): string {
   return AVATAR_COLORS[hash % AVATAR_COLORS.length];
 }
 
-export function RoomWaiting({ room, mySocketId, onStart, onLeaveRoom, onUpdateConfig, onTransferHost }: RoomWaitingProps) {
+export function RoomWaiting({
+  room,
+  mySocketId,
+  onStart,
+  onLeaveRoom,
+  onUpdateConfig,
+  onTransferHost,
+  onHowToPlay,
+}: RoomWaitingProps) {
   const isHost = room.hostSocketId === mySocketId;
   const me = room.players.find((p) => p.socketId === mySocketId);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -43,9 +52,19 @@ export function RoomWaiting({ room, mySocketId, onStart, onLeaveRoom, onUpdateCo
           Sair
         </button>
 
-        <div className="flex items-center gap-1.5 rounded-full bg-black/25 px-3 py-1.5 text-sm font-bold text-white backdrop-blur">
-          <Users size={16} strokeWidth={2.5} />
-          {room.players.length}/{room.config.maxPlayers}
+        <div className="flex items-center gap-2">
+          <button
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={onHowToPlay}
+            aria-label="Como jogar"
+            className="flex h-9 items-center gap-1 rounded-xl bg-black/25 px-2.5 text-xs font-bold text-white/80 transition hover:text-white"
+          >
+            <CircleHelp size={16} /> <span className="hidden sm:inline">Como jogar</span>
+          </button>
+          <div className="flex items-center gap-1.5 rounded-full bg-black/25 px-3 py-1.5 text-sm font-bold text-white backdrop-blur">
+            <Users size={16} strokeWidth={2.5} />
+            {room.players.length}/{room.config.maxPlayers}
+          </div>
         </div>
       </div>
 

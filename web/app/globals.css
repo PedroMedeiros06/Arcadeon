@@ -512,3 +512,164 @@ body {
     transition-duration: 1ms !important;
   }
 }
+
+/* ---------- DrawIt ---------- */
+
+/* verde de acerto e amarelo de "quase" (os --success-* do tema sao roxos) */
+:root {
+  --draw-ok: #16a34a;
+  --draw-ok-bg: #dcfce7;
+  --draw-close: #b45309;
+  --draw-close-bg: #fef3c7;
+}
+.dark {
+  --draw-ok: #4ade80;
+  --draw-ok-bg: #11301e;
+  --draw-close: #fbbf24;
+  --draw-close-bg: #3a2a0a;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* chute chegando no feed */
+@keyframes drawFeedIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.draw-feed-in {
+  animation: drawFeedIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+/* "+145" subindo do placar quando alguem pontua */
+@keyframes drawScoreFloat {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 4px) scale(0.7);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -6px) scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -26px) scale(1);
+  }
+}
+.draw-score-float {
+  animation: drawScoreFloat 1.3s ease-out forwards;
+}
+
+/* chip do placar pulsando quando o placar muda */
+@keyframes drawBump {
+  0%, 100% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.12);
+  }
+}
+.draw-bump {
+  animation: drawBump 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* letra da palavra aparecendo quando o jogador acerta / fim do turno */
+@keyframes drawLetterFlip {
+  0% {
+    opacity: 0;
+    transform: rotateX(90deg) scale(0.6);
+  }
+  60% {
+    opacity: 1;
+    transform: rotateX(-15deg) scale(1.15);
+  }
+  100% {
+    transform: none;
+  }
+}
+.draw-letter-flip {
+  animation: drawLetterFlip 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+
+/* timer nos ultimos segundos */
+@keyframes drawTimerShake {
+  0%, 100% {
+    transform: rotate(0);
+  }
+  25% {
+    transform: rotate(-6deg) scale(1.08);
+  }
+  75% {
+    transform: rotate(6deg) scale(1.08);
+  }
+}
+.draw-timer-urgent {
+  animation: drawTimerShake 0.5s ease-in-out infinite;
+}
+
+/* confete do acerto */
+@keyframes drawConfetti {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), var(--dy)) rotate(var(--rot));
+  }
+}
+.draw-confetti {
+  animation: drawConfetti 1s cubic-bezier(0.2, 0.7, 0.4, 1) forwards;
+}
+
+/* traco sendo desenhado no tutorial (path com pathLength=1) */
+@keyframes drawTutorialStroke {
+  0% {
+    stroke-dashoffset: 1;
+  }
+  45%,
+  85% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+
+/* progresso do slide da galeria de desenhos */
+@keyframes drawSlideProgress {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+/* barra de tempo encolhendo */
+.draw-time-bar {
+  transition: width 0.25s linear, background-color 0.4s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .draw-feed-in,
+  .draw-score-float,
+  .draw-bump,
+  .draw-letter-flip,
+  .draw-timer-urgent,
+  .draw-confetti {
+    animation-duration: 1ms !important;
+  }
+}

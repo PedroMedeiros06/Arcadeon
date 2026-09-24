@@ -35,6 +35,8 @@ import {
   submitGuess,
   allNonDrawersGuessed,
   endTurn,
+  currentRound,
+  maxPointsFor,
   DrawRoom,
   DrawRoomConfig,
 } from "./drawRooms";
@@ -228,18 +230,28 @@ const TURN_RESULTS_MS = 4000;
 function publicDrawRoomState(room: DrawRoom | undefined, forSocketId: string) {
   if (!room) return null;
   const isDrawer = room.currentDrawerSocketId === forSocketId;
+  // quem ja acertou pode ver a palavra; os outros so o tamanho
+  const canSeeWord = isDrawer || room.players.get(forSocketId)?.hasGuessedThisTurn === true;
+  // events (historico de tracos) fica de fora: cada client ja mantem o proprio canvas via
+  // draw-event, e reenviar tudo a cada room-updated pesava muito no transporte polling
   return {
     code: room.code,
     hostSocketId: room.hostSocketId,
     config: room.config,
     phase: room.phase,
     turnOrder: room.turnOrder,
+    round: currentRound(room),
     currentDrawerSocketId: room.currentDrawerSocketId,
-    currentWord: isDrawer ? room.currentWord : null,
+    currentWord: canSeeWord ? room.currentWord : null,
     currentWordLength: room.currentWord ? room.currentWord.length : null,
-    wordOptions: isDrawer ? room.wordOptions : null,
+    // tracinhos com espacos/hifens reais ("______ __ _____"), sem revelar nenhuma letra
+    currentWordMask: room.currentWord ? room.currentWord.replace(/[^\s-]/g, "_") : null,
+    currentDifficulty: room.currentDifficulty,
+    wordOptions:
+      isDrawer && room.wordOptions
+        ? room.wordOptions.map((w) => ({ ...w, maxPoints: maxPointsFor(w.difficulty) }))
+        : null,
     turnEndsAt: room.turnEndsAt,
-    events: room.events,
     players: Array.from(room.players.values()).map((p) => ({
       socketId: p.socketId,
       name: p.name,
@@ -267,9 +279,15 @@ function finishTurn(io: Server | Namespace, room: DrawRoom, reason: "timeout" | 
   endTurn(room, reason);
   io.to(room.code).emit("turn-ended", {
     word,
+    difficulty: room.currentDifficulty,
     drawerSocketId: drawerId,
     reason,
-    players: Array.from(room.players.values()).map((p) => ({ socketId: p.socketId, name: p.name, score: p.score })),
+    players: Array.from(room.players.values()).map((p) => ({
+      socketId: p.socketId,
+      name: p.name,
+      score: p.score,
+      gained: room.turnPoints.get(p.socketId) ?? 0,
+    })),
   });
   if (room.phase === "results") {
     broadcastDrawRoom(io, room);
@@ -404,18 +422,27 @@ drawNsp.on("connection", (socket) => {
   socket.on("submit-guess", (data: { code: string; guess: string }) => {
     const room = getDrawRoom(data.code);
     if (!room) return;
-    const outcome = submitGuess(room, socket.id, data.guess);
-    socket.emit("guess-result", outcome);
+    const guess = String(data.guess ?? "").trim().slice(0, 40);
+    if (!guess) return;
+    const outcome = submitGuess(room, socket.id, guess);
+    // o autor recebe o proprio texto de volta: e assim que ele ve o proprio chute no feed
+    // (inclusive o certo, que so ele ve com a palavra)
+    socket.emit("guess-result", { ...outcome, guess });
     const player = room.players.get(socket.id);
     if (outcome.correct) {
-      drawNsp.to(room.code).emit("player-guessed", { socketId: socket.id, name: player?.name ?? "" });
+      // os outros so ficam sabendo que acertou, nunca o texto
+      socket.to(room.code).emit("player-guessed", {
+        socketId: socket.id,
+        name: player?.name ?? "",
+        points: outcome.points,
+      });
       broadcastDrawRoom(drawNsp, room);
       if (allNonDrawersGuessed(room)) {
         finishTurn(drawNsp, room, "all-guessed");
       }
-    } else if (!outcome.alreadyGuessed && !outcome.tooFast) {
-      // tentativa errada: broadcast pros outros (exceto quem tentou, que ja mostra local) pro historico de chutes
-      socket.to(room.code).emit("player-guess-attempt", { socketId: socket.id, name: player?.name ?? "", guess: data.guess });
+    } else if (!outcome.alreadyGuessed && !outcome.tooFast && !outcome.close) {
+      // chute errado: todo mundo ve. Chute "quase" nao vai pros outros, entregaria a palavra
+      socket.to(room.code).emit("player-guess-attempt", { socketId: socket.id, name: player?.name ?? "", guess });
     }
   });
 

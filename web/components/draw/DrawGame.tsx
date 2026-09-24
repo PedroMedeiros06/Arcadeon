@@ -3,64 +3,76 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, LogOut, Palette } from "lucide-react";
+import { ArrowLeft, LogOut, Palette, Pencil } from "lucide-react";
 import { getDrawSocket } from "@/lib/draw/socket";
+import { initDrawSound, playDrawSfx } from "@/lib/draw/sound";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { Lobby } from "./Lobby";
 import { RoomWaiting } from "./RoomWaiting";
 import { WordPicker } from "./WordPicker";
-import { GameScreen } from "./GameScreen";
+import { GameScreen, type Celebration } from "./GameScreen";
 import { ResultsScreen } from "./ResultsScreen";
 import { JoinNameModal } from "./JoinNameModal";
+import { SoundToggle } from "./SoundToggle";
+import { DrawTutorial } from "./DrawTutorial";
+import { useLocalFlag } from "@/lib/race/useLocalFlag";
 import type {
   DrawRoomConfig,
   DrawRoomState,
+  FeedItem,
+  GalleryDrawing,
   GameEndedPayload,
   GuessResult,
   TurnEndedPayload,
 } from "@/lib/draw/types";
 
-interface FeedItem {
-  id: string;
-  kind: "correct" | "own-correct" | "wrong";
-  text: string;
-}
-
 interface CanvasHandlers {
   applyRemoteStroke: (strokeId: string, points: { x: number; y: number }[], color: string, width: number) => void;
   applyUndo: (strokeId: string) => void;
   applyClear: () => void;
+  snapshot: () => string | null;
+}
+
+const TUTORIAL_KEY = "drawTutorialSeen";
+
+let feedSeq = 0;
+function feedId(): string {
+  feedSeq += 1;
+  return `${Date.now()}-${feedSeq}`;
 }
 
 function GameHeader({ onLeaveRoom }: { onLeaveRoom?: () => void }) {
   return (
-    <header className="sticky top-0 z-40 border-b-2 border-[var(--border)] bg-[var(--card)] px-6 py-4">
-      <div className="flex items-center justify-between">
+    <header className="sticky top-0 z-40 shrink-0 border-b-2 border-[var(--border)] bg-[var(--card)] px-3 py-2 sm:px-6 sm:py-4">
+      <div className="flex items-center justify-between gap-2">
         <Link
           href="/"
-          className="flex items-center gap-1.5 rounded-2xl border-2 border-[var(--border)] bg-[var(--card)] px-4 py-2 text-sm font-extrabold text-[var(--fg-muted)] transition hover:bg-[var(--bg)]"
+          aria-label="Voltar ao hub"
+          className="flex h-9 items-center gap-1.5 rounded-xl border-2 border-[var(--border)] bg-[var(--card)] px-2.5 text-sm font-extrabold text-[var(--fg-muted)] transition hover:bg-[var(--bg)] sm:rounded-2xl sm:px-4"
         >
-          <ArrowLeft className="h-4 w-4" /> Hub
+          <ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">Hub</span>
         </Link>
 
-        <h1 className="flex items-center gap-2.5 text-lg font-extrabold tracking-tight text-[var(--fg)]">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--primary)] text-white">
+        <h1 className="flex items-center gap-2 text-base font-extrabold tracking-tight text-[var(--fg)] sm:gap-2.5 sm:text-lg">
+          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--primary)] text-white sm:h-9 sm:w-9">
             <Palette className="h-4 w-4" />
           </span>
           DrawIt
         </h1>
 
-        {onLeaveRoom ? (
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={onLeaveRoom}
-            className="flex items-center gap-1.5 rounded-2xl border-2 border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-2 text-sm font-extrabold text-[var(--danger)] transition hover:opacity-80"
-          >
-            <LogOut className="h-4 w-4" /> Sair da sala
-          </button>
-        ) : (
-          <span className="w-[92px]" />
-        )}
+        <div className="flex items-center gap-1.5">
+          <SoundToggle />
+          {onLeaveRoom && (
+            <button
+              aria-label="Sair da sala"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={onLeaveRoom}
+              className="flex h-9 items-center gap-1.5 rounded-xl border-2 border-[var(--danger-border)] bg-[var(--danger-bg)] px-2.5 text-sm font-extrabold text-[var(--danger)] transition hover:opacity-80 sm:rounded-2xl sm:px-4"
+            >
+              <LogOut className="h-4 w-4" /> <span className="hidden sm:inline">Sair da sala</span>
+            </button>
+          )}
+        </div>
       </div>
     </header>
   );
@@ -77,18 +89,54 @@ export function DrawGame() {
   const [lobbyMode, setLobbyMode] = useState<"choose" | "create" | "join">("choose");
   const [roomClosed, setRoomClosed] = useState(false);
   const [feed, setFeed] = useState<FeedItem[]>([]);
+  const [lastTurn, setLastTurn] = useState<TurnEndedPayload | null>(null);
+  const [celebration, setCelebration] = useState<Celebration | null>(null);
   const socketRef = useRef(getDrawSocket());
   const canvasHandlersRef = useRef<CanvasHandlers | null>(null);
+  const prevRoomRef = useRef<DrawRoomState | null>(null);
+  // desenhos da sessao (todas as partidas na mesma sala), capturados localmente no fim de cada turno
+  const [gallery, setGallery] = useState<GalleryDrawing[]>([]);
+  const gameNumberRef = useRef(1);
+  const [tutorialSeen, setTutorialSeen] = useLocalFlag(TUTORIAL_KEY, true);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
+
+  useEffect(() => {
+    initDrawSound();
+  }, []);
+
+  // confete some sozinho
+  useEffect(() => {
+    if (!celebration) return;
+    const t = setTimeout(() => setCelebration(null), 1800);
+    return () => clearTimeout(t);
+  }, [celebration]);
 
   useEffect(() => {
     const socket = socketRef.current;
 
+    function pushFeed(item: Omit<FeedItem, "id">) {
+      setFeed((prev) => [...prev.slice(-60), { ...item, id: feedId() }]);
+    }
+
     function handleRoomUpdated(state: DrawRoomState | null) {
+      const prev = prevRoomRef.current;
+      prevRoomRef.current = state;
       setRoom(state);
-      if (state && (state.phase === "picking-word" || state.phase === "lobby")) {
-        setFeed([]);
+      if (!state) return;
+
+      const me = socket.id;
+      const phaseChanged = prev?.phase !== state.phase;
+      if (state.phase === "lobby" && prev?.phase === "lobby" && state.players.length > prev.players.length) {
+        playDrawSfx("join");
       }
-      if (state && state.phase !== "results") setGameResult(null);
+      if (phaseChanged && state.phase === "picking-word") {
+        setFeed([]);
+        setLastTurn(null);
+        if (state.currentDrawerSocketId === me) playDrawSfx("yourTurn");
+      }
+      if (phaseChanged && state.phase === "drawing") playDrawSfx("turnStart");
+      if (state.phase === "lobby") setFeed([]);
+      if (state.phase !== "results") setGameResult(null);
     }
     function handleJoinError(data: { message: string }) {
       setJoinError(data.message);
@@ -105,33 +153,57 @@ export function DrawGame() {
     }
     function handleGuessResult(result: GuessResult) {
       if (result.correct) {
-        setFeed((prev) => [
-          ...prev,
-          { id: `${Date.now()}-me`, kind: "own-correct", text: `Voce acertou! +${result.points} pontos` },
-        ]);
+        // so quem acertou ve a palavra que digitou; os outros recebem so "Fulano acertou!"
+        pushFeed({ kind: "own-correct", text: `Voce acertou "${result.guess}"! +${result.points}` });
+        setCelebration({ key: Date.now(), points: result.points });
+        playDrawSfx("correct");
+      } else if (result.close) {
+        pushFeed({ kind: "close", text: result.guess });
+        playDrawSfx("close");
       } else if (!result.alreadyGuessed && !result.tooFast) {
-        setFeed((prev) => [...prev, { id: `${Date.now()}-me-wrong`, kind: "wrong", text: `Voce: palpite errado` }]);
+        pushFeed({ kind: "own-wrong", text: result.guess });
+        playDrawSfx("wrong");
       }
     }
     function handlePlayerGuessed(data: { socketId: string; name: string }) {
-      setFeed((prev) => [...prev, { id: `${Date.now()}-${data.socketId}`, kind: "correct", text: `${data.name} acertou!` }]);
+      pushFeed({ kind: "correct", name: data.name, text: "acertou!" });
+      playDrawSfx("otherCorrect");
     }
     function handlePlayerGuessAttempt(data: { socketId: string; name: string; guess: string }) {
-      setFeed((prev) => [
-        ...prev,
-        { id: `${Date.now()}-${data.socketId}-attempt`, kind: "wrong", text: `${data.name}: ${data.guess}` },
-      ]);
+      pushFeed({ kind: "wrong", name: data.name, text: data.guess });
     }
     function handleTurnEnded(data: TurnEndedPayload) {
-      setFeed((prev) => [
-        ...prev,
-        { id: `${Date.now()}-turn`, kind: "wrong", text: `A palavra era: ${data.word ?? "?"}` },
-      ]);
+      // "print" do canvas antes do overlay de resumo e da troca de turno
+      const imageUrl = canvasHandlersRef.current?.snapshot() ?? null;
+      const turnRoom = prevRoomRef.current;
+      if (imageUrl && data.word) {
+        const drawing: GalleryDrawing = {
+          id: feedId(),
+          imageUrl,
+          word: data.word,
+          drawerName:
+            data.players.find((p) => p.socketId === data.drawerSocketId)?.name ??
+            turnRoom?.players.find((p) => p.socketId === data.drawerSocketId)?.name ??
+            "?",
+          difficulty: data.difficulty,
+          game: gameNumberRef.current,
+          round: turnRoom?.round ?? 1,
+        };
+        setGallery((prev) => [...prev, drawing]);
+      }
+      setLastTurn(data);
+      pushFeed({ kind: "system", text: `A palavra era: ${data.word ?? "?"}` });
+      playDrawSfx("turnEnd");
     }
     function handleGameEnded(data: GameEndedPayload) {
       setGameResult(data);
+      gameNumberRef.current += 1;
+      playDrawSfx(data.players[0]?.socketId === socket.id ? "win" : "gameEnd");
     }
     function handleRoomClosed() {
+      prevRoomRef.current = null;
+      setGallery([]);
+      gameNumberRef.current = 1;
       setRoom(null);
       setGameResult(null);
       setRoomClosed(true);
@@ -212,6 +284,7 @@ export function DrawGame() {
   }
 
   function handleChooseWord(word: string) {
+    playDrawSfx("pick");
     if (room) socketRef.current.emit("choose-word", { code: room.code, word });
   }
 
@@ -233,8 +306,16 @@ export function DrawGame() {
 
   function handleLeaveRoom() {
     if (room) socketRef.current.emit("leave-room", { code: room.code });
+    prevRoomRef.current = null;
     setRoom(null);
     setGameResult(null);
+    setGallery([]);
+    gameNumberRef.current = 1;
+  }
+
+  function closeTutorial() {
+    setTutorialSeen(true);
+    setTutorialOpen(false);
   }
 
   if (!room && joinCodeFromUrl && pendingAutoJoin) {
@@ -258,6 +339,10 @@ export function DrawGame() {
     }
   }
 
+  // primeira visita abre sozinho (so fora da partida); depois so pelo botao "Como jogar"
+  const showTutorial = tutorialOpen || (!tutorialSeen && (!room || room.phase === "lobby"));
+  const tutorial = showTutorial ? <DrawTutorial onClose={closeTutorial} /> : null;
+
   if (!room) {
     return (
       <>
@@ -272,7 +357,9 @@ export function DrawGame() {
           onJoin={handleJoin}
           joinError={joinError}
           onModeChange={setLobbyMode}
+          onHowToPlay={() => setTutorialOpen(true)}
         />
+        {tutorial}
       </>
     );
   }
@@ -282,14 +369,18 @@ export function DrawGame() {
 
   if (room.phase === "lobby") {
     return (
-      <RoomWaiting
-        room={room}
-        mySocketId={mySocketId}
-        onStart={handleStart}
-        onLeaveRoom={handleLeaveRoom}
-        onUpdateConfig={handleUpdateConfig}
-        onTransferHost={handleTransferHost}
-      />
+      <>
+        <RoomWaiting
+          room={room}
+          mySocketId={mySocketId}
+          onStart={handleStart}
+          onLeaveRoom={handleLeaveRoom}
+          onUpdateConfig={handleUpdateConfig}
+          onTransferHost={handleTransferHost}
+          onHowToPlay={() => setTutorialOpen(true)}
+        />
+        {tutorial}
+      </>
     );
   }
 
@@ -297,24 +388,37 @@ export function DrawGame() {
     return (
       <>
         <GameHeader onLeaveRoom={handleLeaveRoom} />
-        <ResultsScreen result={gameResult} isHost={amHost} onPlayAgain={handlePlayAgain} />
+        <ResultsScreen result={gameResult} gallery={gallery} mySocketId={mySocketId} isHost={amHost} onPlayAgain={handlePlayAgain} />
       </>
     );
   }
 
   const isDrawer = room.currentDrawerSocketId === mySocketId;
+  const drawerName = room.players.find((p) => p.socketId === room.currentDrawerSocketId)?.name ?? "Alguem";
 
+  // altura travada na viewport (dvh acompanha a barra do navegador no celular): a pagina nunca
+  // rola durante o jogo, so o feed de chutes
   return (
-    <>
+    <div className="flex h-dvh flex-col overflow-hidden">
       <GameHeader onLeaveRoom={handleLeaveRoom} />
       {room.phase === "picking-word" && isDrawer && room.wordOptions && (
         <WordPicker options={room.wordOptions} onChoose={handleChooseWord} />
       )}
       {room.phase === "picking-word" && !isDrawer && (
-        <div className="flex flex-1 items-center justify-center">
-          <p className="font-semibold text-[var(--fg-muted)]">
-            {room.players.find((p) => p.socketId === room.currentDrawerSocketId)?.name ?? "Alguem"} esta escolhendo
-            uma palavra...
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center">
+          <span
+            className="animate-pop-in flex h-16 w-16 items-center justify-center rounded-3xl bg-[var(--primary)] text-white shadow-[0_6px_0_var(--primary-dark)]"
+          >
+            <Pencil className="h-8 w-8" style={{ animation: "wiggle 1s ease-in-out infinite" }} />
+          </span>
+          <p className="animate-fade-up text-base font-bold text-[var(--fg)] sm:text-lg">
+            <b className="text-[var(--primary)]">{drawerName}</b> esta escolhendo uma palavra
+            <span className="inline-flex w-6 justify-start">
+              <span className="animate-pulse">...</span>
+            </span>
+          </p>
+          <p className="text-xs font-bold uppercase tracking-wide text-[var(--fg-muted)]">
+            Rodada {room.round}/{room.config.roundsPerPlayer}
           </p>
         </div>
       )}
@@ -323,6 +427,8 @@ export function DrawGame() {
           room={room}
           mySocketId={mySocketId}
           feed={feed}
+          lastTurn={lastTurn}
+          celebration={celebration}
           onStroke={handleStroke}
           onClear={handleClear}
           onUndo={handleUndo}
@@ -332,6 +438,6 @@ export function DrawGame() {
           }}
         />
       )}
-    </>
+    </div>
   );
 }

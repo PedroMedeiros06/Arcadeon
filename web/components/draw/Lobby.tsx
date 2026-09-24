@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Globe, Lock, Users, X, KeyRound, Plus, Palette } from "lucide-react";
+import { CircleHelp, Globe, Lock, Users, X, KeyRound, Plus, Palette } from "lucide-react";
 import type { DrawRoomConfig } from "@/lib/draw/types";
 
 interface LobbyProps {
@@ -11,11 +11,12 @@ interface LobbyProps {
   onJoin: (name: string, code: string) => void;
   joinError: string | null;
   onModeChange?: (mode: "choose" | "create" | "join") => void;
+  onHowToPlay: () => void;
 }
 
 const TURN_OPTIONS = [60, 90, 120];
 
-export function Lobby({ defaultName, isNameLocked, onCreate, onJoin, joinError, onModeChange }: LobbyProps) {
+export function Lobby({ defaultName, isNameLocked, onCreate, onJoin, joinError, onModeChange, onHowToPlay }: LobbyProps) {
   const [mode, setModeState] = useState<"choose" | "create" | "join">("choose");
   const [name, setName] = useState(defaultName);
 
@@ -71,6 +72,13 @@ export function Lobby({ defaultName, isNameLocked, onCreate, onJoin, joinError, 
               <span className="text-sm font-medium text-white/60">Tem um codigo? Entre em uma sala existente</span>
             </button>
           </div>
+          <button
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={onHowToPlay}
+            className="mx-auto mt-5 flex items-center gap-1.5 rounded-full bg-white/10 px-4 py-2 text-sm font-bold text-white/90 transition hover:bg-white/20"
+          >
+            <CircleHelp size={16} /> Como jogar
+          </button>
         </div>
       </div>
     );

@@ -1,5 +1,5 @@
 import { PlayerAvatar } from "./rooms";
-import { WordEntry, pickWordOptions } from "./drawWords";
+import { Difficulty, WordEntry, normalizeWord, pickWordOptions } from "./drawWords";
 
 export interface DrawRoomConfig {
   roundsPerPlayer: number;
@@ -47,11 +47,14 @@ export interface DrawRoom {
   turnsCompletedByPlayer: Map<string, number>;
   currentDrawerSocketId: string | null;
   currentWord: string | null;
+  currentDifficulty: Difficulty | null;
   wordOptions: WordEntry[] | null;
   turnEndsAt: number | null;
   events: DrawEvent[];
   usedWords: Set<string>;
   guessOrder: string[];
+  /** pontos ganhos por jogador no turno atual (acertadores + desenhista), mostrado no resumo do turno */
+  turnPoints: Map<string, number>;
   turnTimeout: NodeJS.Timeout | null;
 }
 
@@ -81,11 +84,13 @@ export function createDrawRoom(hostSocketId: string, config: DrawRoomConfig, hos
     turnsCompletedByPlayer: new Map(),
     currentDrawerSocketId: null,
     currentWord: null,
+    currentDifficulty: null,
     wordOptions: null,
     turnEndsAt: null,
     events: [],
     usedWords: new Set(),
     guessOrder: [],
+    turnPoints: new Map(),
     turnTimeout: null,
   };
   room.players.set(hostSocketId, {
@@ -162,8 +167,9 @@ export function restartGame(room: DrawRoom): boolean {
   room.wordOptions = null;
   room.turnEndsAt = null;
   room.events = [];
-  room.usedWords.clear();
+  // usedWords NAO e limpo: "jogar novamente" na mesma sala continua sem repetir palavra
   room.guessOrder = [];
+  room.turnPoints.clear();
   for (const player of room.players.values()) {
     player.score = 0;
     player.hasGuessedThisTurn = false;
@@ -243,11 +249,25 @@ export function startNextTurn(room: DrawRoom): void {
 
   room.currentDrawerSocketId = drawerId;
   room.currentWord = null;
-  room.wordOptions = pickWordOptions(room.usedWords, 3);
+  room.currentDifficulty = null;
+  room.wordOptions = pickWordOptions(room.usedWords);
+  // as 3 oferecidas ficam queimadas (inclusive as nao escolhidas): nenhuma palavra reaparece na sessao
+  for (const option of room.wordOptions) room.usedWords.add(option.word);
   room.phase = "picking-word";
   room.events = [];
   room.guessOrder = [];
+  room.turnPoints.clear();
   for (const player of room.players.values()) player.hasGuessedThisTurn = false;
+}
+
+/** Rodada atual (1-based) = menor numero de turnos completos entre os vivos + 1, limitado ao total. */
+export function currentRound(room: DrawRoom): number {
+  let min = Infinity;
+  for (const socketId of room.players.keys()) {
+    min = Math.min(min, room.turnsCompletedByPlayer.get(socketId) ?? 0);
+  }
+  if (!Number.isFinite(min)) return 1;
+  return Math.min(min + 1, room.config.roundsPerPlayer);
 }
 
 export function chooseWord(
@@ -261,7 +281,7 @@ export function chooseWord(
   if (!entry) return false;
 
   room.currentWord = entry.word;
-  room.usedWords.add(entry.word);
+  room.currentDifficulty = entry.difficulty;
   room.wordOptions = null;
   room.phase = "drawing";
   room.turnEndsAt = Date.now() + room.config.turnSeconds * 1000;
@@ -315,28 +335,76 @@ export function clearCanvasEvent(room: DrawRoom, socketId: string): ClearEvent |
 }
 
 function normalizeGuess(text: string): string {
-  return text
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "");
+  return normalizeWord(text);
+}
+
+/** Distancia de edicao (Levenshtein), usada so pra detectar palpite "quase certo". */
+function editDistance(a: string, b: string): number {
+  if (Math.abs(a.length - b.length) > 2) return 3;
+  const prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    let diag = prev[0];
+    prev[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const tmp = prev[j];
+      prev[j] = Math.min(prev[j] + 1, prev[j - 1] + 1, diag + (a[i - 1] === b[j - 1] ? 0 : 1));
+      diag = tmp;
+    }
+  }
+  return prev[b.length];
 }
 
 export interface GuessOutcome {
   correct: boolean;
+  /** errou por 1 letra (so o autor fica sabendo, nao vai pro feed dos outros) */
+  close: boolean;
   points: number;
   rank: number | null;
   alreadyGuessed: boolean;
   tooFast: boolean;
 }
 
-const RANK_SCORES = [100, 80, 60, 40];
-function scoreForGuessRank(rank: number): number {
-  return RANK_SCORES[rank - 1] ?? 20;
+// Pontuacao:
+// - quem acerta: base 50 + ate 100 proporcional ao tempo restante + bonus de ordem (1o/2o/3o).
+//   Acertar rapido vale bem mais que so ser o primeiro, e acertar no fim ainda vale algo.
+// - desenhista: media dos pontos dos adivinhadores (quem nao acertou conta 0). Escala sozinho
+//   com o tamanho da sala e premia desenho claro (todos acertam rapido = muitos pontos).
+const GUESS_BASE = 50;
+const GUESS_TIME_BONUS = 100;
+const RANK_BONUS = [40, 25, 10];
+
+function roundTo5(n: number): number {
+  return Math.round(n / 5) * 5;
 }
-function drawerScore(correctGuessers: number): number {
-  return 20 * correctGuessers;
+
+// palavra mais dificil vale mais (pra quem acerta e, pela media, pro desenhista)
+export const DIFFICULTY_MULTIPLIER: Record<Difficulty, number> = { 1: 1, 2: 1.25, 3: 1.5 };
+
+export function scoreForGuess(rank: number, timeLeftRatio: number, difficulty: Difficulty = 1): number {
+  const ratio = Math.min(1, Math.max(0, timeLeftRatio));
+  const raw = GUESS_BASE + GUESS_TIME_BONUS * ratio + (RANK_BONUS[rank - 1] ?? 0);
+  return roundTo5(raw * DIFFICULTY_MULTIPLIER[difficulty]);
 }
+
+/** Maximo possivel por acerto (1o lugar, na hora): mostrado na escolha de palavra. */
+export function maxPointsFor(difficulty: Difficulty): number {
+  return scoreForGuess(1, 1, difficulty);
+}
+
+export function drawerScore(guesserPoints: number[], nonDrawerCount: number): number {
+  if (nonDrawerCount <= 0 || guesserPoints.length === 0) return 0;
+  const total = guesserPoints.reduce((sum, p) => sum + p, 0);
+  return roundTo5(total / nonDrawerCount);
+}
+
+const EMPTY_OUTCOME: GuessOutcome = {
+  correct: false,
+  close: false,
+  points: 0,
+  rank: null,
+  alreadyGuessed: false,
+  tooFast: false,
+};
 
 export function submitGuess(room: DrawRoom, socketId: string, guess: string): GuessOutcome {
   const player = room.players.get(socketId);
@@ -346,30 +414,36 @@ export function submitGuess(room: DrawRoom, socketId: string, guess: string): Gu
     socketId === room.currentDrawerSocketId ||
     !room.currentWord
   ) {
-    return { correct: false, points: 0, rank: null, alreadyGuessed: false, tooFast: false };
+    return { ...EMPTY_OUTCOME };
   }
 
   if (player.hasGuessedThisTurn) {
-    return { correct: false, points: 0, rank: null, alreadyGuessed: true, tooFast: false };
+    return { ...EMPTY_OUTCOME, alreadyGuessed: true };
   }
 
   const now = Date.now();
   if (now - player.lastGuessAt < RATE_LIMIT_MS) {
-    return { correct: false, points: 0, rank: null, alreadyGuessed: false, tooFast: true };
+    return { ...EMPTY_OUTCOME, tooFast: true };
   }
   player.lastGuessAt = now;
 
-  if (normalizeGuess(guess) !== normalizeGuess(room.currentWord)) {
-    return { correct: false, points: 0, rank: null, alreadyGuessed: false, tooFast: false };
+  const normalizedGuess = normalizeGuess(guess);
+  const normalizedWord = normalizeGuess(room.currentWord);
+  if (normalizedGuess !== normalizedWord) {
+    const close = normalizedWord.length >= 4 && editDistance(normalizedGuess, normalizedWord) === 1;
+    return { ...EMPTY_OUTCOME, close };
   }
 
   player.hasGuessedThisTurn = true;
   room.guessOrder.push(socketId);
   const rank = room.guessOrder.length;
-  const points = scoreForGuessRank(rank);
+  const totalMs = room.config.turnSeconds * 1000;
+  const timeLeftRatio = room.turnEndsAt ? (room.turnEndsAt - now) / totalMs : 0;
+  const points = scoreForGuess(rank, timeLeftRatio, room.currentDifficulty ?? 1);
   player.score += points;
+  room.turnPoints.set(socketId, points);
 
-  return { correct: true, points, rank, alreadyGuessed: false, tooFast: false };
+  return { ...EMPTY_OUTCOME, correct: true, points, rank };
 }
 
 export function allNonDrawersGuessed(room: DrawRoom): boolean {
@@ -385,7 +459,10 @@ export function endTurn(room: DrawRoom, reason: TurnEndReason): void {
 
   const drawer = room.currentDrawerSocketId ? room.players.get(room.currentDrawerSocketId) : null;
   if (drawer && reason !== "drawer-left") {
-    drawer.score += drawerScore(room.guessOrder.length);
+    const guesserPoints = room.guessOrder.map((id) => room.turnPoints.get(id) ?? 0);
+    const points = drawerScore(guesserPoints, room.players.size - 1);
+    drawer.score += points;
+    room.turnPoints.set(drawer.socketId, points);
   }
 
   if (room.currentDrawerSocketId) {
