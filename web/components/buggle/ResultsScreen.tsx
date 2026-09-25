@@ -5,6 +5,7 @@ import { BookOpen } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
 import type { RoundEndedPayload } from "@/lib/buggle/types";
 import { scoreForWord } from "@/lib/buggle/score";
+import { playBuggleSfx } from "@/lib/buggle/sound";
 
 interface ResultsScreenProps {
   result: RoundEndedPayload;
@@ -79,7 +80,10 @@ export function ResultsScreen({ result, fast, onRevealComplete }: ResultsScreenP
     const leaveAt = typeDurationMs + readPauseMs;
     const advanceAfterLeaveMs = 400; // duracao do fadeOut
 
-    const enterTimer = setTimeout(() => setPhase("entering"), 50);
+    const enterTimer = setTimeout(() => {
+      setPhase("entering");
+      playBuggleSfx("reveal", word.word.length);
+    }, 50);
     const leaveTimer = setTimeout(() => {
       setPhase("leaving");
 
@@ -118,7 +122,9 @@ export function ResultsScreen({ result, fast, onRevealComplete }: ResultsScreenP
   const countedSoFar = Math.max(0, revealIndex + 1);
 
   useEffect(() => {
-    if (secretRevealed) onRevealComplete?.();
+    if (!secretRevealed) return;
+    if (result.secretWord) playBuggleSfx("secretReveal");
+    onRevealComplete?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [secretRevealed]);
 
@@ -181,12 +187,12 @@ export function ResultsScreen({ result, fast, onRevealComplete }: ResultsScreenP
 
   return (
     <div className="flex flex-1 flex-col items-center gap-5 overflow-hidden p-4 sm:p-6">
-      <div className="relative flex w-full justify-center self-stretch">
+      <div className="flex w-full flex-col items-center self-stretch">
         {board && (
           <div className="relative">
             <div
               className="grid gap-1 rounded-3xl bg-[var(--primary-tint)] p-3 shadow-[0_6px_0_var(--border)]"
-              style={{ gridTemplateColumns: `repeat(${board.length}, minmax(0, 1fr))`, width: "min(85vw, 460px)" }}
+              style={{ gridTemplateColumns: `repeat(${board.length}, minmax(0, 1fr))`, width: "min(85vw, 460px, 44vh)" }}
             >
               {board.map((row) =>
                 row.map((cell) => {
@@ -241,65 +247,68 @@ export function ResultsScreen({ result, fast, onRevealComplete }: ResultsScreenP
                 </div>
               </div>
             </div>
+          </div>
+        )}
 
-            <div className="absolute left-1/2 top-full flex translate-x-[-42%] items-center gap-2 pt-5">
-              {currentWord && phase !== "idle" && (() => {
-                // palavra maior = entrada mais brusca (mais escala/rotacao) e letras mais espacadas
-                const len = currentWord.word.length;
-                const intensity = Math.min(len, 10);
-                const enterScale = 1 + intensity * 0.09; // ate ~1.9
-                const enterRot = intensity * 1.2; // ate ~12deg
-                const letterDelay = 0.05 + intensity * 0.012;
-                return (
-                  <>
-                    <span
-                      key={currentWord.word}
-                      className={`w-max whitespace-nowrap rounded-full border-2 border-[var(--primary-dark)] px-6 py-2 text-2xl font-extrabold text-white shadow-lg ${
-                        phase === "leaving" ? "animate-[fadeOut_0.4s_ease]" : ""
-                      }`}
-                      style={
-                        {
-                          backgroundColor: colorForLength(currentWord.word.length),
-                          animation:
-                            phase === "entering"
-                              ? `wordSlam 0.4s cubic-bezier(0.17,0.89,0.32,1.49) both`
-                              : undefined,
-                          "--slam-scale": enterScale,
-                          "--slam-rot": `${enterRot}deg`,
-                        } as React.CSSProperties
-                      }
-                    >
-                      {currentWord.word.split("").map((letter, i) => (
-                        <span
-                          key={i}
-                          className="inline-block"
-                          style={{ animation: `letterPop 0.25s ease-out ${i * letterDelay}s both` }}
-                        >
-                          {letter}
-                        </span>
-                      ))}
-                    </span>
-                    <span
-                      key={`points-${currentWord.word}`}
-                      className={`text-lg font-extrabold text-yellow-400 ${
-                        phase === "leaving" ? "animate-[fadeOut_0.4s_ease]" : ""
-                      }`}
-                      style={
-                        phase === "entering"
-                          ? ({
-                              animation: `wordSlam 0.4s cubic-bezier(0.17,0.89,0.32,1.49) both`,
-                              "--slam-scale": enterScale,
-                              "--slam-rot": `${enterRot}deg`,
-                            } as React.CSSProperties)
-                          : undefined
-                      }
-                    >
-                      +{currentPoints}
-                    </span>
-                  </>
-                );
-              })()}
-            </div>
+        {/* altura fixa no fluxo: o podio fica sempre abaixo da pill, nunca por cima */}
+        {board && (
+          <div className="flex h-20 shrink-0 items-center justify-center gap-2 pt-3">
+            {currentWord && phase !== "idle" && (() => {
+              // palavra maior = entrada mais brusca (mais escala/rotacao) e letras mais espacadas
+              const len = currentWord.word.length;
+              const intensity = Math.min(len, 10);
+              const enterScale = 1 + intensity * 0.09; // ate ~1.9
+              const enterRot = intensity * 1.2; // ate ~12deg
+              const letterDelay = 0.05 + intensity * 0.012;
+              return (
+                <>
+                  <span
+                    key={currentWord.word}
+                    className={`w-max whitespace-nowrap rounded-full border-2 border-[var(--primary-dark)] px-6 py-2 text-2xl font-extrabold text-white shadow-lg ${
+                      phase === "leaving" ? "animate-[fadeOut_0.4s_ease]" : ""
+                    }`}
+                    style={
+                      {
+                        backgroundColor: colorForLength(currentWord.word.length),
+                        animation:
+                          phase === "entering"
+                            ? `wordSlam 0.4s cubic-bezier(0.17,0.89,0.32,1.49) both`
+                            : undefined,
+                        "--slam-scale": enterScale,
+                        "--slam-rot": `${enterRot}deg`,
+                      } as React.CSSProperties
+                    }
+                  >
+                    {currentWord.word.split("").map((letter, i) => (
+                      <span
+                        key={i}
+                        className="inline-block"
+                        style={{ animation: `letterPop 0.25s ease-out ${i * letterDelay}s both` }}
+                      >
+                        {letter}
+                      </span>
+                    ))}
+                  </span>
+                  <span
+                    key={`points-${currentWord.word}`}
+                    className={`text-lg font-extrabold text-yellow-400 ${
+                      phase === "leaving" ? "animate-[fadeOut_0.4s_ease]" : ""
+                    }`}
+                    style={
+                      phase === "entering"
+                        ? ({
+                            animation: `wordSlam 0.4s cubic-bezier(0.17,0.89,0.32,1.49) both`,
+                            "--slam-scale": enterScale,
+                            "--slam-rot": `${enterRot}deg`,
+                          } as React.CSSProperties)
+                        : undefined
+                    }
+                  >
+                    +{currentPoints}
+                  </span>
+                </>
+              );
+            })()}
           </div>
         )}
       </div>
@@ -310,9 +319,9 @@ export function ResultsScreen({ result, fast, onRevealComplete }: ResultsScreenP
         const podiumScores = podium.map((p) => scores[p.socketId] ?? 0);
         const maxScore = Math.max(1, ...podiumScores);
         const minStandHeight = 64;
-        const maxStandHeight = 168;
+        const maxStandHeight = 140;
         return (
-          <div className="flex flex-wrap items-end justify-center gap-4 pb-1">
+          <div className="flex shrink-0 flex-wrap items-end justify-center gap-4 pb-1">
             {podium.map((p, i) => {
               const score = scores[p.socketId] ?? 0;
               const wordsFoundCount = result.foundBy.find((f) => f.socketId === p.socketId)?.foundWords.length ?? 0;
@@ -340,12 +349,12 @@ export function ResultsScreen({ result, fast, onRevealComplete }: ResultsScreenP
                   />
                   <div className="flex flex-col items-center gap-0.5">
                     {isHostPlayer && (
-                      <span className="rounded-full bg-yellow-400 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-[#2c1568]">
+                      <span className="rounded-full bg-yellow-400 px-2 py-0.5 text-xs font-black uppercase tracking-wide text-[var(--stage-3)]">
                         Host
                       </span>
                     )}
                     <span className="text-sm font-extrabold text-[var(--fg)]">{p.name}</span>
-                    <span className="flex items-center gap-1 text-[11px] font-bold text-[var(--fg-muted)]">
+                    <span className="flex items-center gap-1 text-xs font-bold text-[var(--fg-muted)]">
                       <BookOpen size={11} />
                       {wordsFoundCount} {wordsFoundCount === 1 ? "palavra" : "palavras"}
                     </span>
@@ -355,7 +364,7 @@ export function ResultsScreen({ result, fast, onRevealComplete }: ResultsScreenP
                     style={{ height: `${standHeight}px` }}
                   >
                     <span className="text-xl font-extrabold">{score}</span>
-                    <span className="text-[10px] font-bold uppercase tracking-wide">{ordinalFor(i)}</span>
+                    <span className="text-xs font-bold uppercase tracking-wide">{ordinalFor(i)}</span>
                   </div>
                 </div>
               );
@@ -370,7 +379,7 @@ export function ResultsScreen({ result, fast, onRevealComplete }: ResultsScreenP
             const score = scores[p.socketId] ?? 0;
             return (
               <div key={p.socketId} className="flex items-center gap-2 rounded-xl px-1.5 py-1">
-                <span className="w-5 shrink-0 text-center text-[11px] font-extrabold text-[var(--fg-muted)]">
+                <span className="w-5 shrink-0 text-center text-xs font-extrabold text-[var(--fg-muted)]">
                   {i + 11}
                 </span>
                 <Avatar
@@ -397,7 +406,7 @@ export function ResultsScreen({ result, fast, onRevealComplete }: ResultsScreenP
             className="fixed left-4 top-[88px] z-50 flex flex-col gap-1 rounded-2xl border-2 border-[var(--primary-dark)] bg-[var(--primary)] px-5 py-3 shadow-[0_6px_0_var(--primary-dark)]"
             style={{ "--card-rot": "-5deg", animation: "cardDropIn 0.5s cubic-bezier(0.17,0.89,0.32,1.28) both" } as React.CSSProperties}
           >
-            <span className="text-[11px] font-bold uppercase tracking-wide text-white">
+            <span className="text-xs font-bold uppercase tracking-wide text-white">
               {secretFound ? `${finderNames} encontrou a palavra secreta` : "A palavra secreta desta rodada era"}
             </span>
             <span className="text-3xl font-black tracking-wide text-yellow-300">{result.secretWord.word}</span>
@@ -406,7 +415,7 @@ export function ResultsScreen({ result, fast, onRevealComplete }: ResultsScreenP
       })()}
 
       {secretRevealed && (
-        <p className="text-sm font-bold text-[var(--fg-muted)]">Aguardando o host iniciar a proxima rodada...</p>
+        <p className="text-sm font-bold text-[var(--fg-muted)]">Aguardando o host iniciar a próxima rodada...</p>
       )}
     </div>
   );

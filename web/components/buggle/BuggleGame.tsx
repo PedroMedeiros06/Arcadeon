@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import { GameHeader } from "@/components/GameHeader";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, LogOut } from "lucide-react";
 import { getBuggleSocket } from "@/lib/buggle/socket";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { Lobby } from "./Lobby";
@@ -14,41 +13,10 @@ import { RoundCountdown } from "./RoundCountdown";
 import { ResultsScreen } from "./ResultsScreen";
 import { MobileResultsScreen } from "./MobileResultsScreen";
 import { JoinNameModal } from "./JoinNameModal";
+import { SoundToggle } from "./SoundToggle";
+import { initBuggleSound, playBuggleSfx } from "@/lib/buggle/sound";
 import type { BoggleCell, RoomConfig, RoomState, RoundEndedPayload, WordResult } from "@/lib/buggle/types";
 
-function GameHeader({ onLeaveRoom }: { onLeaveRoom?: () => void }) {
-  return (
-    <header className="sticky top-0 z-40 border-b-2 border-[var(--border)] bg-[var(--card)] px-6 py-4">
-      <div className="flex items-center justify-between">
-        <Link
-          href="/"
-          className="flex items-center gap-1.5 rounded-2xl border-2 border-[var(--border)] bg-[var(--card)] px-4 py-2 text-sm font-extrabold text-[var(--fg-muted)] transition hover:bg-[var(--bg)]"
-        >
-          <ArrowLeft className="h-4 w-4" /> Hub
-        </Link>
-
-        <h1 className="flex items-center gap-2.5 text-lg font-extrabold tracking-tight text-[var(--fg)]">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--accent)] text-sm font-extrabold text-white">
-            abc
-          </span>
-          Buggle
-        </h1>
-
-        {onLeaveRoom ? (
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={onLeaveRoom}
-            className="flex items-center gap-1.5 rounded-2xl border-2 border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-2 text-sm font-extrabold text-[var(--danger)] transition hover:opacity-80"
-          >
-            <LogOut className="h-4 w-4" /> Sair da sala
-          </button>
-        ) : (
-          <span className="w-[92px]" />
-        )}
-      </div>
-    </header>
-  );
-}
 
 export function BuggleGame() {
   const { username, loading: authLoading, equippedAvatar } = useAuth();
@@ -66,12 +34,28 @@ export function BuggleGame() {
   const [resultsFast, setResultsFast] = useState(false);
   const [resultsRevealDone, setResultsRevealDone] = useState(false);
   const prevPhase = useRef<RoomState["phase"] | null>(null);
+  const prevWordsFound = useRef(0);
+  const lastTickSecond = useRef<number | null>(null);
   const socketRef = useRef(getBuggleSocket());
+
+  useEffect(() => {
+    initBuggleSound();
+  }, []);
 
   useEffect(() => {
     const socket = socketRef.current;
 
     function handleRoomUpdated(state: RoomState) {
+      // na TV, um "plim" baixinho cada vez que alguem acha uma palavra nova
+      const totalFound = state.players.reduce((sum, p) => sum + p.wordsFound, 0);
+      if (
+        state.phase === "playing" &&
+        state.ownerSocketId === socket.id &&
+        totalFound > prevWordsFound.current
+      ) {
+        playBuggleSfx("otherCorrect");
+      }
+      prevWordsFound.current = totalFound;
       setRoom(state);
       if (state.phase === "playing") setRoundResult(null);
     }
@@ -80,8 +64,11 @@ export function BuggleGame() {
     }
     function handleWordResult(data: WordResult) {
       setLastResult(data);
+      if (data.accepted) playBuggleSfx(data.isSecret ? "secret" : "correct", data.word.length);
+      else playBuggleSfx(data.alreadyFound ? "already" : "wrong");
     }
     function handleRoundEnded(data: RoundEndedPayload) {
+      playBuggleSfx("roundEnd");
       setRoundResult(data);
       setRoom(data.room);
       setResultsFast(false);
@@ -114,13 +101,21 @@ export function BuggleGame() {
       socket.off("round-ended", handleRoundEnded);
       socket.off("room-closed", handleRoomClosed);
       socket.off("results-speed-changed", handleResultsSpeedChanged);
+      socket.off("results-reveal-done", handleResultsRevealDone);
     };
   }, []);
 
   useEffect(() => {
     if (!room || room.phase !== "playing" || !room.roundEndsAt) return;
     const interval = setInterval(() => {
-      setSecondsLeft(Math.max(0, Math.ceil((room.roundEndsAt! - Date.now()) / 1000)));
+      const s = Math.max(0, Math.ceil((room.roundEndsAt! - Date.now()) / 1000));
+      setSecondsLeft(s);
+      // alarme ao chegar nos 10s, depois tique a cada segundo ate acabar
+      if (lastTickSecond.current !== s) {
+        lastTickSecond.current = s;
+        if (s === 10) playBuggleSfx("warning");
+        else if (s > 0 && s < 10) playBuggleSfx("tick", s);
+      }
     }, 250);
     return () => clearInterval(interval);
   }, [room]);
@@ -139,6 +134,7 @@ export function BuggleGame() {
 
   useEffect(() => {
     if (countdown === null) return;
+    playBuggleSfx(countdown > 0 ? "countdown" : "go");
     if (countdown <= 0) {
       const t = setTimeout(() => setCountdown(null), 900);
       return () => clearTimeout(t);
@@ -220,7 +216,7 @@ export function BuggleGame() {
     if (authLoading) {
       return (
         <>
-          <GameHeader />
+          <GameHeader slug="buggle" actions={<SoundToggle />} />
           <div className="flex flex-1 items-center justify-center">
             <p className="font-semibold text-[var(--fg-muted)]">Carregando...</p>
           </div>
@@ -230,7 +226,7 @@ export function BuggleGame() {
     if (!username) {
       return (
         <>
-          <GameHeader />
+          <GameHeader slug="buggle" actions={<SoundToggle />} />
           <JoinNameModal onConfirm={handleJoinWithName} joinError={joinError} />
         </>
       );
@@ -240,10 +236,10 @@ export function BuggleGame() {
   if (!room) {
     return (
       <>
-        {lobbyMode !== "create" && <GameHeader />}
+        {lobbyMode !== "create" && <GameHeader slug="buggle" actions={<SoundToggle />} />}
         {roomClosed && (
           <p className="mt-4 text-center text-sm font-bold text-[var(--danger)]">
-            A sala foi encerrada (o anfitriao/TV saiu).
+            A sala foi encerrada (o anfitrião/TV saiu).
           </p>
         )}
         <Lobby
@@ -263,7 +259,7 @@ export function BuggleGame() {
     const amHost = room.hostSocketId === socketRef.current.id;
     return (
       <>
-        <GameHeader onLeaveRoom={handleLeaveRoom} />
+        <GameHeader slug="buggle" actions={<SoundToggle />} onLeaveRoom={handleLeaveRoom} />
         {amOwner ? (
           <ResultsScreen
             result={roundResult}
@@ -280,6 +276,9 @@ export function BuggleGame() {
             onChangeFast={handleChangeResultsSpeed}
             revealDone={resultsRevealDone}
             onPlayAgain={handleStart}
+            config={room.config}
+            playerCount={room.players.length}
+            onUpdateConfig={handleUpdateConfig}
           />
         )}
       </>
@@ -305,7 +304,7 @@ export function BuggleGame() {
   if (isOwner) {
     return (
       <>
-        <GameHeader onLeaveRoom={handleLeaveRoom} />
+        <GameHeader slug="buggle" actions={<SoundToggle />} onLeaveRoom={handleLeaveRoom} />
         <OwnerGameScreen room={room} secondsLeft={secondsLeft} countdown={countdown} />
       </>
     );

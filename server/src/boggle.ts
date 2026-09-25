@@ -88,18 +88,19 @@ export interface BoardGenerationResult {
 }
 
 // Escolhe as palavras da rodada e monta o tabuleiro em torno delas:
-// 1. sorteia uma secretWord (longa) e garante um caminho pra ela;
+// 1. sorteia uma secretWord (da lista de palavras comuns) e garante um caminho pra ela;
 // 2. tenta encaixar outras palavras candidatas reaproveitando letras existentes;
 // 3. preenche o resto do grid com letras ponderadas por frequência.
 // Se qualquer etapa obrigatória falhar, descarta e tenta o board inteiro de novo.
 export function generateBoardWithSecret(
   size: number,
   dictionary: string[],
+  secretWords: string[],
   minLength: number,
   maxAttempts = 20
 ): BoardGenerationResult {
   const secretCandidates = shuffle(
-    dictionary.filter((w) => w.length >= Math.max(minLength, 5) && w.length <= size * size)
+    secretWords.filter((w) => w.length >= Math.max(minLength, 5) && w.length <= size * size)
   );
   const fillerCandidates = shuffle(dictionary.filter((w) => w.length >= minLength && w.length <= size * size));
 
@@ -148,7 +149,7 @@ export function generateBoardWithSecret(
     Array.from({ length: size }, () => LETTER_POOL[Math.floor(Math.random() * LETTER_POOL.length)])
   );
   const board: BoggleBoard = grid.map((row, r) => row.map((letter, c) => ({ row: r, col: c, letter: letter! })));
-  const fallback = findAllWords(board, dictionary, minLength);
+  const fallback = findAllWords(board, secretWords, minLength);
   const secretWord = pickSecretWord(fallback) ?? { word: "", path: [] };
   return { board, secretWord };
 }

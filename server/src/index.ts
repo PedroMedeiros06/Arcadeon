@@ -137,7 +137,8 @@ io.on("connection", (socket) => {
 
   socket.on("update-config", (data: { code: string; config: RoomConfig }) => {
     const room = getRoom(data.code);
-    if (!room || room.hostSocketId !== socket.id || room.phase !== "lobby") return;
+    // tambem pode editar na tela de resultados, pra mudar a proxima rodada sem recriar a sala
+    if (!room || room.hostSocketId !== socket.id || room.phase === "playing") return;
     if (updateConfig(room, data.config)) {
       io.to(room.code).emit("room-updated", publicRoomState(room));
     }

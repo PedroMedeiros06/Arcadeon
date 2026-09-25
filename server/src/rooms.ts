@@ -1,5 +1,5 @@
 import { BoggleBoard, BoggleCell, generateBoardWithSecret, findAllWords, scoreForWord } from "./boggle";
-import { DICTIONARY } from "./dictionary";
+import { DICTIONARY, SECRET_WORDS } from "./dictionary";
 
 export interface RoomConfig {
   boardSize: number; // 4-10
@@ -136,7 +136,12 @@ export function leaveRoom(socketId: string): { room: Room | null; closedCode: st
 }
 
 export function startRound(room: Room): void {
-  const { board, secretWord } = generateBoardWithSecret(room.config.boardSize, DICTIONARY, room.config.minWordLength);
+  const { board, secretWord } = generateBoardWithSecret(
+    room.config.boardSize,
+    DICTIONARY,
+    SECRET_WORDS,
+    room.config.minWordLength
+  );
   room.board = board;
   room.allWordsOnBoard = findAllWords(board, DICTIONARY, room.config.minWordLength);
   room.secretWord = secretWord.word ? secretWord : null;

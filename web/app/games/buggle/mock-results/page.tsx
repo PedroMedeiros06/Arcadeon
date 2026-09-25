@@ -253,6 +253,9 @@ export default function BuggleMockResultsPage() {
           onChangeFast={setFast}
           revealDone={revealDone}
           onPlayAgain={() => alert("Jogar novamente (mock)")}
+          config={result.room.config}
+          playerCount={result.room.players.length}
+          onUpdateConfig={(c) => alert(`Salvar config (mock): ${JSON.stringify(c)}`)}
         />
       )}
     </div>

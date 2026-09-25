@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Hourglass, LogOut } from "lucide-react";
 import { Board } from "./Board";
+import { SoundToggle } from "./SoundToggle";
 import type { BoggleBoard, BoggleCell, WordResult } from "@/lib/buggle/types";
 
 interface GamePlayScreenProps {
@@ -51,7 +52,7 @@ export function GamePlayScreen({
             {String(secondsLeft % 60).padStart(2, "0")}
           </div>
           {lastResult && !lastResult.accepted && lastResult.alreadyFound && (
-            <span className="rounded-full border-2 border-[#ca8a04] bg-[#facc15] px-3 py-1 text-xs font-bold text-[#2c1568] shadow-sm">
+            <span className="rounded-full border-2 border-[#ca8a04] bg-[#facc15] px-3 py-1 text-xs font-bold text-[var(--stage-3)] shadow-sm">
               {lastResult.word} já encontrada
             </span>
           )}
@@ -68,15 +69,18 @@ export function GamePlayScreen({
           )}
         </div>
 
-        {onLeaveRoom && (
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={onLeaveRoom}
-            className="flex items-center gap-1.5 rounded-full border-2 border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-1.5 text-xs font-extrabold text-[var(--danger)] transition hover:opacity-80"
-          >
-            <LogOut className="h-3.5 w-3.5" /> Sair
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          <SoundToggle />
+          {onLeaveRoom && (
+            <button
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={onLeaveRoom}
+              className="flex items-center gap-1.5 rounded-full border-2 border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-1.5 text-xs font-extrabold text-[var(--danger)] transition hover:opacity-80"
+            >
+              <LogOut className="h-3.5 w-3.5" /> Sair
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="relative z-10 flex h-14 items-center justify-center">

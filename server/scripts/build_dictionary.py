@@ -1,0 +1,181 @@
+"""Gera server/src/dictionary.ts (DICTIONARY + SECRET_WORDS) so com palavras de uso comum.
+
+Fontes:
+  - Frequencia de uso PT-BR: hermitdave/FrequencyWords (MIT), legendas OpenSubtitles 2018.
+  - Validacao ortografica: hunspell pt do LibreOffice via wooorm/dictionaries (LGPL-3.0 OR MPL-2.0).
+
+Pega as palavras mais usadas e mantem so as que o hunspell aceita em minusculas;
+isso ja derruba siglas (CDI, IPTU), nomes proprios e palavras estrangeiras.
+
+Uso (na pasta server/):
+  pip install spylls
+  python scripts/build_dictionary.py
+"""
+
+import io
+import os
+import re
+import tempfile
+import unicodedata
+import urllib.request
+
+from spylls.hunspell import Dictionary
+
+FREQ_URL = "https://raw.githubusercontent.com/hermitdave/FrequencyWords/master/content/2018/pt_br/pt_br_full.txt"
+HUNSPELL_URL = "https://raw.githubusercontent.com/wooorm/dictionaries/main/dictionaries/pt/index"
+
+# Quantas palavras do topo da lista de frequencia entram no dicionario de validacao.
+# Acima de ~70k comeca a aparecer lixo (nomes, termos tecnicos).
+VALID_TOP_N = 70_000
+# Palavra secreta: so entre as mais usadas, pra ser algo que todo mundo conhece.
+SECRET_TOP_N = 8_000
+SECRET_MIN_LEN = 5
+
+MIN_LEN, MAX_LEN = 3, 15
+
+# Palavras de 3 letras: o hunspell aceita muita coisa estranha (ATM, CSI, RPM...),
+# entao so entra quem esta nesta lista.
+THREE_LETTER_WHITELIST = set("""
+ABA ACO ALA ALI ALO AMA AMO ANO AOS ASA ATA ATE ATO AVE AVO BAR BAU BEM BIS BOA BOI BOM
+CAI CAL CAO CEM CEU CHA COM COR CRU DAI DAO DAR DAS DEI DEU DEZ DIA DIZ DOA DOE DOR DOS
+DOU DUO ECO EGO EIS ELA ELE ELO EMA ERA ETC FAZ FEL FEZ FIM FIO FIZ FOI FOR FUI GAS GEL
+GIZ GOL HUM IDA IRA JAZ KIT LAR LEI LER LEU LHE LUA LUZ MAE MAL MAO MAR MAS MAU MEL MES
+MEU MIL MIM NAO NAS NEM NOS NOZ NUA NUM OBA OCA OCO OLA OPA ORA OVO PAI PAO PAR PAU PAZ
+PES PIA POE POR POS PRA PUS QUE REI REU RIA RIO RIR RIU ROL RUA RUM SAI SAL SAO SEI SEM
+SER SEU SIM SOA SOB SOL SOM SOU SUA SUL TAL TEM TER TEU TIA TIO TOM TOP TUA UAU UFA UMA
+UNS USA USO UVA VAI VAO VEM VER VEU VEZ VIA VIL VIM VIR VIU VOA VOO VOU VOZ ZEN ZOO
+""".split())
+
+# Nunca aceitas (nem como resposta, nem no tabuleiro). Comparado ja sem acento.
+BLOCKED = set("""
+PUTA PUTAS PUTO PUTOS PUTARIA PUTEIRO PUNHETA PUNHETAS PUNHETEIRO PUNHETEIROS
+PORRA PORRAS MERDA MERDAS MERDINHA MERDINHAS BOSTA BOSTAS
+FODA FODAM FODAS FODE FODEM FODEMOS FODENDO FODER FODERAM FODEREM FODERIA FODEU FODI
+FODIA FODIDA FODIDAMENTE FODIDAS FODIDO FODIDOS FODO
+CARALHO CARALHOS CACETE CACETES BUCETA BUCETAS XOTA XOTAS XOXOTA XOXOTAS PIROCA PIROCAS
+BOQUETE BOQUETES BICHA BICHAS BOIOLA BOIOLAS VIADO VIADOS VEADINHO BAITOLA
+CORNO CORNOS CORNUDO ESCROTA ESCROTO ESCROTOS BABACA BABACAS OTARIA OTARIO OTARIOS
+CAGA CAGADA CAGADAS CAGADO CAGAM CAGANDO CAGAO CAGAR CAGARAM CAGO CAGOU
+PEITUDA PEITUDAS SACANAGEM SACANAGENS CRIOULA CRIOULO CRIOULOS NEGRAO BROXANTE
+BUNDAO BUNDOES BUNDONA
+""".split())
+
+# Nomes proprios (nomes de pessoa do IBGE, sobrenomes, paises, cidades) e estrangeirismos que o
+# hunspell deixa passar. Curado a mao: nomes que tambem sao palavras comuns (ROSA, LUZ, SOL,
+# ESTRELA, JUNHO, PERU...) ficaram de fora desta lista.
+PROPER_NOUNS = set("""
+ABADIA ABRAAO ADAM ADAO ADEL ADELA ADELAIDE ADELE ADELITA ADONAI ADONIS AFONSO AFRICA AGATA AGNES AGOSTINHO
+AIRES ALANA ALBA ALBINO ALCIDE ALCIDES ALI ALICIA ALISE ALMEIDA ALONSO ALVA AMADEUS AMANDA AMARA AMARAL AMARIA
+AMARO AMELIA AMIR ANACLETO ANGEL ANGELINA ANGOLA ANGRA ANITA ANTONINO ANTONIO APARECIDO APOLO AQUILA AQUILES
+ARAO ARGEL ARIADNE ARIANA ARIANO ARMANDO ARMENIA ARSENIO ASIA ASSUNCAO ATILA AUGUSTA AUGUSTO AUREA AURO
+AUSTRALIA AUSTRIA AVILA BARNABE BARTOLOMEU BASTIAO BELGICA BENEDITO BENJAMIM BENTA BENTO BERNARDO BERTA BETO
+BIANCA BIBIANA BOLIVAR BORIS BOTSUANA BRASIL BRASILIA BREDA BRITO BRUNA BRUNO CACILDA CAETANO CAIO CAIQUE
+CAIRO CALEDONIA CALIFORNIA CALISTO CAMILA CANADA CARINA CARLOTA CARMELITA CARMELO CARMINE CAROLINA CASSANDRA
+CASTRO CATARINA CECILIA CELINA CELSO CERES CESAR CHALES CHARLES CHIARA CHICO CHILE CHINA CICERO CILA CINDI
+CLARISSA CLARITA CLAUS COMMODITIES CONSTANTINO COREIA CORINA CORNELIO COSMO CRIS CRISTINA CROACIA CUBA DAFNE
+DANA DANTE DARA DARIA DEDE DELFINA DELI DELIA DIANA DIMAS DINA DINAR DINO DIONISIO DOLCE DOLORES DOMINICANA
+DONATO DORA DORCAS DORIS EDEN EDIPO EDITE ELINA ELMO ELVIRA EMILIA EMILIANO EMILIO EMIR ENCARNACAO ENOQUE
+ENRICO ENRIQUE EPIFANIA ERICA EROS ESCOCIA ESLOVAQUIA ESTEVA ESTEVAO EUGENIA EVELINA FABIANA FAUSTA FAUSTINO
+FAUSTO FELICIA FERREIRA FILIPE FILIPINAS FILOMENA FLORENCA FLORENTINO FLORIDA FRANCISCA FRANCISCO GALILEU
+GENESIS GEORGIANA GEORGINA GERI GERMANIA GIDEAO GOMES GUIDO GUILHERME HARI HELENA HELENE HELENO HELIO HERMES
+HILARIA HILARIO HOLANDA IAGO ICARO ILARIA INDIA INDONESIA INES IONE IRAM IRAO IRENA IRENE IRES IRIA IRINA
+IRLANDA ISABEL ISABELA ISLA ISRAEL JACO JAMAICA JANA JANAI JANE JAPAO JEOVA JEREMIAS JERONIMO JESUS JOANA
+JOANETE JOAO JOAOZINHO JOBE JONAS JONES JORDANA JORDANIA JORGE JOSEFINA JUANA JUANITA JUDAS JULIANA JULIANO
+JULIETA JUMA LAERTES LANA LANE LAOS LARI LAURA LAURITA LAVINIA LAZARO LEANDRO LEDA LEILA LEIVA LENA LENI LENO
+LEONE LETICIA LETONIA LIANA LIBERIA LIBIA LIGIA LILA LILI LINA LINO LISBOA LISE LISSA LITUANIA LIVIA LIZA
+LORDES LORENA LOURENCO LUANA LUCA LUCAS LUCIA LUCIANA LUCIO LUCRECIA LUIS LUNA LUZIA MACEDONIA MADALENA MAGDA
+MAGNA MAGNO MAIA MAIRE MALASIA MALDIVAS MALI MALU MALVINA MANUEL MARA MARCELA MARCELINA MARCELINO MARCIA
+MARCIO MARCONI MARGARITA MARGO MARI MARIA MARIANA MARIANO MARIAS MARINARA MARINE MARINES MARIS MARISA MARITA
+MARTA MARTINS MATEUS MATIAS MATILDA MATUSALEM MAURA MAURO MAXI MAXIMILIANO MEDEIA MELINA MELISSA MENDES MERCIA
+MICHELA MIGUEL MILENA MIRAI MIRAMAR MIRO MISA MOISES MOLDAVIA MONA MONICA MOSCOU NADIR NAIR NAMIBIA NANDO
+NAPOLEAO NARA NATALINA NATALINO NATIVIDADE NAZARENO NENA NERO NESTOR NICOLAU NILO NINA NINO NITA NOEL NONATO
+NORMANDO NORUEGA NUNO OFELIA OLGA OLIMPIA ORLANDO OSCAR PALOMA PARIS PATRICIA PATRICIO PATROCINIO PAUL PAULA
+PAULINA PAULINO PAULO PEDRO PENELOPE PERI PERICLES PERLA PERO PETRA POLONIA RAMONA RANA RANGEL RANI
+RAQUEL REBECA REGI REGINA REMI RENATA RENATO RENO RIAM RICARDO RINA RITA ROBERTA ROBERTO RODRIGO RODRIGUES
+ROMA ROMEU ROQUE ROSE ROSINA ROSINHA ROSITA RUTE SABINA SACHA SALOMAO SALVADORA SAMA SANSAO SANTANA SANTIAGO
+SANTINHA SATIRO SEBASTIAO SELENE SELINA SERAFIM SERAFINA SEVERINO SHOP SIBILA SILA SILAS SILVA SILVANA SILVANO
+SILVESTRE SILVIA SIMAO SIRIA SIRIO SIRO SOARES SOFIA SOLANO SOUSA SOUZA SUDARIO SUECIA SUICA SUSANA TACITO
+TALES TAMA TAMISA TANIS TARSO TERESA TIANA TIAO TINA TITO TOGO TOMAS TONE TONGA TONIA TULIO UCRANIA URANO
+URIAS VALDA VALENTINA VALENTINO VALERIANA VALQUIRIA VANDA VANESSA VASCO VATICANO VERA VERONICA VICENTE
+VIRGINIA VITA VITOR VITORIANO VIVIANA XISTO ZAMBIA ZENA ZENO ZITO
+ACOSTA ANTARES CENTER CLIVE
+""".split())
+
+# Aceitas como resposta, mas nunca sorteadas como palavra secreta.
+SECRET_EXCLUDED_PREFIXES = (
+    "ANUS", "ARROMB", "BUNDA", "CADELA", "CRETIN", "DESGRAC", "ESTUPR", "GOZ", "IDIOT",
+    "IMBECIL", "JUDEU", "MACAC", "MALDIT", "MASTURB", "MIJ", "NEGR", "PEID", "PENIS",
+    "PIRANHA", "PRETO", "RETARDAD", "SACANA", "SAFAD", "SEXO", "SEXU", "TETA", "TRANSA",
+    "TRANSEI", "TRANSO", "TRANSEXUA", "VADIA", "VAGABUND", "VAGINA", "VACA", "PINTO", "ROLA",
+    "PICA", "CHUP", "OTARI", "SUICID", "DROGA", "MATAR", "MORT", "ASSASSIN",
+)
+
+WORD_RE = re.compile(r"[a-záàâãéêíóôõúüç]+")
+
+
+def strip_accents(word: str) -> str:
+    return unicodedata.normalize("NFD", word).encode("ascii", "ignore").decode().upper()
+
+
+def download(url: str, dest: str) -> None:
+    print(f"baixando {url}")
+    urllib.request.urlretrieve(url, dest)
+
+
+def main() -> None:
+    tmp = tempfile.mkdtemp()
+    freq_path = os.path.join(tmp, "freq.txt")
+    download(FREQ_URL, freq_path)
+    for ext in ("aff", "dic"):
+        download(f"{HUNSPELL_URL}.{ext}", os.path.join(tmp, f"pt.{ext}"))
+    hunspell = Dictionary.from_files(os.path.join(tmp, "pt"))
+
+    valid: set[str] = set()
+    secret: list[str] = []
+    seen_secret: set[str] = set()
+
+    with io.open(freq_path, encoding="utf-8") as f:
+        for rank, line in enumerate(f):
+            if rank >= VALID_TOP_N:
+                break
+            word = line.split()[0]
+            if not WORD_RE.fullmatch(word) or not hunspell.lookup(word):
+                continue
+            norm = strip_accents(word)
+            if not (MIN_LEN <= len(norm) <= MAX_LEN):
+                continue
+            if len(norm) == 3 and norm not in THREE_LETTER_WHITELIST:
+                continue
+            if re.search(r"[KWY]", norm) or norm in BLOCKED or norm in PROPER_NOUNS:
+                continue
+            valid.add(norm)
+            if (
+                rank < SECRET_TOP_N
+                and len(norm) >= SECRET_MIN_LEN
+                and norm not in seen_secret
+                and not norm.startswith(SECRET_EXCLUDED_PREFIXES)
+            ):
+                seen_secret.add(norm)
+                secret.append(norm)
+
+    dictionary = sorted(valid)
+    secret.sort()
+
+    out_path = os.path.join(os.path.dirname(__file__), "..", "src", "dictionary.ts")
+    with io.open(out_path, "w", encoding="utf-8", newline="\n") as out:
+        out.write(
+            "// Gerado por server/scripts/build_dictionary.py — nao editar a mao.\n"
+            "// Frequencia: hermitdave/FrequencyWords (MIT). Ortografia: hunspell pt do LibreOffice (LGPL-3.0 OR MPL-2.0).\n"
+            f"export const DICTIONARY: string[] = {json_list(dictionary)};\n\n"
+            "// Palavras comuns pra sortear como palavra secreta.\n"
+            f"export const SECRET_WORDS: string[] = {json_list(secret)};\n"
+        )
+    print(f"DICTIONARY: {len(dictionary)} palavras | SECRET_WORDS: {len(secret)} palavras")
+
+
+def json_list(words: list[str]) -> str:
+    return "[" + ",".join(f'"{w}"' for w in words) + "]"
+
+
+if __name__ == "__main__":
+    main()

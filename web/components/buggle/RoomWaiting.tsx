@@ -65,7 +65,7 @@ export function RoomWaiting({
     typeof window !== "undefined" ? `${window.location.origin}/games/buggle?join=${room.code}` : "";
 
   return (
-    <div className="relative flex flex-1 flex-col overflow-hidden bg-linear-to-br from-[#7c3fe0] via-[#5a2fc2] to-[#26124f]">
+    <div className="relative flex flex-1 flex-col overflow-hidden bg-linear-to-br from-[var(--stage-1)] via-[var(--stage-2)] to-[var(--stage-3)]">
       {/* estrelinhas decorativas */}
       <div className="pointer-events-none absolute inset-0">
         {STARS.map((star, i) => (
@@ -107,7 +107,7 @@ export function RoomWaiting({
       <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-5 px-6 pb-10">
         <h1
           className="text-5xl font-black italic tracking-tight text-yellow-300 drop-shadow-[3px_3px_0_rgba(44,21,104,0.9)] sm:text-6xl"
-          style={{ WebkitTextStroke: "2px #2c1568" }}
+          style={{ WebkitTextStroke: "2px var(--stage-3)" }}
         >
           Buggle
         </h1>
@@ -134,13 +134,13 @@ export function RoomWaiting({
             </div>
 
             <div className="flex flex-col items-center gap-1">
-              <p className="text-xs font-semibold text-white/60">ou digite o codigo</p>
+              <p className="text-xs font-semibold text-white/75">ou digite o código</p>
               <p className="font-mono text-3xl font-extrabold tracking-[0.3em] text-white drop-shadow">
                 {room.code}
               </p>
             </div>
 
-            <div className="text-center text-xs text-white/60">
+            <div className="text-center text-xs text-white/75">
               Tabuleiro {room.config.boardSize}x{room.config.boardSize} · {room.config.roundSeconds}s ·
               min. {room.config.minWordLength} letras · {room.config.visibility === "public" ? "publica" : "privada"}
             </div>
@@ -173,8 +173,8 @@ export function RoomWaiting({
               ))}
             </div>
 
-            <p className="text-xs font-semibold text-white/60">
-              O anfitriao ({room.players.find((p) => p.socketId === room.hostSocketId)?.name ?? "..."}) inicia a
+            <p className="text-xs font-semibold text-white/75">
+              O anfitrião ({room.players.find((p) => p.socketId === room.hostSocketId)?.name ?? "..."}) inicia a
               partida pelo proprio celular.
             </p>
           </>
@@ -195,14 +195,14 @@ export function RoomWaiting({
               <button
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setShowAvatarModal(true)}
-                className="absolute -left-2 -top-2 flex h-8 w-8 items-center justify-center rounded-xl border-2 border-white/40 bg-white text-[#2c1568] shadow transition hover:scale-105"
+                className="absolute -left-2 -top-2 flex h-8 w-8 items-center justify-center rounded-xl border-2 border-white/40 bg-white text-[var(--stage-3)] shadow transition hover:scale-105"
                 title="Trocar avatar"
               >
                 <Pencil size={14} strokeWidth={2.5} />
               </button>
               {isHost && (
-                <span className="absolute -bottom-1 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full bg-yellow-400 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#2c1568] shadow">
-                  <Crown size={10} className="fill-[#2c1568]" />
+                <span className="absolute -bottom-1 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full bg-yellow-400 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-[var(--stage-3)] shadow">
+                  <Crown size={10} className="fill-[var(--stage-3)]" />
                   Anfitriao
                 </span>
               )}
@@ -211,8 +211,8 @@ export function RoomWaiting({
 
             {isHost ? (
               <>
-                <p className="text-xs font-semibold text-white/60">
-                  Codigo: <span className="font-mono tracking-widest text-white">{room.code}</span>
+                <p className="text-xs font-semibold text-white/75">
+                  Código: <span className="font-mono tracking-widest text-white">{room.code}</span>
                 </p>
 
                 {room.players.length > 1 && (
@@ -222,14 +222,14 @@ export function RoomWaiting({
                     className="flex w-full max-w-xs items-center justify-center gap-2 rounded-xl border-2 border-white/30 bg-black/20 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-black/40"
                   >
                     <Crown size={15} />
-                    Mudar anfitriao
+                    Mudar anfitrião
                   </button>
                 )}
 
                 <button
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={onStart}
-                  className="w-full max-w-xs rounded-xl border-2 border-yellow-500 bg-yellow-400 py-3.5 text-lg font-extrabold text-[#2c1568] shadow-[0_4px_0_#b8860b] transition active:translate-y-1 active:border-b-2 active:shadow-none"
+                  className="w-full max-w-xs rounded-xl border-2 border-yellow-500 bg-yellow-400 py-3.5 text-lg font-extrabold text-[var(--stage-3)] shadow-[0_4px_0_#b8860b] transition active:translate-y-1 active:border-b-2 active:shadow-none"
                 >
                   Comecar
                 </button>
@@ -244,7 +244,7 @@ export function RoomWaiting({
                 </button>
               </>
             ) : (
-              <p className="font-semibold text-white/80">Aguardando o anfitriao iniciar...</p>
+              <p className="font-semibold text-white/80">Aguardando o anfitrião iniciar...</p>
             )}
           </div>
         )}

@@ -3,7 +3,7 @@ import { BuggleGame } from "@/components/buggle/BuggleGame";
 
 export default function BugglePage() {
   return (
-    <div className="flex flex-1 flex-col">
+    <div data-game="buggle" className="flex flex-1 flex-col">
       <Suspense>
         <BuggleGame />
       </Suspense>

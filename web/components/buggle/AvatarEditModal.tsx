@@ -99,7 +99,7 @@ export function AvatarEditModal({ name, onNameChange, onEquip, onClose }: Avatar
                 }}
                 className="w-full rounded-xl border-2 border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-sm font-bold text-[var(--fg)] outline-none focus:border-[var(--primary)]"
               />
-              <p className="mt-1 text-[11px] font-medium text-[var(--fg-muted)]">Até 10 letras</p>
+              <p className="mt-1 text-xs font-medium text-[var(--fg-muted)]">Até 10 letras</p>
             </div>
           )}
         </div>
