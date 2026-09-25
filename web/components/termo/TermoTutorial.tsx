@@ -12,8 +12,8 @@ interface Slide {
 type TileState = "correct" | "present" | "absent" | "empty";
 
 const TILE_BG: Record<TileState, string> = {
-  correct: "bg-[#8bbf6f] border-[#749f5c]",
-  present: "bg-[#e0c26e] border-[#c2a558]",
+  correct: "bg-[var(--termo-correct)] border-[var(--termo-correct-dark)]",
+  present: "bg-[var(--termo-present)] border-[var(--termo-present-dark)]",
   absent: "bg-white/25 border-white/10",
   empty: "bg-white/5 border-white/25",
 };
@@ -98,7 +98,7 @@ function CursorDemo() {
           </div>
         ))}
       </div>
-      <span className="text-[10px] font-bold uppercase text-white/50">
+      <span className="text-xs font-bold uppercase text-white/50">
         {step === 0 ? "faltou uma letra?" : step === 1 ? "toque no quadrado" : "digite e pronto"}
       </span>
     </div>
@@ -117,7 +117,7 @@ function MultiDemo() {
       <div className="flex flex-col gap-1.5">
         {boards.map((states, b) => (
           <div key={b} className="flex gap-1">
-            {"TERMO".split("").map((l, i) => (
+            {"LIVRO".split("").map((l, i) => (
               <Tile key={i} letter={l} state={step === 1 ? states[i] : "empty"} small />
             ))}
           </div>
@@ -125,7 +125,7 @@ function MultiDemo() {
       </div>
       <div className="relative h-11 w-10 overflow-hidden rounded-lg">
         <div className="absolute inset-0 grid grid-cols-2">
-          <div className={step === 1 ? "bg-[#8bbf6f]" : "bg-white/15"} />
+          <div className={step === 1 ? "bg-[var(--termo-correct)]" : "bg-white/15"} />
           <div className={step === 1 ? "bg-black/50" : "bg-white/15"} />
         </div>
         <span className="absolute inset-0 flex items-center justify-center text-sm font-extrabold">T</span>
@@ -150,7 +150,32 @@ function ModesDemo() {
           }`}
         >
           <span className="text-sm font-black uppercase">{m.label}</span>
-          <span className="text-[10px] font-bold text-white/60">{m.hint}</span>
+          <span className="text-xs font-bold text-white/60">{m.hint}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ExtrasDemo() {
+  const step = useLoopStep(4, 1100);
+  const items = [
+    { icon: "💀", label: "Modo difícil" },
+    { icon: "💡", label: "Dica" },
+    { icon: "⏱", label: "Contra o Tempo" },
+    { icon: "😈", label: "Vilão" },
+  ];
+  return (
+    <div className="grid w-full max-w-xs grid-cols-2 gap-2">
+      {items.map((it, i) => (
+        <div
+          key={it.label}
+          className={`flex items-center gap-2 rounded-xl border-2 px-2.5 py-2 transition-all duration-300 ${
+            step === i ? "scale-105 border-yellow-300 bg-white/20" : "border-white/15 bg-white/5"
+          }`}
+        >
+          <span className="text-xl">{it.icon}</span>
+          <span className="text-xs font-bold">{it.label}</span>
         </div>
       ))}
     </div>
@@ -165,11 +190,11 @@ function StreakDemo() {
         <span key={step} className="text-4xl font-black text-yellow-300" style={{ animation: "popIn 0.35s ease-out" }}>
           🔥 {step + 1}
         </span>
-        <span className="text-[10px] font-bold uppercase text-white/50">sequência</span>
+        <span className="text-xs font-bold uppercase text-white/50">sequência</span>
       </div>
       <div className="flex flex-col items-center">
         <span className="text-4xl">🏆</span>
-        <span className="text-[10px] font-bold uppercase text-white/50">ranking</span>
+        <span className="text-xs font-bold uppercase text-white/50">ranking</span>
       </div>
     </div>
   );
@@ -192,7 +217,7 @@ const SLIDES: Slide[] = [
     demo: <CursorDemo />,
   },
   {
-    title: "🧩 Dueto e Quarteto",
+    title: "🧩 Duplo e Quádruplo",
     text: "Resolva 2 ou 4 palavras ao mesmo tempo. Cada palpite vale para todas, você ganha tentativas extras e as teclas se dividem por tabuleiro.",
     demo: <MultiDemo />,
   },
@@ -202,8 +227,13 @@ const SLIDES: Slide[] = [
     demo: <ModesDemo />,
   },
   {
+    title: "🎲 Mais jeitos de jogar",
+    text: "Nas configurações tem modo difícil e cores para daltônicos. Travou? Troque 5 moedas por uma dica. E teste o Contra o Tempo e o Vilão, que foge dos seus palpites.",
+    demo: <ExtrasDemo />,
+  },
+  {
     title: "🏆 Suba no ranking",
-    text: "Entre na sua conta e vença o Diário para manter sua sequência, ganhar moedas e aparecer no ranking.",
+    text: "Entre na sua conta e vença o Diário para manter sua sequência, ganhar moedas e aparecer no ranking de hoje e no geral. Um escudo protege a sequência se você faltar um dia.",
     demo: <StreakDemo />,
   },
 ];

@@ -1,670 +1,459 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
-import Link from "next/link";
-import { ArrowLeft, CircleHelp, Grid3x3 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { BarChart3, CircleHelp, Lightbulb, Settings, Share2, Skull, Timer } from "lucide-react";
+import { GameHeader, headerButtonClass } from "@/components/GameHeader";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { claimTermoWinReward } from "@/lib/inventory";
 import { useLocalFlag } from "@/lib/race/useLocalFlag";
+import {
+  MODES,
+  WORD_LENGTH,
+  buildBoardRows,
+  buildShareText,
+  computeKeyStates,
+  decodeChallenge,
+  encodeChallenge,
+  evaluateGuess,
+  hardModeViolation,
+  maxAttemptsFor,
+  parseWordList,
+  pickRandomWords,
+  withAccents,
+  type BoardCount,
+  type Challenge,
+  type LetterState,
+  type PlayMode,
+} from "@/lib/termo/logic";
+import {
+  clearLegacyProgress,
+  errorMessage,
+  fetchDailyState,
+  payInfiniteHint,
+  requestDailyHint,
+  sendDailyGuess,
+  setDailyHardMode,
+  type DailyState,
+  type Hint,
+} from "@/lib/termo/daily";
+import { useWordInput } from "@/lib/termo/useWordInput";
+import { Boards, cellStyle } from "./Board";
+import { Keyboard, KEY_ROWS } from "./Keyboard";
 import { WinModal } from "./WinModal";
 import { TermoTutorial } from "./TermoTutorial";
+import { StatsModal } from "./StatsModal";
+import { AnalysisModal } from "./AnalysisModal";
+import { SpeedGame } from "./SpeedGame";
+import { VillainGame } from "./VillainGame";
+import { Confetti, NextWordCountdown } from "./Extras";
 
 const TUTORIAL_KEY = "termoTutorialSeen";
+const COLORBLIND_KEY = "termoColorblind";
+const HARD_KEY = "termoHardMode";
+const REVEAL_MS = WORD_LENGTH * 200 + 500;
+const HINT_PRICE = 5;
 
-const WORD_LENGTH = 5;
-type BoardCount = 1 | 2 | 4;
-type PlayMode = "daily" | "infinite";
+type Status = "loading" | "error" | "playing" | "revealing" | "won" | "lost";
+/** modos que nao usam os tabuleiros Letrado/Duplo/Quadruplo */
+type ExtraMode = "speed" | "villain";
 
-type LetterState = "correct" | "present" | "absent" | "empty";
-
-interface EvaluatedLetter {
-  letter: string;
-  state: LetterState;
-}
-
-interface DailyResult {
-  won: boolean;
-  attempts: number;
-  timeSeconds: number;
-  targetWords: string[];
-}
-
-const OFFENSIVE_TARGET_WORDS = new Set([
-  "buceta",
-  "caceta",
-  "cacete",
-  "cralho",
-  "piroca",
-  "punheta",
-  "corno",
-  "putao",
-  "putas",
-  "veado",
-  "bicha",
-  "baitola",
-  "escrota",
-  "escroto",
-  "fdp",
-  "otaria",
-  "otario",
-  "viado",
-  "xoxota",
-  "arrombado",
-  "arrombada",
-  "babaca",
-  "idiota",
-  "estupro",
-  "retardado",
-  "retardada",
-  "negrofobico",
-  "pinto",
-  "pinta",
-  "penis",
-  "vulva",
-  "anus",
-  "cu",
-  "cus",
-  "seios",
-  "vagina",
-  "testiculo",
-  "anais",
-  "xibiu",
-  "bunda",
-]);
-
-function filterOffensive(pool: string[]) {
-  return pool.filter((w) => !OFFENSIVE_TARGET_WORDS.has(w));
-}
-
-const MODES: { count: BoardCount; label: string }[] = [
-  { count: 1, label: "Termo" },
-  { count: 2, label: "Dueto" },
-  { count: 4, label: "Quarteto" },
-];
-
-const KEY_ROWS = [
-  ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
-  ["A", "S", "D", "F", "G", "H", "J", "K", "L"],
-  ["Enter", "Z", "X", "C", "V", "B", "N", "M", "Back"],
-];
-
-function maxAttemptsFor(boardCount: BoardCount) {
-  return boardCount + 5;
-}
-
-function todayString() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function hashString(s: string) {
-  let hash = 0;
-  for (let i = 0; i < s.length; i++) {
-    hash = (hash << 5) - hash + s.charCodeAt(i);
-    hash |= 0;
-  }
-  return Math.abs(hash);
-}
-
-// Conta letras (unicas) compartilhadas entre duas palavras, ignorando posicao.
-function sharedLetterCount(a: string, b: string): number {
-  const setB = new Set(b);
-  let shared = 0;
-  for (const letter of new Set(a)) {
-    if (setB.has(letter)) shared++;
-  }
-  return shared;
-}
-
-// Conta quantas posicoes tem a mesma letra nas duas palavras (ex: JOIAS vs JOGAS = J,O,A,S nas mesmas posicoes = 4).
-function samePositionCount(a: string, b: string): number {
-  let same = 0;
-  for (let i = 0; i < a.length; i++) {
-    if (a[i] === b[i]) same++;
-  }
-  return same;
-}
-
-// Recusa combinar palavras muito parecidas (ex: JOIAS/JOGAS/JOVAS: so 1 letra muda de lugar em lugar),
-// pra evitar tabuleiros de Dueto/Quarteto onde uma dica resolve varias palavras de uma vez.
-const MAX_SHARED_LETTERS = 1;
-const MAX_SAME_POSITION = 0;
-
-function tooSimilarToAny(candidate: string, chosen: string[]): boolean {
-  return chosen.some(
-    (w) => sharedLetterCount(candidate, w) > MAX_SHARED_LETTERS || samePositionCount(candidate, w) > MAX_SAME_POSITION,
-  );
-}
-
-function pickDailyWords(pool: string[], boardCount: BoardCount, date: string): string[] {
-  const words: string[] = [];
-  const used = new Set<string>();
-  let offset = 0;
-  let skippedForSimilarity = 0;
-  const maxSkips = pool.length * 4;
-
-  while (words.length < boardCount) {
-    const idx = hashString(`${date}-${boardCount}-${offset}`) % pool.length;
-    const w = pool[idx];
-    offset++;
-
-    if (used.has(w)) continue;
-
-    // Depois de tentar demais achar palavra distinta, desiste do criterio de similaridade
-    // pra nao travar em pools pequenos.
-    if (skippedForSimilarity < maxSkips && tooSimilarToAny(w, words)) {
-      skippedForSimilarity++;
-      continue;
-    }
-
-    used.add(w);
-    words.push(w);
-  }
-  return words;
-}
-
-function pickRandomWords(pool: string[], boardCount: BoardCount): string[] {
-  const words: string[] = [];
-  const used = new Set<string>();
-  let skippedForSimilarity = 0;
-  const maxSkips = pool.length * 4;
-
-  while (words.length < boardCount) {
-    const w = pool[Math.floor(Math.random() * pool.length)];
-
-    if (used.has(w)) continue;
-
-    if (skippedForSimilarity < maxSkips && tooSimilarToAny(w, words)) {
-      skippedForSimilarity++;
-      continue;
-    }
-
-    used.add(w);
-    words.push(w);
-  }
-  return words;
-}
-
-function getAnonKey() {
-  let key = localStorage.getItem("termo_anon_key");
-  if (!key) {
-    key = crypto.randomUUID();
-    localStorage.setItem("termo_anon_key", key);
-  }
-  return key;
-}
-
-interface DailyProgress {
-  date: string;
+interface Game {
+  mode: PlayMode;
   boardCount: BoardCount;
-  targetWords: string[];
-  rawGuesses: string[];
+  guesses: string[];
+  evals: LetterState[][][];
+  /** Infinito: conhecidas desde o inicio. Diario: so chegam do servidor no fim. */
+  answers: string[] | null;
+  playDate: string | null;
   startedAt: number;
+  /** Diario ja terminado quando a tela abriu: mostra o resumo em vez do tabuleiro. */
+  alreadyPlayed: boolean;
+  won: boolean;
+  timeSeconds: number;
+  hard: boolean;
+  hints: Hint[];
+  streak: number | null;
+  coinsAwarded: number;
+  shieldsUsed: number;
+  achievements: string[];
+  /** partida aberta por link de desafio */
+  challenge: Challenge | null;
 }
 
-function dailyProgressKey(boardCount: BoardCount) {
-  return `termo_daily_progress_${boardCount}`;
+function gameFromDaily(state: DailyState, boardCount: BoardCount, alreadyPlayed: boolean): Game {
+  return {
+    mode: "daily",
+    boardCount,
+    guesses: state.guesses,
+    evals: state.evals,
+    answers: state.answers,
+    playDate: state.playDate,
+    startedAt: Date.now(),
+    alreadyPlayed,
+    won: state.won,
+    timeSeconds: state.timeSeconds ?? 0,
+    hard: state.hard,
+    hints: state.hints,
+    streak: state.currentStreak,
+    coinsAwarded: state.coinsAwarded,
+    shieldsUsed: state.shieldsUsed,
+    achievements: state.achievements,
+    challenge: null,
+  };
 }
 
-function loadDailyProgress(boardCount: BoardCount): DailyProgress | null {
-  const raw = localStorage.getItem(dailyProgressKey(boardCount));
-  if (!raw) return null;
+function localGame(boardCount: BoardCount, answers: string[], hard: boolean, challenge: Challenge | null): Game {
+  return {
+    mode: "infinite",
+    boardCount,
+    guesses: [],
+    evals: [],
+    answers,
+    playDate: null,
+    startedAt: Date.now(),
+    alreadyPlayed: false,
+    won: false,
+    timeSeconds: 0,
+    hard: hard && boardCount === 1,
+    hints: [],
+    streak: null,
+    coinsAwarded: 0,
+    shieldsUsed: 0,
+    achievements: [],
+    challenge,
+  };
+}
+
+function formatTime(seconds: number) {
+  return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+}
+
+async function shareResult(text: string): Promise<"shared" | "copied" | "failed"> {
   try {
-    const parsed: DailyProgress = JSON.parse(raw);
-    if (parsed.date !== todayString() || parsed.boardCount !== boardCount) return null;
-    return parsed;
-  } catch {
-    return null;
+    if (navigator.share) {
+      await navigator.share({ text });
+      return "shared";
+    }
+    await navigator.clipboard.writeText(text);
+    return "copied";
+  } catch (err) {
+    // fechar o menu de compartilhar sem escolher nada nao e erro
+    if (err instanceof DOMException && err.name === "AbortError") return "shared";
+    return "failed";
   }
 }
 
-function saveDailyProgress(progress: DailyProgress) {
-  localStorage.setItem(dailyProgressKey(progress.boardCount), JSON.stringify(progress));
-}
-
-function clearDailyProgress(boardCount: BoardCount) {
-  localStorage.removeItem(dailyProgressKey(boardCount));
-}
-
-function evaluateGuess(guess: string, target: string): LetterState[] {
-  const result: LetterState[] = Array(WORD_LENGTH).fill("absent");
-  const letterCount: Record<string, number> = {};
-
-  for (const letter of target) {
-    letterCount[letter] = (letterCount[letter] ?? 0) + 1;
-  }
-
-  for (let i = 0; i < WORD_LENGTH; i++) {
-    if (guess[i] === target[i]) {
-      result[i] = "correct";
-      letterCount[guess[i]]--;
+/** Primeiro tabuleiro ainda nao resolvido e a proxima posicao que a dica revelaria nele. */
+function nextHintTarget(game: Game): { board: number; pos: number } | null {
+  for (let b = 0; b < game.boardCount; b++) {
+    if (buildBoardRows(game.guesses, game.evals, b).solved) continue;
+    const answer = game.answers?.[b];
+    for (let i = 0; i < WORD_LENGTH; i++) {
+      const known = game.guesses.some((g, gi) => game.evals[gi]?.[b]?.[i] === "correct" && g[i]);
+      const hinted = game.hints.some((h) => h.board === b && h.pos === i);
+      if (!known && !hinted) return answer || game.mode === "daily" ? { board: b, pos: i } : null;
     }
   }
-
-  for (let i = 0; i < WORD_LENGTH; i++) {
-    if (result[i] === "absent" && letterCount[guess[i]] > 0) {
-      result[i] = "present";
-      letterCount[guess[i]]--;
-    }
-  }
-
-  return result;
-}
-
-const STATE_PRIORITY: Record<LetterState, number> = { correct: 3, present: 2, absent: 1, empty: 0 };
-
-function setKeyBoardState(
-  store: Record<string, LetterState[]>,
-  letter: string,
-  boardIndex: number,
-  count: number,
-  state: LetterState,
-) {
-  const arr = store[letter] ?? Array(count).fill("empty");
-  if (STATE_PRIORITY[state] > STATE_PRIORITY[arr[boardIndex] ?? "empty"]) {
-    arr[boardIndex] = state;
-  }
-  store[letter] = arr;
+  return null;
 }
 
 export function TermoGame() {
-  const { user, refreshProfile } = useAuth();
+  const { user, username, coins, refreshProfile } = useAuth();
+  const userId = user?.id ?? null;
   const [playMode, setPlayMode] = useState<PlayMode>("daily");
+  const [extraMode, setExtraMode] = useState<ExtraMode | null>(null);
   const [boardCount, setBoardCount] = useState<BoardCount>(1);
   const [targetWordPool, setTargetWordPool] = useState<string[]>([]);
   const [acceptedWords, setAcceptedWords] = useState<Set<string>>(new Set());
-  const [targetWords, setTargetWords] = useState<string[]>([]);
-  const [boardGuesses, setBoardGuesses] = useState<EvaluatedLetter[][][]>([]);
-  const [rawGuesses, setRawGuesses] = useState<string[]>([]);
-  const [currentLetters, setCurrentLetters] = useState<string[]>(Array(WORD_LENGTH).fill(""));
-  const [cursor, setCursor] = useState(0);
-  const [status, setStatus] = useState<"loading" | "playing" | "won" | "lost">("loading");
-  const [alreadyPlayedToday, setAlreadyPlayedToday] = useState<DailyResult | null>(null);
+  const [accents, setAccents] = useState<Record<string, string>>({});
+  const [game, setGame] = useState<Game | null>(null);
+  const [status, setStatus] = useState<Status>("loading");
   const [message, setMessage] = useState<string | null>(null);
-  const [shakeRow, setShakeRow] = useState(false);
-  const startTimeRef = useRef<number>(0);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [leaderboardRefresh, setLeaderboardRefresh] = useState(0);
-  const [currentStreak, setCurrentStreak] = useState<number | undefined>(undefined);
-  const [keyStatesVersion, setKeyStatesVersion] = useState(0);
-  const keyStates = useRef<Record<string, LetterState[]>>({});
   const [revealRowIndex, setRevealRowIndex] = useState<number | null>(null);
+  const [leaderboardRefresh, setLeaderboardRefresh] = useState(0);
   const [tutorialSeen, setTutorialSeen] = useLocalFlag(TUTORIAL_KEY, true);
+  const [colorblind, setColorblind] = useLocalFlag(COLORBLIND_KEY, false);
+  const [hardPref, setHardPref] = useLocalFlag(HARD_KEY, false);
   const [tutorialOpen, setTutorialOpen] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [analysisOpen, setAnalysisOpen] = useState(false);
+  const [hintBusy, setHintBusy] = useState(false);
   // primeira visita abre sozinho; depois so pelo botao "Como jogar"
   const showTutorial = tutorialOpen || !tutorialSeen;
+  const overlayOpen = showTutorial || statsOpen || settingsOpen || analysisOpen;
+  // numero da ultima troca de modo: resposta atrasada de uma troca antiga e descartada
+  const requestRef = useRef(0);
+  // palpite do Diario em voo: segura Enter repetido enquanto o servidor responde
+  const submittingRef = useRef(false);
 
   function closeTutorial() {
     setTutorialSeen(true);
     setTutorialOpen(false);
   }
 
-  const checkDailyPlayed = useCallback(
-    async (count: BoardCount): Promise<DailyResult | null> => {
-      const date = todayString();
-      const supabase = createClient();
+  const input = useWordInput({
+    enabled: status === "playing" && !overlayOpen && extraMode === null && !!game && !game.alreadyPlayed,
+    onSubmit: submitGuess,
+  });
 
-      if (user) {
-        const { data } = await supabase
-          .from("termo_daily_results")
-          .select("won, attempts, time_seconds")
-          .eq("user_id", user.id)
-          .eq("board_count", count)
-          .eq("play_date", date)
-          .maybeSingle();
-        if (data) return { won: data.won, attempts: data.attempts, timeSeconds: data.time_seconds, targetWords: [] };
-        return null;
-      }
+  const { reset: resetInput, shakeRow } = input;
 
-      const anonKey = getAnonKey();
-      const { data } = await supabase
-        .from("termo_daily_results")
-        .select("won, attempts, time_seconds")
-        .eq("anon_key", anonKey)
-        .eq("board_count", count)
-        .eq("play_date", date)
-        .maybeSingle();
-      if (data) return { won: data.won, attempts: data.attempts, timeSeconds: data.time_seconds, targetWords: [] };
-      return null;
-    },
-    [user],
-  );
+  function flashError(text: string) {
+    setMessage(text);
+    shakeRow();
+  }
 
   const startGame = useCallback(
-    async (pool: string[], count: BoardCount, mode: PlayMode) => {
-      setStatus("loading");
-      setAlreadyPlayedToday(null);
-
-      if (mode === "daily") {
-        const played = await checkDailyPlayed(count);
-        if (played) {
-          clearDailyProgress(count);
-          setAlreadyPlayedToday(played);
-          setBoardCount(count);
-          setPlayMode(mode);
-          setStatus("playing");
-          return;
-        }
-      }
-
-      const words =
-        mode === "daily" ? pickDailyWords(pool, count, todayString()) : pickRandomWords(pool, count);
-
-      const savedProgress = mode === "daily" ? loadDailyProgress(count) : null;
-      const restoredGuesses = savedProgress?.rawGuesses ?? [];
-
+    async (pool: string[], count: BoardCount, mode: PlayMode, challenge: Challenge | null = null) => {
+      const request = ++requestRef.current;
+      setExtraMode(null);
       setBoardCount(count);
       setPlayMode(mode);
-      setTargetWords(words);
-      keyStates.current = {};
-      const restoredBoardGuesses: EvaluatedLetter[][][] = Array.from({ length: count }, () => []);
-      for (const guess of restoredGuesses) {
-        words.forEach((target, boardIndex) => {
-          const states = evaluateGuess(guess, target);
-          const evaluated: EvaluatedLetter[] = guess.split("").map((letter, i) => ({ letter, state: states[i] }));
-          restoredBoardGuesses[boardIndex].push(evaluated);
-          for (let i = 0; i < WORD_LENGTH; i++) {
-            setKeyBoardState(keyStates.current, guess[i], boardIndex, count, states[i]);
-          }
-        });
-      }
-      setBoardGuesses(restoredBoardGuesses);
-      setRawGuesses(restoredGuesses);
-      setRevealRowIndex(null);
-      setCurrentLetters(Array(WORD_LENGTH).fill(""));
-      setCursor(0);
-      setStatus("playing");
+      setStatus("loading");
       setMessage(null);
-      setKeyStatesVersion((v) => v + 1);
-      startTimeRef.current = savedProgress?.startedAt ?? Date.now();
+      setRevealRowIndex(null);
+      setAnalysisOpen(false);
+      resetInput();
+      submittingRef.current = false;
 
-      if (mode === "daily" && !savedProgress) {
-        saveDailyProgress({
-          date: todayString(),
-          boardCount: count,
-          targetWords: words,
-          rawGuesses: [],
-          startedAt: startTimeRef.current,
-        });
+      let next: Game;
+      if (mode === "daily") {
+        try {
+          let state = await fetchDailyState(count);
+          // modo dificil so vale no Letrado e antes do primeiro palpite
+          if (count === 1 && !state.finished && state.guesses.length === 0 && state.hard !== hardPref) {
+            state = await setDailyHardMode(count, hardPref);
+          }
+          next = gameFromDaily(state, count, state.finished);
+        } catch (err) {
+          console.error("Erro ao carregar o Diário:", err);
+          if (request === requestRef.current) setStatus("error");
+          return;
+        }
+      } else {
+        next = localGame(count, challenge?.words ?? pickRandomWords(pool, count), hardPref, challenge);
       }
+
+      if (request !== requestRef.current) return;
+      setGame(next);
+      setStatus("playing");
     },
-    [checkDailyPlayed],
+    [hardPref, resetInput],
   );
 
   useEffect(() => {
+    clearLegacyProgress();
     Promise.all([
       fetch("/words5_target.txt").then((res) => res.text()),
       fetch("/words5_accepted.txt").then((res) => res.text()),
-    ]).then(([targetText, acceptedText]) => {
-      const parse = (text: string) =>
-        text
-          .split("\n")
-          .map((w) => w.trim().toLowerCase())
-          .filter((w) => w.length === WORD_LENGTH);
+      fetch("/words5_accents.json")
+        .then((res) => res.json() as Promise<Record<string, string>>)
+        .catch(() => ({})),
+    ])
+      .then(([targetText, acceptedText, accentMap]) => {
+        const targets = parseWordList(targetText);
+        setTargetWordPool(targets);
+        setAcceptedWords(new Set(parseWordList(acceptedText)));
+        setAccents(accentMap);
 
-      const targets = filterOffensive(parse(targetText));
-      const accepted = new Set(filterOffensive(parse(acceptedText)));
-
-      setTargetWordPool(targets);
-      setAcceptedWords(accepted);
-      startGame(targets, 1, "daily");
-    });
+        // link de desafio: ?desafio=<codigo> abre o Infinito com as palavras do amigo
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get("desafio");
+        const challenge = code ? decodeChallenge(code, new Set(targets)) : null;
+        if (code) {
+          params.delete("desafio");
+          const qs = params.toString();
+          window.history.replaceState(null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
+        }
+        if (challenge) {
+          startGame(targets, challenge.words.length as BoardCount, "infinite", challenge);
+        } else {
+          startGame(targets, 1, "daily");
+          if (code) setMessage("Link de desafio inválido.");
+        }
+      })
+      .catch((err) => {
+        console.error("Erro ao carregar palavras:", err);
+        setStatus("error");
+      });
+    // so na montagem: startGame muda quando hardPref muda, e isso nao deve recarregar tudo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const changeMode = useCallback(
-    (count: BoardCount) => {
-      if (targetWordPool.length > 0) startGame(targetWordPool, count, playMode);
-    },
-    [targetWordPool, playMode, startGame],
-  );
+  // entrar/sair da conta muda de quem e a partida diaria: recarrega do servidor
+  const lastUserRef = useRef(userId);
+  useEffect(() => {
+    if (lastUserRef.current === userId) return;
+    lastUserRef.current = userId;
+    if (targetWordPool.length === 0 || playMode !== "daily" || extraMode !== null) return;
+    const timer = setTimeout(() => startGame(targetWordPool, boardCount, "daily"), 0);
+    return () => clearTimeout(timer);
+  }, [userId, targetWordPool, playMode, boardCount, extraMode, startGame]);
 
-  const changePlayMode = useCallback(
-    (mode: PlayMode) => {
-      if (targetWordPool.length > 0) startGame(targetWordPool, boardCount, mode);
-    },
-    [targetWordPool, boardCount, startGame],
-  );
+  const changeMode = (count: BoardCount) => {
+    if (targetWordPool.length > 0) startGame(targetWordPool, count, playMode);
+  };
 
-  const submitGuess = useCallback(() => {
-    const currentGuess = currentLetters.join("");
-    const maxAttempts = maxAttemptsFor(boardCount);
+  const changePlayMode = (mode: PlayMode) => {
+    if (targetWordPool.length > 0) startGame(targetWordPool, boardCount, mode);
+  };
 
-    if (currentGuess.length < WORD_LENGTH) {
-      setShakeRow(true);
-      setMessage("Palavra incompleta");
-      setTimeout(() => setShakeRow(false), 400);
-      return;
+  function openExtra(mode: ExtraMode) {
+    requestRef.current++;
+    setExtraMode(mode);
+    setMessage(null);
+    setStatus("playing");
+  }
+
+  async function submitGuess(guess: string) {
+    if (!game || status !== "playing" || submittingRef.current) return;
+
+    if (guess.length < WORD_LENGTH) return flashError("Palavra incompleta");
+    if (!acceptedWords.has(guess)) return flashError("Palavra não está na lista");
+    if (game.hard) {
+      const violation = hardModeViolation(game.guesses, game.evals, guess);
+      if (violation) return flashError(violation);
     }
-
-    if (!acceptedWords.has(currentGuess)) {
-      setShakeRow(true);
-      setMessage("Palavra nao esta na lista");
-      setTimeout(() => setShakeRow(false), 400);
-      return;
-    }
-
     setMessage(null);
 
-    const submittedRowIndex = rawGuesses.length;
-    const newRawGuesses = [...rawGuesses, currentGuess];
-    setRawGuesses(newRawGuesses);
-    setRevealRowIndex(submittedRowIndex);
-
-    const newBoardGuesses = targetWords.map((target, boardIndex) => {
-      const alreadySolved = rawGuesses.includes(target);
-      const states = evaluateGuess(currentGuess, target);
-
-      for (let i = 0; i < WORD_LENGTH; i++) {
-        setKeyBoardState(keyStates.current, currentGuess[i], boardIndex, boardCount, states[i]);
+    let next: Game;
+    let finished: boolean;
+    if (game.mode === "infinite" && game.answers) {
+      const answers = game.answers;
+      const guesses = [...game.guesses, guess];
+      const evals = [...game.evals, answers.map((target) => evaluateGuess(guess, target))];
+      const won = answers.every((target) => guesses.includes(target));
+      finished = won || guesses.length >= maxAttemptsFor(game.boardCount);
+      next = { ...game, guesses, evals, won, timeSeconds: Math.floor((Date.now() - game.startedAt) / 1000) };
+    } else {
+      submittingRef.current = true;
+      const request = requestRef.current;
+      try {
+        const state = await sendDailyGuess(game.boardCount, guess);
+        next = gameFromDaily(state, game.boardCount, false);
+        finished = state.finished;
+      } catch (err) {
+        console.error("Erro ao enviar palpite:", err);
+        submittingRef.current = false;
+        return flashError(errorMessage(err, "Sem conexão. Tente de novo."));
       }
+      // trocou de modo enquanto o palpite ia: a resposta nao e mais desta tela
+      if (request !== requestRef.current) return;
+      submittingRef.current = false;
+    }
 
-      if (alreadySolved) return boardGuesses[boardIndex];
+    setGame(next);
+    setRevealRowIndex(next.guesses.length - 1);
+    resetInput();
 
-      const evaluated: EvaluatedLetter[] = currentGuess
-        .split("")
-        .map((letter, i) => ({ letter, state: states[i] }));
-      return [...boardGuesses[boardIndex], evaluated];
+    if (finished) {
+      // trava a entrada ja; o modal so abre depois da animacao (e do pulo da linha vencedora)
+      setStatus("revealing");
+      setTimeout(
+        () => {
+          setStatus(next.won ? "won" : "lost");
+          setLeaderboardRefresh((n) => n + 1);
+        },
+        next.won ? REVEAL_MS + 700 : REVEAL_MS,
+      );
+      if (next.coinsAwarded > 0) refreshProfile().catch(() => {});
+    }
+  }
+
+  async function handleHint() {
+    if (!game || hintBusy || status !== "playing") return;
+    if (!user) return setMessage("Entre na sua conta para usar dicas.");
+    const target = nextHintTarget(game);
+    if (!target) return setMessage("Não há letra para revelar.");
+    setHintBusy(true);
+    try {
+      if (game.mode === "daily") {
+        const state = await requestDailyHint(game.boardCount, target.board);
+        setGame({ ...gameFromDaily(state, game.boardCount, false), startedAt: game.startedAt });
+      } else if (game.answers) {
+        await payInfiniteHint();
+        const letter = game.answers[target.board][target.pos];
+        setGame({ ...game, hints: [...game.hints, { ...target, letter }] });
+      }
+      setMessage(`Dica revelada (−${HINT_PRICE} moedas).`);
+      refreshProfile().catch(() => {});
+    } catch (err) {
+      setMessage(errorMessage(err, "Não foi possível pegar a dica."));
+    } finally {
+      setHintBusy(false);
+    }
+  }
+
+  function toggleHard() {
+    const next = !hardPref;
+    setHardPref(next);
+    if (!game || game.boardCount !== 1 || game.guesses.length > 0 || game.alreadyPlayed) {
+      setMessage(next ? "Modo difícil vale a partir da próxima partida do Letrado." : "Modo difícil desligado na próxima partida.");
+      return;
+    }
+    if (game.mode === "daily") {
+      setDailyHardMode(1, next)
+        .then((state) => setGame((g) => (g ? { ...g, hard: state.hard } : g)))
+        .catch(() => setMessage("Não foi possível mudar o modo difícil."));
+    } else {
+      setGame({ ...game, hard: next });
+    }
+  }
+
+  const keyStates = useMemo(
+    () => (game ? computeKeyStates(game.guesses, game.evals, game.boardCount) : {}),
+    [game],
+  );
+
+  async function share(text: string) {
+    const result = await shareResult(text);
+    if (result === "copied") setMessage("Resultado copiado!");
+    if (result === "failed") setMessage("Não deu para compartilhar.");
+  }
+
+  function handleShare() {
+    if (!game) return;
+    share(
+      buildShareText({
+        boardCount: game.boardCount,
+        mode: game.challenge ? "challenge" : game.mode,
+        playDate: game.playDate,
+        guesses: game.guesses,
+        evals: game.evals,
+        won: game.won,
+        url: `${window.location.origin}/games/termo`,
+        hard: game.hard,
+        hintsUsed: game.hints.length,
+        colorblind,
+      }),
+    );
+  }
+
+  async function handleChallenge() {
+    if (!game?.answers) return;
+    const code = encodeChallenge({
+      words: game.answers,
+      attempts: game.won ? game.guesses.length : null,
+      timeSeconds: game.won ? game.timeSeconds : null,
+      name: username,
     });
-    setBoardGuesses(newBoardGuesses);
-    setKeyStatesVersion((v) => v + 1);
-
-    setCurrentLetters(Array(WORD_LENGTH).fill(""));
-    setCursor(0);
-
-    const secondsTaken = Math.floor((Date.now() - startTimeRef.current) / 1000);
-    setElapsedSeconds(secondsTaken);
-
-    const allSolved = targetWords.every((target) => newRawGuesses.includes(target));
-    const outOfAttempts = newRawGuesses.length === maxAttempts;
-
-    if (playMode === "daily") {
-      saveDailyProgress({
-        date: todayString(),
-        boardCount,
-        targetWords,
-        rawGuesses: newRawGuesses,
-        startedAt: startTimeRef.current,
-      });
-    }
-
-    if (allSolved || outOfAttempts) {
-      const revealDuration = WORD_LENGTH * 200 + 500;
-      setTimeout(() => {
-        setStatus(allSolved ? "won" : "lost");
-      }, revealDuration);
-      if (playMode === "daily") {
-        recordDailyResult(allSolved, newRawGuesses.length, secondsTaken);
-      }
-    }
-  }, [currentLetters, rawGuesses, boardGuesses, targetWords, acceptedWords, boardCount, playMode]);
-
-  const recordDailyResult = useCallback(
-    async (won: boolean, attempts: number, timeSeconds: number) => {
-      const supabase = createClient();
-      const date = todayString();
-      const anonKey = user ? null : getAnonKey();
-
-      const { error: insertError } = await supabase.from("termo_daily_results").insert({
-        user_id: user?.id ?? null,
-        anon_key: anonKey,
-        board_count: boardCount,
-        play_date: date,
-        won,
-        attempts,
-        time_seconds: timeSeconds,
-      });
-      if (insertError) console.error("Erro ao salvar resultado diario:", insertError);
-
-      const filter = user ? { column: "user_id", value: user.id } : null;
-
-      const query = supabase
-        .from("termo_scores")
-        .select("attempts, time_seconds, wins, current_streak, best_streak")
-        .eq("board_count", boardCount);
-      const { data: existing, error: selectError } = filter
-        ? await query.eq(filter.column, filter.value).maybeSingle()
-        : await query.is("user_id", null).maybeSingle();
-      if (selectError) console.error("Erro ao ler score:", selectError);
-
-      const prevWins = existing?.wins ?? 0;
-      const prevStreak = existing?.current_streak ?? 0;
-      const prevBestStreak = existing?.best_streak ?? 0;
-
-      const nextWins = prevWins + (won ? 1 : 0);
-      const nextStreak = won ? prevStreak + 1 : 0;
-      const nextBestStreak = Math.max(prevBestStreak, nextStreak);
-
-      const isBetterScore =
-        won &&
-        (!existing ||
-          existing.attempts === 999 ||
-          attempts < existing.attempts ||
-          (attempts === existing.attempts && timeSeconds < existing.time_seconds));
-
-      const payload = {
-        board_count: boardCount,
-        wins: nextWins,
-        current_streak: nextStreak,
-        best_streak: nextBestStreak,
-        last_played_date: date,
-        ...(isBetterScore ? { attempts, time_seconds: timeSeconds } : {}),
-      };
-
-      const { error: writeError } = existing
-        ? filter
-          ? await supabase
-              .from("termo_scores")
-              .update(payload)
-              .eq(filter.column, filter.value)
-              .eq("board_count", boardCount)
-          : await supabase.from("termo_scores").update(payload).is("user_id", null).eq("board_count", boardCount)
-        : await supabase
-            .from("termo_scores")
-            .insert({ user_id: user?.id ?? null, attempts, time_seconds: timeSeconds, ...payload });
-      if (writeError) console.error("Erro ao salvar score:", writeError);
-
-      if (won && user) {
-        try {
-          await claimTermoWinReward(boardCount, date);
-          await refreshProfile();
-        } catch (err) {
-          console.error("Erro ao dar moedas:", err);
-        }
-      }
-
-      clearDailyProgress(boardCount);
-      setCurrentStreak(nextStreak);
-      setLeaderboardRefresh((n) => n + 1);
-    },
-    [user, boardCount, refreshProfile],
-  );
-
-  const handleKey = useCallback(
-    (key: string) => {
-      if (status !== "playing") return;
-
-      if (key === "Enter") {
-        submitGuess();
-        return;
-      }
-
-      if (key === "Back") {
-        setCurrentLetters((letters) => {
-          const next = [...letters];
-          if (next[cursor]) {
-            next[cursor] = "";
-            return next;
-          }
-          const prev = Math.max(0, cursor - 1);
-          next[prev] = "";
-          setCursor(prev);
-          return next;
-        });
-        return;
-      }
-
-      if (/^[a-zA-Z]$/.test(key)) {
-        setCurrentLetters((letters) => {
-          const next = [...letters];
-          next[cursor] = key.toLowerCase();
-          return next;
-        });
-        setCursor((c) => {
-          for (let i = c + 1; i < WORD_LENGTH; i++) {
-            if (!currentLetters[i]) return i;
-          }
-          return Math.min(c + 1, WORD_LENGTH - 1);
-        });
-      }
-    },
-    [cursor, currentLetters, status, submitGuess],
-  );
-
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      // com o tutorial aberto, teclas pertencem a ele (setas/Esc), nao ao jogo
-      if (showTutorial) return;
-      if (e.key === "Backspace") handleKey("Back");
-      else if (e.key === "Enter") handleKey("Enter");
-      else if (/^[a-zA-Z]$/.test(e.key)) handleKey(e.key.toUpperCase());
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [handleKey, showTutorial]);
-
-  const cellClasses: Record<LetterState, string> = {
-    correct: "bg-[#8bbf6f] border-[#749f5c] text-white shadow-[0_4px_0_#749f5c]",
-    present: "bg-[#e0c26e] border-[#c2a558] text-white shadow-[0_4px_0_#c2a558]",
-    absent: "bg-[var(--fg-muted)] border-[var(--border-hover)] text-white",
-    empty: "border-[var(--border)] bg-[var(--card)] text-[var(--fg)]",
-  };
-
-  const keySliceBg: Record<LetterState, string> = {
-    correct: "bg-[#8bbf6f]",
-    present: "bg-[#e0c26e]",
-    absent: "bg-[var(--key-absent)]",
-    empty: "bg-[var(--border)]",
-  };
-
-  const keyClasses: Record<LetterState, string> = {
-    correct: "bg-[#8bbf6f] text-white shadow-[0_3px_0_#749f5c]",
-    present: "bg-[#e0c26e] text-white shadow-[0_3px_0_#c2a558]",
-    absent: "bg-[var(--key-absent)] text-[var(--key-absent-fg)]",
-    empty: "bg-[var(--border)] text-[var(--fg)] hover:bg-[var(--border-hover)]",
-  };
+    const url = `${window.location.origin}/games/termo?desafio=${code}`;
+    const brag = game.won ? `Acertei em ${game.guesses.length} tentativas.` : "Não consegui acertar.";
+    const result = await shareResult(`Te desafio no Letrado ${game.boardCount > 1 ? MODES.find((m) => m.count === game.boardCount)?.label : ""}! ${brag} Consegue fazer melhor?\n${url}`);
+    if (result === "copied") setMessage("Link do desafio copiado!");
+    if (result === "failed") setMessage("Não deu para compartilhar.");
+  }
 
   const dailySwitch = (
-    <div className="flex gap-1 sm:gap-2">
+    <div className="flex h-9 shrink-0 rounded-xl border-2 border-[var(--border)] bg-[var(--bg)] p-0.5">
       {(["daily", "infinite"] as PlayMode[]).map((m) => (
         <button
           key={m}
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => changePlayMode(m)}
-          className={`rounded-lg border-2 px-2 py-1 text-[10px] font-extrabold uppercase transition sm:rounded-xl sm:px-4 sm:py-1.5 sm:text-xs lg:px-3 lg:py-1 ${
-            playMode === m
-              ? "border-[var(--accent-dark)] bg-[var(--accent)] text-white"
-              : "border-[var(--border)] bg-[var(--card)] text-[var(--fg-muted)] hover:bg-[var(--bg)]"
+          aria-pressed={playMode === m && !extraMode}
+          className={`rounded-lg px-2 text-xs font-bold transition sm:px-3 ${
+            playMode === m && !extraMode ? "bg-[var(--game-termo)] text-white" : "text-[var(--fg-muted)] hover:text-[var(--fg)]"
           }`}
         >
           {m === "daily" ? "Diário" : "Infinito"}
@@ -674,49 +463,119 @@ export function TermoGame() {
   );
 
   const header = (
-    <header className="sticky top-0 z-40 border-b-2 border-[var(--border)] bg-[var(--card)] px-3 py-2.5 sm:px-6 sm:py-4">
-      <div className="flex items-center justify-between gap-2 sm:gap-4">
-        <Link
-          href="/"
-          className="flex shrink-0 items-center gap-1.5 rounded-xl border-2 border-[var(--border)] bg-[var(--card)] px-2.5 py-1.5 text-xs font-extrabold text-[var(--fg-muted)] transition hover:bg-[var(--bg)] sm:rounded-2xl sm:px-4 sm:py-2 sm:text-sm"
-        >
-          <ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">Hub</span>
-        </Link>
-
-        <h1 className="flex min-w-0 shrink items-center gap-1.5 text-sm font-extrabold tracking-tight text-[var(--fg)] sm:gap-2.5 sm:text-lg">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--primary)] text-white sm:h-9 sm:w-9 sm:rounded-xl">
-            <Grid3x3 className="h-4 w-4 sm:h-5 sm:w-5" />
-          </span>
-          <span className="truncate">Termo</span>
-        </h1>
-
-        <div className="flex shrink-0 items-center justify-end gap-1.5 sm:gap-2">
+    <GameHeader
+      slug="termo"
+      actions={
+        <>
           <button
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => setTutorialOpen(true)}
             aria-label="Como jogar"
             title="Como jogar"
-            className="flex items-center gap-1.5 rounded-lg border-2 border-[var(--border)] bg-[var(--card)] p-1 text-xs font-extrabold text-[var(--fg-muted)] transition hover:bg-[var(--bg)] sm:rounded-xl sm:px-3 sm:py-1 lg:py-0.5"
+            className={headerButtonClass}
           >
-            <CircleHelp className="h-4 w-4" /> <span className="hidden sm:inline">Como jogar</span>
+            <CircleHelp className="h-4 w-4" /> <span className="hidden lg:inline">Como jogar</span>
           </button>
+          <button
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => setStatsOpen(true)}
+            aria-label="Estatísticas"
+            title="Estatísticas"
+            className={headerButtonClass}
+          >
+            <BarChart3 className="h-4 w-4" />
+          </button>
+          <div className="relative">
+            <button
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => setSettingsOpen((o) => !o)}
+              aria-label="Configurações"
+              aria-expanded={settingsOpen}
+              title="Configurações"
+              className={headerButtonClass}
+            >
+              <Settings className="h-4 w-4" />
+            </button>
+            {settingsOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setSettingsOpen(false)} />
+                <div className="absolute right-0 top-11 z-50 flex w-64 flex-col gap-1 rounded-2xl border-2 border-[var(--border)] bg-[var(--card)] p-2 shadow-xl animate-[scaleIn_0.15s_ease-out]">
+                  {[
+                    {
+                      label: "Modo difícil",
+                      hint: "Letrado: use sempre as letras já descobertas. +5 moedas no Diário.",
+                      on: hardPref,
+                      toggle: toggleHard,
+                    },
+                    {
+                      label: "Cores para daltônicos",
+                      hint: "Laranja e azul no lugar de verde e amarelo.",
+                      on: colorblind,
+                      toggle: () => setColorblind(!colorblind),
+                    },
+                  ].map((opt) => (
+                    <button
+                      key={opt.label}
+                      role="switch"
+                      aria-checked={opt.on}
+                      onClick={opt.toggle}
+                      className="flex items-start justify-between gap-3 rounded-xl px-3 py-2 text-left transition hover:bg-[var(--bg)]"
+                    >
+                      <span>
+                        <span className="block text-sm font-extrabold text-[var(--fg)]">{opt.label}</span>
+                        <span className="block text-xs font-medium text-[var(--fg-muted)]">{opt.hint}</span>
+                      </span>
+                      <span
+                        className={`mt-0.5 flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition ${
+                          opt.on ? "bg-[var(--primary)]" : "bg-[var(--border)]"
+                        }`}
+                      >
+                        <span className={`h-4 w-4 rounded-full bg-white shadow transition ${opt.on ? "translate-x-4" : ""}`} />
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
           {dailySwitch}
-        </div>
-      </div>
-    </header>
+        </>
+      }
+    />
   );
 
-  const tutorial = showTutorial ? <TermoTutorial onClose={closeTutorial} /> : null;
+  const overlays = (
+    <>
+      {showTutorial && <TermoTutorial onClose={closeTutorial} />}
+      {statsOpen && (
+        <StatsModal
+          initialMode={boardCount}
+          highlightAttempts={game?.mode === "daily" && game.won ? game.guesses.length : null}
+          onClose={() => setStatsOpen(false)}
+        />
+      )}
+      {analysisOpen && game?.answers && (
+        <AnalysisModal
+          guesses={game.guesses}
+          answers={game.answers}
+          targets={targetWordPool}
+          accents={accents}
+          onClose={() => setAnalysisOpen(false)}
+        />
+      )}
+    </>
+  );
 
   const modeSelector = (
-    <div className="flex gap-2">
+    <div className="flex flex-wrap items-center justify-center gap-2">
       {MODES.map((mode) => (
         <button
           key={mode.count}
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => changeMode(mode.count)}
+          aria-pressed={boardCount === mode.count && !extraMode}
           className={`rounded-xl border-2 px-4 py-1.5 text-xs font-extrabold uppercase transition lg:px-3 lg:py-1 ${
-            boardCount === mode.count
+            boardCount === mode.count && !extraMode
               ? "border-[var(--primary-dark)] bg-[var(--primary)] text-white"
               : "border-[var(--border)] bg-[var(--card)] text-[var(--fg-muted)] hover:bg-[var(--bg)]"
           }`}
@@ -724,272 +583,290 @@ export function TermoGame() {
           {mode.label}
         </button>
       ))}
+      <span aria-hidden className="hidden h-5 w-0.5 rounded bg-[var(--border)] sm:block" />
+      {(
+        [
+          { mode: "speed", label: "Contra o Tempo", Icon: Timer },
+          { mode: "villain", label: "Vilão", Icon: Skull },
+        ] as const
+      ).map(({ mode, label, Icon }) => (
+        <button
+          key={mode}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => openExtra(mode)}
+          aria-pressed={extraMode === mode}
+          className={`flex items-center gap-1 rounded-xl border-2 px-3 py-1.5 text-xs font-extrabold uppercase transition lg:py-1 ${
+            extraMode === mode
+              ? "border-[var(--accent-dark)] bg-[var(--accent)] text-white"
+              : "border-[var(--border)] bg-[var(--card)] text-[var(--fg-muted)] hover:bg-[var(--bg)]"
+          }`}
+        >
+          <Icon className="h-3.5 w-3.5" /> {label}
+        </button>
+      ))}
     </div>
   );
 
-  if (status === "loading") {
-    return (
-      <div className="flex flex-1 flex-col">
-        {header}
-        {tutorial}
-        <div className="relative mx-auto flex w-full max-w-6xl flex-1 flex-col items-center gap-4 overflow-x-auto px-3 pb-6 pt-3 sm:gap-6 sm:px-4 sm:pb-8">
+  // sempre montado (leitor de tela anuncia mudancas); invisivel quando vazio
+  const messageBox = (
+    <p
+      role="status"
+      aria-live="polite"
+      className={
+        message
+          ? "flex items-center gap-2 rounded-xl border-2 border-[var(--border)] bg-[var(--card)] px-4 py-2.5 text-sm font-bold text-[var(--fg-muted)]"
+          : "sr-only"
+      }
+    >
+      {message}
+    </p>
+  );
+
+  const root = (children: React.ReactNode) => (
+    <div className="flex flex-1 flex-col" data-colorblind={colorblind ? "true" : undefined}>
+      {header}
+      {overlays}
+      {children}
+    </div>
+  );
+
+  if (extraMode) {
+    return root(
+      <div className="relative mx-auto flex w-full max-w-6xl flex-1 flex-col items-center gap-4 px-3 pb-6 pt-3 sm:px-4">
+        {modeSelector}
+        {extraMode === "speed" ? (
+          <SpeedGame
+            acceptedWords={acceptedWords}
+            accents={accents}
+            onShare={share}
+            message={message}
+            setMessage={setMessage}
+          />
+        ) : (
+          <VillainGame
+            targets={targetWordPool}
+            acceptedWords={acceptedWords}
+            accents={accents}
+            onShare={share}
+            message={message}
+            setMessage={setMessage}
+          />
+        )}
+      </div>,
+    );
+  }
+
+  if (status === "loading" || status === "error" || !game) {
+    return root(
+      <div className="relative mx-auto flex w-full max-w-6xl flex-1 flex-col items-center gap-4 overflow-x-auto px-3 pb-6 pt-3 sm:gap-6 sm:px-4 sm:pb-8">
         {modeSelector}
 
-        <div className="flex justify-center gap-3 sm:gap-8">
-          {Array.from({ length: boardCount }).map((_, boardIndex) => (
-            <div key={boardIndex} className="flex shrink-0 flex-col gap-1.5 sm:gap-2.5">
-              {Array.from({ length: maxAttemptsFor(boardCount) }).map((_, rowIndex) => (
-                <div key={rowIndex} className="flex gap-1.5 sm:gap-2">
-                  {Array.from({ length: WORD_LENGTH }).map((_, i) => (
+        {status === "error" ? (
+          <div className="flex max-w-sm flex-col items-center gap-4 rounded-3xl border-2 border-[var(--border)] bg-[var(--card)] p-8 text-center">
+            <div className="text-5xl">📡</div>
+            <h2 className="text-xl font-extrabold text-[var(--fg)]">Não foi possível carregar</h2>
+            <p className="text-sm font-medium text-[var(--fg-muted)]">Confira sua conexão e tente de novo.</p>
+            <button
+              onClick={() =>
+                targetWordPool.length > 0 ? startGame(targetWordPool, boardCount, playMode) : location.reload()
+              }
+              className="rounded-2xl border-b-4 border-[var(--primary-dark)] bg-[var(--primary)] px-6 py-2.5 text-sm font-extrabold text-white transition hover:brightness-110 active:translate-y-1 active:border-b-2"
+            >
+              Tentar de novo
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="flex justify-center gap-3 sm:gap-8">
+              {Array.from({ length: boardCount }).map((_, boardIndex) => (
+                <div key={boardIndex} className="flex shrink-0 flex-col gap-1.5 sm:gap-2.5">
+                  {Array.from({ length: maxAttemptsFor(boardCount) }).map((_, rowIndex) => (
+                    <div key={rowIndex} className="flex gap-1.5 sm:gap-2">
+                      {Array.from({ length: WORD_LENGTH }).map((_, i) => (
+                        <div
+                          key={i}
+                          className={`animate-pulse rounded-xl border-2 border-[var(--border)] bg-[var(--border)]/40 ${
+                            boardCount === 4
+                              ? "h-9 w-9 sm:h-12 sm:w-12"
+                              : boardCount === 2
+                                ? "h-11 w-11 sm:h-14 sm:w-14"
+                                : "h-12 w-12 sm:h-16 sm:w-16"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+
+            <div className="flex flex-col items-center gap-1.5 sm:gap-2.5">
+              {KEY_ROWS.map((row, i) => (
+                <div key={i} className="flex gap-1 sm:gap-2">
+                  {row.map((key) => (
                     <div
-                      key={i}
-                      className={`animate-pulse rounded-xl border-2 border-[var(--border)] bg-[var(--border)]/40 ${
-                        boardCount === 4
-                          ? "h-9 w-9 sm:h-12 sm:w-12"
-                          : boardCount === 2
-                            ? "h-11 w-11 sm:h-14 sm:w-14"
-                            : "h-12 w-12 sm:h-16 sm:w-16"
+                      key={key}
+                      className={`animate-pulse rounded-lg bg-[var(--border)]/40 ${
+                        key === "Enter" || key === "Back" ? "h-11 px-3 sm:h-14 sm:px-5" : "h-11 min-w-8 sm:h-14 sm:min-w-11"
                       }`}
                     />
                   ))}
                 </div>
               ))}
             </div>
-          ))}
-        </div>
-
-        <div className="flex flex-col items-center gap-1.5 sm:gap-2.5">
-          {KEY_ROWS.map((row, i) => (
-            <div key={i} className="flex gap-1 sm:gap-2">
-              {row.map((key) => {
-                const isWide = key === "Enter" || key === "Back";
-                return (
-                  <div
-                    key={key}
-                    className={`animate-pulse rounded-lg bg-[var(--border)]/40 ${
-                      isWide ? "h-11 px-3 sm:h-14 sm:px-5" : "h-11 min-w-8 sm:h-14 sm:min-w-11"
-                    }`}
-                  />
-                );
-              })}
-            </div>
-          ))}
-        </div>
-        </div>
-      </div>
+          </>
+        )}
+      </div>,
     );
   }
 
-  if (alreadyPlayedToday) {
-    return (
-      <div className="flex flex-1 flex-col">
-        {header}
-        {tutorial}
-        <div className="flex flex-1 flex-col items-center gap-6 pb-8 pt-3">
+  if (game.alreadyPlayed) {
+    return root(
+      <div className="flex flex-1 flex-col items-center gap-6 px-4 pb-8 pt-3">
         {modeSelector}
         <div className="flex max-w-sm flex-col items-center gap-4 rounded-3xl border-2 border-[var(--border)] bg-[var(--card)] p-8 text-center">
-          <div className="text-5xl">{alreadyPlayedToday.won ? "🎉" : "😔"}</div>
+          <div className="text-5xl">{game.won ? "🎉" : "😔"}</div>
           <h2 className="text-xl font-extrabold text-[var(--fg)]">Você já jogou o diário de hoje!</h2>
-          <p className="text-sm font-medium text-[var(--fg-muted)]">Volte amanhã para uma nova palavra.</p>
+          {game.answers && (
+            <p className="text-sm font-semibold text-[var(--fg-muted)]">
+              {game.answers.length > 1 ? "As palavras eram" : "A palavra era"}{" "}
+              <span className="font-extrabold uppercase text-[var(--fg)]">
+                {game.answers.map((a) => withAccents(a, accents)).join(", ")}
+              </span>
+            </p>
+          )}
+          <NextWordCountdown />
           <div className="flex gap-4">
             <div className="flex flex-col items-center gap-1 rounded-2xl border-2 border-[var(--border)] bg-[var(--bg)] px-4 py-3">
-              <span className="text-xl font-extrabold text-[var(--primary)]">{alreadyPlayedToday.attempts}</span>
-              <span className="text-[10px] font-bold uppercase text-[var(--fg-muted)]">Tentativas</span>
+              <span className="text-xl font-extrabold text-[var(--primary)]">{game.guesses.length || "–"}</span>
+              <span className="text-xs font-bold uppercase text-[var(--fg-muted)]">Tentativas</span>
             </div>
             <div className="flex flex-col items-center gap-1 rounded-2xl border-2 border-[var(--border)] bg-[var(--bg)] px-4 py-3">
-              <span className="text-xl font-extrabold text-[var(--accent)]">
-                {Math.floor(alreadyPlayedToday.timeSeconds / 60)}m {alreadyPlayedToday.timeSeconds % 60}s
-              </span>
-              <span className="text-[10px] font-bold uppercase text-[var(--fg-muted)]">Tempo</span>
+              <span className="text-xl font-extrabold text-[var(--accent)]">{formatTime(game.timeSeconds)}</span>
+              <span className="text-xs font-bold uppercase text-[var(--fg-muted)]">Tempo</span>
             </div>
           </div>
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => changePlayMode("infinite")}
-            className="rounded-2xl border-b-4 border-[var(--primary-dark)] bg-[var(--primary)] px-6 py-2.5 text-sm font-extrabold text-white transition hover:brightness-110 active:translate-y-1 active:border-b-2"
-          >
-            Jogar modo infinito
-          </button>
+          <div className="flex flex-wrap justify-center gap-2">
+            {game.guesses.length > 0 && (
+              <>
+                <button
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={handleShare}
+                  className="flex items-center gap-2 rounded-2xl border-2 border-[var(--border)] bg-[var(--card)] px-4 py-2.5 text-sm font-extrabold text-[var(--fg)] transition hover:bg-[var(--bg)]"
+                >
+                  <Share2 className="h-4 w-4" /> Compartilhar
+                </button>
+                {game.answers && (
+                  <button
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => setAnalysisOpen(true)}
+                    className="flex items-center gap-2 rounded-2xl border-2 border-[var(--border)] bg-[var(--card)] px-4 py-2.5 text-sm font-extrabold text-[var(--fg)] transition hover:bg-[var(--bg)]"
+                  >
+                    Análise
+                  </button>
+                )}
+              </>
+            )}
+            <button
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => changePlayMode("infinite")}
+              className="rounded-2xl border-b-4 border-[var(--primary-dark)] bg-[var(--primary)] px-6 py-2.5 text-sm font-extrabold text-white transition hover:brightness-110 active:translate-y-1 active:border-b-2"
+            >
+              Jogar modo infinito
+            </button>
+          </div>
+          {messageBox}
         </div>
-        </div>
-      </div>
+      </div>,
     );
   }
 
-  const maxAttempts = maxAttemptsFor(boardCount);
+  const canHint = status === "playing" && nextHintTarget(game) !== null;
+  const lastRow = game.guesses.length - 1;
 
-  // Tamanho de célula calculado p/ caber tudo (board + teclado) sem scroll no desktop,
-  // dividindo o espaço disponível pelas linhas (altura) e colunas totais (largura).
-  const cellVh = boardCount === 4 ? 4.2 : boardCount === 2 ? 5.2 : 6.1;
-  const cellVw = boardCount === 4 ? 4.4 : boardCount === 2 ? 6.5 : 9.5;
-  const cellStyle = { "--cell": `clamp(2.25rem, min(${cellVw}vw, ${cellVh}vh), 4rem)` } as React.CSSProperties;
-
-  return (
-    <div className="flex flex-1 flex-col">
-      {header}
-      {tutorial}
-      <div
-        style={cellStyle}
-        className={`relative mx-auto flex w-full max-w-6xl flex-1 flex-col items-center justify-between overflow-x-auto px-3 sm:gap-6 sm:px-4 sm:pb-8 sm:pt-3 lg:gap-3 lg:overflow-visible lg:pb-4 lg:pt-3 ${boardCount === 4 ? "gap-1 pb-1 pt-1" : "gap-4 pb-6 pt-3"}`}
-      >
+  return root(
+    <div
+      style={cellStyle(boardCount)}
+      className={`relative mx-auto flex w-full max-w-6xl flex-1 flex-col items-center justify-between overflow-x-auto px-3 sm:gap-6 sm:px-4 sm:pb-8 sm:pt-3 lg:gap-3 lg:overflow-visible lg:pb-4 lg:pt-3 ${boardCount === 4 ? "gap-1 pb-1 pt-1" : "gap-4 pb-6 pt-3"}`}
+    >
       <div className={`flex flex-col items-center sm:gap-6 lg:mt-6 lg:flex-1 lg:justify-start lg:gap-3 ${boardCount === 4 ? "gap-1.5" : "gap-4"}`}>
-      {modeSelector}
+        {modeSelector}
 
-      <div
-        className={
-          boardCount === 4
-            ? "grid grid-cols-2 gap-x-2 gap-y-1 sm:flex sm:justify-center sm:gap-8 lg:gap-4"
-            : `flex justify-center sm:gap-8 lg:gap-4 gap-4`
-        }
-      >
-        {targetWords.map((target, boardIndex) => {
-          const boardSolved = rawGuesses.includes(target);
-          return (
-          <div key={boardIndex} className={`flex shrink-0 flex-col transition-opacity sm:gap-2.5 lg:gap-1.5 ${boardCount === 4 ? "gap-[3px]" : "gap-1.5"} ${boardSolved ? "opacity-60" : ""}`}>
-            {Array.from({ length: maxAttempts }).map((_, rowIndex) => {
-              const isCurrentRow = rowIndex === rawGuesses.length && !boardSolved;
-              const rowLetters = boardGuesses[boardIndex]?.[rowIndex]
-                ? boardGuesses[boardIndex][rowIndex]
-                : isCurrentRow
-                  ? currentLetters.map((l) => ({ letter: l, state: "empty" as LetterState }))
-                  : Array.from({ length: WORD_LENGTH }, () => ({ letter: "", state: "empty" as LetterState }));
-
-              return (
-                <div
-                  key={rowIndex}
-                  className={`flex sm:gap-2 lg:gap-1.5 ${boardCount === 4 ? "gap-1" : "gap-1"} ${isCurrentRow && shakeRow ? "animate-[shake_0.4s_ease-in-out]" : ""}`}
-                >
-                  {rowLetters.map((cell, i) => {
-                    const isRevealing = rowIndex === revealRowIndex && cell.state !== "empty";
-                    const sizeClasses =
-                      boardCount === 4
-                        ? "h-[min(8vw,3.7vh)] w-[min(8vw,3.7vh)] text-[10px] sm:h-12 sm:w-12 sm:text-xl lg:h-[var(--cell)] lg:w-[var(--cell)] lg:text-lg"
-                        : boardCount === 2
-                          ? "h-[7.8vw] w-[7.8vw] text-sm sm:h-14 sm:w-14 sm:text-2xl lg:h-[var(--cell)] lg:w-[var(--cell)] lg:text-xl"
-                          : "h-12 w-12 text-2xl sm:h-16 sm:w-16 sm:text-3xl lg:h-[var(--cell)] lg:w-[var(--cell)] lg:text-2xl";
-
-                    if (isRevealing) {
-                      return (
-                        <div key={i} className={`relative ${sizeClasses}`} style={{ perspective: "400px" }}>
-                          <div
-                            className={`absolute inset-0 flex items-center justify-center rounded-xl border-2 font-extrabold uppercase ${cellClasses["empty"]}`}
-                            style={{
-                              animation: "flipRevealFront 0.5s ease-in both",
-                              animationDelay: `${i * 200}ms`,
-                              backfaceVisibility: "hidden",
-                            }}
-                          >
-                            {cell.letter}
-                          </div>
-                          <div
-                            className={`absolute inset-0 flex items-center justify-center rounded-xl border-2 font-extrabold uppercase ${cellClasses[cell.state]}`}
-                            style={{
-                              animation: "flipRevealBack 0.5s ease-out both",
-                              animationDelay: `${i * 200}ms`,
-                              backfaceVisibility: "hidden",
-                            }}
-                          >
-                            {cell.letter}
-                          </div>
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <div
-                        key={i}
-                        onClick={() => isCurrentRow && status === "playing" && setCursor(i)}
-                        className={`flex items-center justify-center rounded-xl border-2 font-extrabold uppercase transition-all duration-200 ${sizeClasses} ${cellClasses[cell.state]} ${
-                          isCurrentRow && cursor === i
-                            ? "border-[var(--accent)] ring-2 ring-[var(--accent)]/40 scale-105"
-                            : ""
-                        } ${cell.letter && cell.state === "empty" ? "scale-105 border-[var(--fg-muted)]" : ""} ${
-                          isCurrentRow ? "cursor-pointer" : ""
-                        }`}
-                      >
-                        {cell.letter}
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
+        {(game.hard || game.challenge) && (
+          <div className="flex flex-wrap justify-center gap-2 text-xs font-extrabold uppercase">
+            {game.hard && (
+              <span className="flex items-center gap-1 rounded-full bg-[var(--danger-bg)] px-2.5 py-1 text-[var(--danger)]">
+                <Skull className="h-3.5 w-3.5" /> Modo difícil
+              </span>
+            )}
+            {game.challenge && (
+              <span className="rounded-full bg-[var(--bg)] px-2.5 py-1 text-[var(--primary)]">
+                Desafio de {game.challenge.name ?? "um amigo"}
+              </span>
+            )}
           </div>
-          );
-        })}
+        )}
+
+        <Boards
+          boardCount={game.boardCount}
+          guesses={game.guesses}
+          evals={game.evals}
+          currentLetters={input.letters}
+          cursor={input.cursor}
+          revealRowIndex={revealRowIndex}
+          shakeRow={input.shake}
+          editable={status === "playing"}
+          onCellClick={input.setCursor}
+          hints={game.hints}
+          accents={accents}
+          bounceRowIndex={game.won && status !== "playing" ? lastRow : null}
+        />
+
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          {messageBox}
+          {canHint && (
+            <button
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={handleHint}
+              disabled={hintBusy || (!!user && coins < HINT_PRICE)}
+              title={user ? `Revela uma letra por ${HINT_PRICE} moedas` : "Entre na sua conta para usar dicas"}
+              className="flex items-center gap-1.5 rounded-xl border-2 border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-xs font-extrabold text-[var(--fg-muted)] transition hover:bg-[var(--bg)] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Lightbulb className="h-4 w-4 text-[var(--termo-present)]" /> Dica · {HINT_PRICE}
+            </button>
+          )}
+        </div>
       </div>
 
-      {message && (
-        <p className="flex items-center gap-2 rounded-xl border-2 border-[var(--border)] bg-[var(--card)] px-4 py-2.5 text-sm font-bold text-[var(--fg-muted)]">
-          {message}
-        </p>
-      )}
-      </div>
+      <Keyboard boardCount={game.boardCount} keyStates={keyStates} onKey={input.handleKey} />
 
-      <div className={`flex shrink-0 flex-col items-center sm:gap-2.5 lg:gap-1.5 ${boardCount === 4 ? "gap-1" : "gap-1.5"}`}>
-        {KEY_ROWS.map((row, i) => (
-          <div key={i} className="flex gap-1 sm:gap-2 lg:gap-1.5">
-            {row.map((key) => {
-              const isWide = key === "Enter" || key === "Back";
-              const isLetter = !isWide;
-              const boardStates = isLetter
-                ? (keyStates.current[key.toLowerCase()] ?? Array(boardCount).fill("empty"))
-                : null;
-              const soloState = boardStates ? boardStates[0] : "empty";
-
-              if (isLetter && boardCount > 1 && boardStates) {
-                return (
-                  <button
-                    key={key}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => handleKey(key)}
-                    className={`relative min-w-8 overflow-hidden rounded-lg text-xs font-extrabold uppercase text-white transition active:scale-95 sm:h-14 sm:min-w-11 sm:text-sm lg:h-11 lg:min-w-9 ${boardCount === 4 ? "h-9" : "h-11"}`}
-                  >
-                    <div className={`absolute inset-0 grid ${boardCount === 4 ? "grid-cols-2 grid-rows-2" : "grid-cols-2"}`}>
-                      {boardStates.map((s, i) => (
-                        <div key={i} className={keySliceBg[s]} />
-                      ))}
-                    </div>
-                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                      {key}
-                    </span>
-                  </button>
-                );
-              }
-
-              const state = isLetter ? soloState : "empty";
-              return (
-                <button
-                  key={key}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => handleKey(key)}
-                  className={`rounded-lg text-xs font-extrabold uppercase transition active:scale-95 sm:text-sm ${keyClasses[state]} ${
-                    isWide
-                      ? `px-3 sm:px-5 sm:py-4 lg:py-3 ${boardCount === 4 ? "py-2" : "py-3"}`
-                      : `min-w-8 px-2 sm:min-w-11 sm:px-3 sm:py-4 lg:min-w-9 lg:py-3 ${boardCount === 4 ? "py-2" : "py-3"}`
-                  }`}
-                >
-                  {key === "Back" ? "⌫" : key}
-                </button>
-              );
-            })}
-          </div>
-        ))}
-      </div>
+      {status === "won" && <Confetti />}
 
       <WinModal
         open={status === "won" || status === "lost"}
         won={status === "won"}
-        attempts={rawGuesses.length}
-        timeString={`${Math.floor(elapsedSeconds / 60)}m ${elapsedSeconds % 60}s`}
+        attempts={game.guesses.length}
+        boardCount={game.boardCount}
+        timeString={formatTime(game.timeSeconds)}
         leaderboardRefresh={leaderboardRefresh}
-        currentStreak={playMode === "daily" ? currentStreak : undefined}
-        targetWord={targetWords.join(", ")}
-        showLeaderboard={playMode === "daily"}
-        boardCount={boardCount}
-        onPlayAgain={() => startGame(targetWordPool, boardCount, playMode)}
+        currentStreak={game.mode === "daily" && game.streak !== null ? game.streak : undefined}
+        coinsAwarded={game.coinsAwarded}
+        answers={(game.answers ?? []).map((a) => withAccents(a, accents))}
+        showLeaderboard={game.mode === "daily"}
+        loginHint={game.mode === "daily" && !userId}
+        shareFeedback={message}
+        onShare={handleShare}
+        onPlayAgain={() =>
+          game.mode === "daily" ? changePlayMode("infinite") : startGame(targetWordPool, boardCount, "infinite")
+        }
+        playAgainLabel={game.mode === "daily" ? "Jogar modo infinito" : "Jogar novamente"}
+        showCountdown={game.mode === "daily"}
+        achievements={game.achievements}
+        shieldsUsed={game.shieldsUsed}
+        onAnalyze={game.answers ? () => setAnalysisOpen(true) : undefined}
+        onChallenge={game.mode === "infinite" ? handleChallenge : undefined}
+        challenger={game.challenge}
       />
-      </div>
-    </div>
+    </div>,
   );
 }
