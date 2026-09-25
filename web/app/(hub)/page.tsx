@@ -1,5 +1,5 @@
 import { GameCard } from "@/components/GameCard";
-import { DailyTermoCard } from "@/components/DailyTermoCard";
+import { HomeFeature } from "@/components/home/HomeFeature";
 import { games } from "@/lib/games";
 
 export default function Home() {
@@ -9,7 +9,7 @@ export default function Home() {
   return (
     <main className="flex w-full flex-1 flex-col gap-8 px-4 py-6 sm:px-6 sm:py-8">
       <div className="animate-fade-up">
-        <DailyTermoCard />
+        <HomeFeature />
       </div>
 
       <section className="flex flex-col gap-4">
