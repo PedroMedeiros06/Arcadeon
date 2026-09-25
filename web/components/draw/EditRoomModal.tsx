@@ -27,7 +27,7 @@ export function EditRoomModal({ config, currentPlayerCount, onSave, onClose }: E
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="relative w-full max-w-sm overflow-hidden rounded-3xl bg-linear-to-b from-[#7c3fe0] to-[#3a1a7a] p-5 shadow-2xl">
+      <div className="relative w-full max-w-sm overflow-hidden rounded-3xl bg-linear-to-b from-[var(--stage-1)] to-[var(--stage-2)] p-5 shadow-2xl">
         <div className="relative mb-4 flex items-center justify-center">
           <h2 className="text-lg font-extrabold text-white">Editar partida</h2>
           <button
@@ -39,10 +39,10 @@ export function EditRoomModal({ config, currentPlayerCount, onSave, onClose }: E
           </button>
         </div>
 
-        <div className="rounded-2xl bg-[#26124f]/50 p-5 backdrop-blur">
+        <div className="rounded-2xl bg-[var(--stage-3)]/50 p-5 backdrop-blur">
           <div className="flex flex-col gap-1">
             <p className="text-sm font-bold text-white/90">
-              Rodadas por jogador: <span className="text-[#c4b5fd]">{roundsPerPlayer}</span>
+              Rodadas por jogador: <span className="text-[var(--stage-softer)]">{roundsPerPlayer}</span>
             </p>
             <input
               type="range"
@@ -50,7 +50,7 @@ export function EditRoomModal({ config, currentPlayerCount, onSave, onClose }: E
               max={5}
               value={roundsPerPlayer}
               onChange={(e) => setRoundsPerPlayer(Number(e.target.value))}
-              className="w-full accent-[#a78bfa]"
+              className="w-full accent-[var(--stage-soft)]"
             />
           </div>
 
@@ -58,7 +58,7 @@ export function EditRoomModal({ config, currentPlayerCount, onSave, onClose }: E
 
           <div className="flex flex-col gap-1">
             <p className="text-sm font-bold text-white/90">
-              Tempo por turno: <span className="text-[#c4b5fd]">{turnSeconds}s</span>
+              Tempo por turno: <span className="text-[var(--stage-softer)]">{turnSeconds}s</span>
             </p>
             <input
               type="range"
@@ -67,9 +67,9 @@ export function EditRoomModal({ config, currentPlayerCount, onSave, onClose }: E
               step={1}
               value={TURN_OPTIONS.indexOf(turnSeconds)}
               onChange={(e) => setTurnSeconds(TURN_OPTIONS[Number(e.target.value)])}
-              className="w-full accent-[#a78bfa]"
+              className="w-full accent-[var(--stage-soft)]"
             />
-            <div className="flex justify-between text-[11px] font-semibold text-white/60">
+            <div className="flex justify-between text-xs font-semibold text-white/75">
               {TURN_OPTIONS.map((mark) => (
                 <span key={mark}>{mark}s</span>
               ))}
@@ -81,7 +81,7 @@ export function EditRoomModal({ config, currentPlayerCount, onSave, onClose }: E
           <div className="flex flex-col gap-1">
             <p className="flex items-center gap-1.5 text-sm font-bold text-white/90">
               <Users size={14} />
-              Maximo de jogadores: <span className="text-[#c4b5fd]">{maxPlayers}</span>
+              Máximo de jogadores: <span className="text-[var(--stage-softer)]">{maxPlayers}</span>
             </p>
             <input
               type="range"
@@ -89,11 +89,11 @@ export function EditRoomModal({ config, currentPlayerCount, onSave, onClose }: E
               max={16}
               value={maxPlayers}
               onChange={(e) => setMaxPlayers(Number(e.target.value))}
-              className="w-full accent-[#a78bfa]"
+              className="w-full accent-[var(--stage-soft)]"
             />
             {currentPlayerCount > 2 && (
-              <p className="text-[11px] font-semibold text-white/50">
-                Minimo {currentPlayerCount} (jogadores ja na sala)
+              <p className="text-xs font-semibold text-white/50">
+                Mínimo {currentPlayerCount} (jogadores já na sala)
               </p>
             )}
           </div>
@@ -102,13 +102,13 @@ export function EditRoomModal({ config, currentPlayerCount, onSave, onClose }: E
 
           <div className="flex flex-col gap-2">
             <p className="text-sm font-bold text-white/90">Visibilidade</p>
-            <div className="flex gap-2 rounded-xl bg-[#1a0f38] p-1">
+            <div className="flex gap-2 rounded-xl bg-[var(--stage-4)] p-1">
               <button
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setVisibility("public")}
                 className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-bold transition ${
-                  visibility === "public" ? "bg-[#a78bfa] text-[#1a0f38]" : "text-white/60 hover:text-white"
+                  visibility === "public" ? "bg-[var(--stage-soft)] text-[var(--stage-4)]" : "text-white/75 hover:text-white"
                 }`}
               >
                 <Globe size={14} />
@@ -119,7 +119,7 @@ export function EditRoomModal({ config, currentPlayerCount, onSave, onClose }: E
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setVisibility("private")}
                 className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-bold transition ${
-                  visibility === "private" ? "bg-[#a78bfa] text-[#1a0f38]" : "text-white/60 hover:text-white"
+                  visibility === "private" ? "bg-[var(--stage-soft)] text-[var(--stage-4)]" : "text-white/75 hover:text-white"
                 }`}
               >
                 <Lock size={14} />

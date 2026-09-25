@@ -3,15 +3,8 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Home, Gamepad2, Package, Settings, Joystick, Trophy } from "lucide-react";
-
-const NAV_ITEMS = [
-  { href: "/", label: "Início", icon: Home },
-  { href: "/games", label: "Jogos", icon: Gamepad2 },
-  { href: "/leaderboard", label: "Placares", icon: Trophy },
-  { href: "/inventory", label: "Inventário", icon: Package },
-  { href: "/settings", label: "Configurações", icon: Settings },
-];
+import { Joystick } from "lucide-react";
+import { NAV_ITEMS, isNavActive } from "./navItems";
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -22,17 +15,18 @@ export function Sidebar() {
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#0c0b16] transition-transform duration-300 hover:rotate-6 hover:scale-105">
           <Image src="/Logo@4x.png" alt="" width={44} height={44} className="h-6 w-6 object-contain" priority />
         </span>
-        <span className="text-lg font-extrabold tracking-tight text-[var(--fg)]">Arcadeon</span>
+        <span className="font-display text-xl font-extrabold tracking-tight text-[var(--fg)]">Arcadeon</span>
       </Link>
 
       <nav className="flex flex-1 flex-col gap-1">
         {NAV_ITEMS.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive = isNavActive(pathname, item.href);
           const Icon = item.icon;
           return (
             <Link
               key={item.href}
               href={item.href}
+              aria-current={isActive ? "page" : undefined}
               className={`group flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-bold transition-all duration-200 ${
                 isActive
                   ? "bg-[var(--primary)] text-white"

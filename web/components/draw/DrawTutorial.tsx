@@ -70,7 +70,7 @@ function PickDemo() {
         >
           <span className="text-sm font-extrabold capitalize">{o.word}</span>
           <span className="flex items-center gap-2">
-            <span className="text-[10px] font-extrabold uppercase" style={{ color: o.color }}>
+            <span className="text-xs font-extrabold uppercase" style={{ color: o.color }}>
               {o.label}
             </span>
             <span className="text-sm font-black" style={{ color: o.color }}>
@@ -119,7 +119,7 @@ function SpeedDemo() {
       <div className="h-3 w-full overflow-hidden rounded-full bg-white/15">
         <div
           className="h-full rounded-full transition-all duration-700"
-          style={{ width: `${width}%`, backgroundColor: step >= 3 ? "#f87171" : step >= 2 ? "#fbbf24" : "#a78bfa" }}
+          style={{ width: `${width}%`, backgroundColor: step >= 3 ? "#f87171" : step >= 2 ? "#fbbf24" : "var(--stage-soft)" }}
         />
       </div>
       <span key={step} className="text-4xl font-black text-yellow-300" style={{ animation: "popIn 0.35s ease-out" }}>
@@ -133,11 +133,11 @@ function SecretDemo() {
   return (
     <div className="flex w-full max-w-xs gap-2 text-xs">
       <div className="flex flex-1 flex-col gap-1 rounded-xl bg-black/20 p-2">
-        <span className="text-[10px] font-bold uppercase text-white/50">Ana acertou e vê</span>
+        <span className="text-xs font-bold uppercase text-white/50">Ana acertou e vê</span>
         <span className="rounded-md bg-green-400/20 px-1.5 py-0.5 font-bold text-green-300">✨ &quot;pizza&quot; +190</span>
       </div>
       <div className="flex flex-1 flex-col gap-1 rounded-xl bg-black/20 p-2">
-        <span className="text-[10px] font-bold uppercase text-white/50">Os outros veem</span>
+        <span className="text-xs font-bold uppercase text-white/50">Os outros veem</span>
         <span className="rounded-md bg-green-400/20 px-1.5 py-0.5 font-bold text-green-300">✓ Ana acertou!</span>
       </div>
     </div>
@@ -221,7 +221,7 @@ export function DrawTutorial({ onClose }: { onClose: () => void }) {
       aria-label="Como jogar"
     >
       <div
-        className="relative flex w-full max-w-md flex-col overflow-hidden rounded-3xl bg-linear-to-b from-[#7c3fe0] to-[#26124f] text-white shadow-2xl"
+        className="relative flex w-full max-w-md flex-col overflow-hidden rounded-3xl bg-linear-to-b from-[var(--stage-1)] to-[var(--stage-3)] text-white shadow-2xl"
         style={{ animation: "scaleIn 0.25s ease-out" }}
         onPointerDown={(e) => (touchX.current = e.clientX)}
         onPointerUp={(e) => {
@@ -266,7 +266,7 @@ export function DrawTutorial({ onClose }: { onClose: () => void }) {
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => (last ? onClose() : setIndex(index + 1))}
             className={`flex items-center gap-1 rounded-xl px-5 py-2.5 text-sm font-extrabold transition active:scale-95 ${
-              last ? "bg-yellow-400 text-[#2c1568] shadow-[0_4px_0_#b8860b]" : "bg-white text-[#3a1a7a]"
+              last ? "bg-yellow-400 text-[var(--stage-3)] shadow-[0_4px_0_#b8860b]" : "bg-white text-[var(--stage-2)]"
             }`}
           >
             {last ? "Jogar" : "Próximo"}

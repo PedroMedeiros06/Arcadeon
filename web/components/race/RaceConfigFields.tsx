@@ -17,7 +17,7 @@ function Segmented<T extends string | number>({
   render: (v: T) => React.ReactNode;
 }) {
   return (
-    <div className="flex gap-2 rounded-xl bg-[#1a0f38] p-1">
+    <div className="flex gap-2 rounded-xl bg-[var(--stage-4)] p-1">
       {options.map((opt) => (
         <button
           key={opt}
@@ -25,7 +25,7 @@ function Segmented<T extends string | number>({
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => onChange(opt)}
           className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-bold transition active:scale-95 ${
-            value === opt ? "bg-[#a78bfa] text-[#1a0f38]" : "text-white/60 hover:text-white"
+            value === opt ? "bg-[var(--stage-soft)] text-[var(--stage-4)]" : "text-white/75 hover:text-white"
           }`}
         >
           {render(opt)}
@@ -60,7 +60,7 @@ export function RaceConfigFields({
       <div className="flex flex-col gap-1">
         <p className="flex items-center gap-1.5 text-sm font-bold text-white/90">
           <Users size={14} />
-          Máximo de jogadores: <span className="text-[#c4b5fd]">{config.maxPlayers}</span>
+          Máximo de jogadores: <span className="text-[var(--stage-softer)]">{config.maxPlayers}</span>
         </p>
         <input
           type="range"
@@ -68,7 +68,7 @@ export function RaceConfigFields({
           max={16}
           value={config.maxPlayers}
           onChange={(e) => onChange({ ...config, maxPlayers: Number(e.target.value) })}
-          className="w-full accent-[#a78bfa]"
+          className="w-full accent-[var(--stage-soft)]"
         />
       </div>
 

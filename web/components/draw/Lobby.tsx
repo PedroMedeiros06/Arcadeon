@@ -37,13 +37,13 @@ export function Lobby({ defaultName, isNameLocked, onCreate, onJoin, joinError, 
 
   if (mode === "choose") {
     return (
-      <div className="flex flex-1 items-center justify-center bg-linear-to-br from-[var(--primary)] via-[var(--primary-dark)] to-[#1a0f38] p-6">
+      <div className="flex flex-1 items-center justify-center bg-linear-to-br from-[var(--stage-1)] via-[var(--stage-2)] to-[var(--stage-4)] p-6">
         <div className="w-full max-w-lg">
           <div className="mb-8 text-center">
             <span className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 text-white backdrop-blur">
               <Palette className="h-8 w-8" />
             </span>
-            <h2 className="mb-2 text-3xl font-extrabold tracking-tight text-white">DrawIt</h2>
+            <h2 className="mb-2 font-display text-3xl font-extrabold tracking-tight text-white">DrawIt</h2>
             <p className="font-medium text-white/70">Desenhe e adivinhe com seus amigos.</p>
           </div>
 
@@ -53,11 +53,11 @@ export function Lobby({ defaultName, isNameLocked, onCreate, onJoin, joinError, 
               onClick={() => setMode("create")}
               className="group flex flex-1 flex-col items-start gap-3 rounded-2xl border-2 border-white/15 bg-white/10 p-5 text-left backdrop-blur transition hover:-translate-y-1 hover:border-white/30 hover:bg-white/15"
             >
-              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--primary)] text-white">
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-[var(--stage-2)]">
                 <Plus className="h-5 w-5" />
               </span>
               <span className="text-lg font-extrabold text-white">Criar sala</span>
-              <span className="text-sm font-medium text-white/60">Configure a partida e convide amigos</span>
+              <span className="text-sm font-medium text-white/75">Configure a partida e convide amigos</span>
             </button>
 
             <button
@@ -65,11 +65,11 @@ export function Lobby({ defaultName, isNameLocked, onCreate, onJoin, joinError, 
               onClick={() => setMode("join")}
               className="group flex flex-1 flex-col items-start gap-3 rounded-2xl border-2 border-white/15 bg-white/10 p-5 text-left backdrop-blur transition hover:-translate-y-1 hover:border-white/30 hover:bg-white/15"
             >
-              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--accent)] text-white">
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/20 text-white">
                 <KeyRound className="h-5 w-5" />
               </span>
-              <span className="text-lg font-extrabold text-white">Entrar com codigo</span>
-              <span className="text-sm font-medium text-white/60">Tem um codigo? Entre em uma sala existente</span>
+              <span className="text-lg font-extrabold text-white">Entrar com código</span>
+              <span className="text-sm font-medium text-white/75">Tem um código? Entre em uma sala existente</span>
             </button>
           </div>
           <button
@@ -86,7 +86,7 @@ export function Lobby({ defaultName, isNameLocked, onCreate, onJoin, joinError, 
 
   if (mode === "join") {
     return (
-      <div className="flex flex-1 items-center justify-center bg-linear-to-br from-[var(--accent)] via-[var(--accent-dark)] to-[#0c2b3d] p-4 sm:p-6">
+      <div className="flex flex-1 items-center justify-center bg-linear-to-br from-[var(--stage-1)] via-[var(--stage-2)] to-[var(--stage-4)] p-4 sm:p-6">
         <div className="max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-3xl border-2 border-white/15 bg-white/10 p-5 backdrop-blur sm:p-6">
           <div className="relative mb-5 flex items-center justify-center">
             <h2 className="text-lg font-extrabold text-white">Entrar na sala</h2>
@@ -112,7 +112,7 @@ export function Lobby({ defaultName, isNameLocked, onCreate, onJoin, joinError, 
             <input
               value={joinCode}
               onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-              placeholder="Codigo da sala"
+              placeholder="Código da sala"
               maxLength={5}
               className="w-full rounded-xl border-2 border-white/20 bg-black/20 px-4 py-2.5 text-center font-mono text-lg font-bold tracking-widest text-white placeholder:text-white/40"
             />
@@ -122,7 +122,7 @@ export function Lobby({ defaultName, isNameLocked, onCreate, onJoin, joinError, 
               onMouseDown={(e) => e.preventDefault()}
               disabled={!name.trim() || joinCode.length !== 5}
               onClick={() => onJoin(name.trim(), joinCode)}
-              className="mt-1 w-full rounded-xl border-2 border-white/20 bg-white py-2.5 font-extrabold text-[var(--accent-dark)] transition disabled:opacity-40"
+              className="mt-1 w-full rounded-xl border-2 border-white/20 bg-white py-2.5 font-extrabold text-[var(--stage-2)] transition disabled:opacity-40"
             >
               Entrar
             </button>
@@ -133,8 +133,8 @@ export function Lobby({ defaultName, isNameLocked, onCreate, onJoin, joinError, 
   }
 
   return (
-    <div className="flex flex-1 items-center justify-center bg-linear-to-br from-[#7c3fe0] via-[#5a2fc2] to-[#26124f] p-3 sm:p-4">
-      <div className="relative max-h-[92vh] w-full max-w-md overflow-y-auto rounded-3xl bg-linear-to-b from-[#7c3fe0] to-[#3a1a7a] p-4 shadow-2xl sm:p-5">
+    <div className="flex flex-1 items-center justify-center bg-linear-to-br from-[var(--stage-1)] via-[var(--stage-2)] to-[var(--stage-3)] p-3 sm:p-4">
+      <div className="relative max-h-[92vh] w-full max-w-md overflow-y-auto rounded-3xl bg-linear-to-b from-[var(--stage-1)] to-[var(--stage-2)] p-4 shadow-2xl sm:p-5">
         <div className="relative mb-4 flex items-center justify-center">
           <h2 className="text-lg font-extrabold text-white">Criar sala</h2>
           <button
@@ -146,7 +146,7 @@ export function Lobby({ defaultName, isNameLocked, onCreate, onJoin, joinError, 
           </button>
         </div>
 
-        <div className="rounded-2xl bg-[#26124f]/50 p-5 backdrop-blur">
+        <div className="rounded-2xl bg-[var(--stage-3)]/50 p-5 backdrop-blur">
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -161,7 +161,7 @@ export function Lobby({ defaultName, isNameLocked, onCreate, onJoin, joinError, 
 
           <div className="flex flex-col gap-1">
             <p className="text-sm font-bold text-white/90">
-              Rodadas por jogador: <span className="text-[#c4b5fd]">{roundsPerPlayer}</span>
+              Rodadas por jogador: <span className="text-[var(--stage-softer)]">{roundsPerPlayer}</span>
             </p>
             <input
               type="range"
@@ -169,7 +169,7 @@ export function Lobby({ defaultName, isNameLocked, onCreate, onJoin, joinError, 
               max={5}
               value={roundsPerPlayer}
               onChange={(e) => setRoundsPerPlayer(Number(e.target.value))}
-              className="w-full accent-[#a78bfa]"
+              className="w-full accent-[var(--stage-soft)]"
             />
           </div>
 
@@ -177,7 +177,7 @@ export function Lobby({ defaultName, isNameLocked, onCreate, onJoin, joinError, 
 
           <div className="flex flex-col gap-1">
             <p className="text-sm font-bold text-white/90">
-              Tempo por turno: <span className="text-[#c4b5fd]">{turnSeconds}s</span>
+              Tempo por turno: <span className="text-[var(--stage-softer)]">{turnSeconds}s</span>
             </p>
             <input
               type="range"
@@ -186,9 +186,9 @@ export function Lobby({ defaultName, isNameLocked, onCreate, onJoin, joinError, 
               step={1}
               value={TURN_OPTIONS.indexOf(turnSeconds)}
               onChange={(e) => setTurnSeconds(TURN_OPTIONS[Number(e.target.value)])}
-              className="w-full accent-[#a78bfa]"
+              className="w-full accent-[var(--stage-soft)]"
             />
-            <div className="flex justify-between text-[11px] font-semibold text-white/60">
+            <div className="flex justify-between text-xs font-semibold text-white/75">
               {TURN_OPTIONS.map((mark) => (
                 <span key={mark}>{mark}s</span>
               ))}
@@ -200,7 +200,7 @@ export function Lobby({ defaultName, isNameLocked, onCreate, onJoin, joinError, 
           <div className="flex flex-col gap-1">
             <p className="flex items-center gap-1.5 text-sm font-bold text-white/90">
               <Users size={14} />
-              Maximo de jogadores: <span className="text-[#c4b5fd]">{maxPlayers}</span>
+              Máximo de jogadores: <span className="text-[var(--stage-softer)]">{maxPlayers}</span>
             </p>
             <input
               type="range"
@@ -208,7 +208,7 @@ export function Lobby({ defaultName, isNameLocked, onCreate, onJoin, joinError, 
               max={16}
               value={maxPlayers}
               onChange={(e) => setMaxPlayers(Number(e.target.value))}
-              className="w-full accent-[#a78bfa]"
+              className="w-full accent-[var(--stage-soft)]"
             />
           </div>
 
@@ -216,13 +216,13 @@ export function Lobby({ defaultName, isNameLocked, onCreate, onJoin, joinError, 
 
           <div className="flex flex-col gap-2">
             <p className="text-sm font-bold text-white/90">Visibilidade</p>
-            <div className="flex gap-2 rounded-xl bg-[#1a0f38] p-1">
+            <div className="flex gap-2 rounded-xl bg-[var(--stage-4)] p-1">
               <button
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setVisibility("public")}
                 className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-bold transition ${
-                  visibility === "public" ? "bg-[#a78bfa] text-[#1a0f38]" : "text-white/60 hover:text-white"
+                  visibility === "public" ? "bg-[var(--stage-soft)] text-[var(--stage-4)]" : "text-white/75 hover:text-white"
                 }`}
               >
                 <Globe size={14} />
@@ -233,7 +233,7 @@ export function Lobby({ defaultName, isNameLocked, onCreate, onJoin, joinError, 
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setVisibility("private")}
                 className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-bold transition ${
-                  visibility === "private" ? "bg-[#a78bfa] text-[#1a0f38]" : "text-white/60 hover:text-white"
+                  visibility === "private" ? "bg-[var(--stage-soft)] text-[var(--stage-4)]" : "text-white/75 hover:text-white"
                 }`}
               >
                 <Lock size={14} />

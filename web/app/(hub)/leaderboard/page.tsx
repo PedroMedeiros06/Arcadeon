@@ -12,7 +12,7 @@ export default function LeaderboardPage() {
             <Trophy className="h-6 w-6" />
           </span>
           <div>
-            <h2 className="text-2xl font-extrabold tracking-tight text-[var(--fg)]">Leaderboard</h2>
+            <h2 className="font-display text-2xl font-extrabold tracking-tight text-[var(--fg)]">Placares</h2>
             <p className="text-sm font-medium text-[var(--fg-muted)]">Os melhores jogadores do Arcadeon</p>
           </div>
         </div>

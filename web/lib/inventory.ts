@@ -3,9 +3,13 @@ import type { Avatar, UserAvatar } from "@/lib/types";
 
 export async function getShopCatalog(): Promise<Avatar[]> {
   const supabase = createClient();
-  const { data, error } = await supabase.from("avatars").select("*").order("name");
+  const { data, error } = await supabase
+    .from("avatars")
+    .select("*, achievement:unlock_achievement_id(name, description)")
+    .order("price_coins", { ascending: true, nullsFirst: false })
+    .order("name");
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []) as Avatar[];
 }
 
 export async function getInventory(userId: string): Promise<UserAvatar[]> {
@@ -33,13 +37,10 @@ export async function equipAvatar(userId: string, avatarId: string): Promise<voi
   if (error) throw error;
 }
 
-/** Valor e elegibilidade decididos no banco (uma vez por dia/modo, so com vitoria registrada). */
-export async function claimTermoWinReward(boardCount: number, playDate: string): Promise<number> {
+/** Validacao de formato e unicidade feita no banco; devolve o nome salvo. */
+export async function updateUsername(username: string): Promise<string> {
   const supabase = createClient();
-  const { data, error } = await supabase.rpc("claim_termo_win_reward", {
-    p_board_count: boardCount,
-    p_play_date: playDate,
-  });
+  const { data, error } = await supabase.rpc("update_username", { p_username: username });
   if (error) throw error;
-  return data ?? 0;
+  return data as string;
 }

@@ -41,7 +41,7 @@ export function RoomWaiting({
   const joinUrl = typeof window !== "undefined" ? `${window.location.origin}/games/drawit?join=${room.code}` : "";
 
   return (
-    <div className="relative flex flex-1 flex-col overflow-hidden bg-linear-to-br from-[#7c3fe0] via-[#5a2fc2] to-[#26124f]">
+    <div className="relative flex flex-1 flex-col overflow-hidden bg-linear-to-br from-[var(--stage-1)] via-[var(--stage-2)] to-[var(--stage-3)]">
       <div className="relative z-10 flex shrink-0 items-center justify-between p-3 sm:p-4">
         <button
           onMouseDown={(e) => e.preventDefault()}
@@ -71,7 +71,7 @@ export function RoomWaiting({
       <div className="relative z-10 flex flex-1 flex-col items-center gap-4 overflow-y-auto px-4 pb-8 pt-2 sm:gap-5 sm:px-6 sm:pb-10">
         <h1
           className="text-4xl font-black italic tracking-tight text-yellow-300 drop-shadow-[3px_3px_0_rgba(44,21,104,0.9)] sm:text-5xl lg:text-6xl"
-          style={{ WebkitTextStroke: "2px #2c1568" }}
+          style={{ WebkitTextStroke: "2px var(--stage-3)" }}
         >
           DrawIt
         </h1>
@@ -97,11 +97,11 @@ export function RoomWaiting({
         </div>
 
         <div className="flex flex-col items-center gap-1">
-          <p className="text-xs font-semibold text-white/60">ou digite o codigo</p>
+          <p className="text-xs font-semibold text-white/75">ou digite o código</p>
           <p className="font-mono text-3xl font-extrabold tracking-[0.3em] text-white drop-shadow">{room.code}</p>
         </div>
 
-        <div className="text-center text-xs text-white/60">
+        <div className="text-center text-xs text-white/75">
           {room.config.roundsPerPlayer} rodada(s)/jogador · {room.config.turnSeconds}s por turno ·{" "}
           {room.config.visibility === "public" ? "publica" : "privada"}
         </div>
@@ -121,7 +121,7 @@ export function RoomWaiting({
                 <span className="flex items-center gap-1 truncate text-sm font-bold text-white">
                   {p.name}
                   {p.socketId === room.hostSocketId && <Crown size={13} className="fill-yellow-400 text-yellow-400" />}
-                  {p.socketId === mySocketId && <span className="text-white/50">(voce)</span>}
+                  {p.socketId === mySocketId && <span className="text-white/50">(você)</span>}
                 </span>
               </div>
             </div>
@@ -138,7 +138,7 @@ export function RoomWaiting({
                 className="flex w-full max-w-xs items-center justify-center gap-2 rounded-xl border-2 border-white/30 bg-black/20 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-black/40"
               >
                 <Crown size={15} />
-                Mudar anfitriao
+                Mudar anfitrião
               </button>
             )}
 
@@ -146,12 +146,12 @@ export function RoomWaiting({
               onMouseDown={(e) => e.preventDefault()}
               disabled={room.players.length < 2}
               onClick={onStart}
-              className="w-full max-w-xs rounded-xl border-2 border-yellow-500 bg-yellow-400 py-3.5 text-lg font-extrabold text-[#2c1568] shadow-[0_4px_0_#b8860b] transition active:translate-y-1 active:border-b-2 active:shadow-none disabled:opacity-40"
+              className="w-full max-w-xs rounded-xl border-2 border-yellow-500 bg-yellow-400 py-3.5 text-lg font-extrabold text-[var(--stage-3)] shadow-[0_4px_0_#b8860b] transition active:translate-y-1 active:border-b-2 active:shadow-none disabled:opacity-40"
             >
               Comecar
             </button>
             {room.players.length < 2 && (
-              <p className="text-xs font-semibold text-white/60">Precisa de pelo menos 2 jogadores.</p>
+              <p className="text-xs font-semibold text-white/75">Precisa de pelo menos 2 jogadores.</p>
             )}
 
             <button
@@ -164,7 +164,7 @@ export function RoomWaiting({
             </button>
           </div>
         ) : (
-          <p className="font-semibold text-white/80">Aguardando o anfitriao ({me ? "voce entrou" : ""}) iniciar...</p>
+          <p className="font-semibold text-white/80">Aguardando o anfitrião ({me ? "você entrou" : ""}) iniciar...</p>
         )}
       </div>
 

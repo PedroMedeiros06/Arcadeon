@@ -110,7 +110,7 @@ export function RaceResults({ room, mySocketId, onPlayAgain, onLeave }: RaceResu
                     style={{ width: `${pct}%`, transition: "width 900ms cubic-bezier(0.2,0.8,0.2,1)" }}
                   />
                 </div>
-                <span className="w-12 text-right text-[11px] font-black tabular-nums text-[var(--fg-muted)]">{meters(p.distance)}m</span>
+                <span className="w-12 text-right text-xs font-black tabular-nums text-[var(--fg-muted)]">{meters(p.distance)}m</span>
               </div>
             </div>
           );

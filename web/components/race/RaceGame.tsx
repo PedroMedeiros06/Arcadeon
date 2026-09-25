@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import { GameHeader } from "@/components/GameHeader";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, Flag, Hourglass, LogOut } from "lucide-react";
+import { Hourglass, LogOut } from "lucide-react";
 import { getRaceSocket } from "@/lib/race/socket";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { RoundCountdown } from "@/components/buggle/RoundCountdown";
@@ -29,37 +29,6 @@ const REJECTION_TEXT: Partial<Record<AnswerRejection, string>> = {
   stale: "Essa pergunta já acabou.",
 };
 
-function GameHeader({ onLeaveRoom }: { onLeaveRoom?: () => void }) {
-  return (
-    <header className="sticky top-0 z-40 border-b-2 border-[var(--border)] bg-[var(--card)] px-4 py-3 sm:px-6 sm:py-4">
-      <div className="flex items-center justify-between gap-2">
-        <Link
-          href="/"
-          className="flex items-center gap-1.5 rounded-2xl border-2 border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm font-extrabold text-[var(--fg-muted)] transition hover:bg-[var(--bg)] sm:px-4"
-        >
-          <ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">Hub</span>
-        </Link>
-        <h1 className="flex items-center gap-2 text-base font-extrabold tracking-tight text-[var(--fg)] sm:text-lg">
-          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--primary)] text-white sm:h-9 sm:w-9">
-            <Flag className="h-4 w-4" />
-          </span>
-          Corrida
-        </h1>
-        {onLeaveRoom ? (
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={onLeaveRoom}
-            className="flex items-center gap-1.5 rounded-2xl border-2 border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2 text-sm font-extrabold text-[var(--danger)] transition hover:opacity-80"
-          >
-            <LogOut className="h-4 w-4" /> <span className="hidden sm:inline">Sair</span>
-          </button>
-        ) : (
-          <span className="w-[52px] sm:w-[76px]" />
-        )}
-      </div>
-    </header>
-  );
-}
 
 export function RaceGame() {
   const { username, loading: authLoading, equippedAvatar, session } = useAuth();
@@ -284,7 +253,7 @@ export function RaceGame() {
     if (authLoading || !connected) {
       return (
         <>
-          <GameHeader />
+          <GameHeader slug="corrida" shortTitle="Corrida" />
           <div className="flex flex-1 items-center justify-center">
             <p className="font-semibold text-[var(--fg-muted)]">{connected ? "Carregando..." : "Conectando ao servidor..."}</p>
           </div>
@@ -294,7 +263,7 @@ export function RaceGame() {
     if (!username) {
       return (
         <>
-          <GameHeader />
+          <GameHeader slug="corrida" shortTitle="Corrida" />
           <JoinNameModal onConfirm={handleJoinWithName} joinError={joinError} />
         </>
       );
@@ -304,7 +273,7 @@ export function RaceGame() {
   if (!room) {
     return (
       <>
-        {lobbyMode !== "create" && <GameHeader />}
+        {lobbyMode !== "create" && <GameHeader slug="corrida" shortTitle="Corrida" />}
         {joinError && lobbyMode === "choose" && (
           <p className="mt-4 text-center text-sm font-bold text-[var(--danger)]">{joinError}</p>
         )}
@@ -346,7 +315,7 @@ export function RaceGame() {
   if (room.phase === "results") {
     return (
       <>
-        <GameHeader onLeaveRoom={handleLeaveRoom} />
+        <GameHeader slug="corrida" shortTitle="Corrida" onLeaveRoom={handleLeaveRoom} />
         <RaceResults
           room={room}
           mySocketId={mySocketId}
@@ -421,7 +390,7 @@ export function RaceGame() {
           <div className="flex min-w-0 flex-col items-center leading-tight">
             <span className="text-sm font-extrabold text-[var(--fg)]">Pergunta {room.questionIndex + 1}</span>
             {question && (
-              <span className="truncate text-[11px] font-bold uppercase tracking-wide text-[var(--primary)]">
+              <span className="truncate text-xs font-bold uppercase tracking-wide text-[var(--primary)]">
                 {question.category}
               </span>
             )}

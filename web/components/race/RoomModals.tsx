@@ -22,7 +22,7 @@ export function EditRoomModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
       <div
-        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl bg-linear-to-b from-[#7c3fe0] to-[#3a1a7a] p-4 shadow-2xl sm:p-5"
+        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl bg-linear-to-b from-[var(--stage-1)] to-[var(--stage-2)] p-4 shadow-2xl sm:p-5"
         style={{ animation: "scaleIn 0.2s ease-out" }}
       >
         <div className="relative mb-4 flex items-center justify-center">
@@ -35,7 +35,7 @@ export function EditRoomModal({
             <X size={16} />
           </button>
         </div>
-        <div className="rounded-2xl bg-[#26124f]/50 p-5">
+        <div className="rounded-2xl bg-[var(--stage-3)]/50 p-5">
           <RaceConfigFields config={draft} onChange={setDraft} minPlayers={currentPlayerCount} />
         </div>
         <button

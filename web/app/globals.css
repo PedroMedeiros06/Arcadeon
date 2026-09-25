@@ -27,6 +27,12 @@
   /* tecla do Termo cuja letra nao esta na palavra: mais escura que a tecla neutra */
   --key-absent: #6b6890;
   --key-absent-fg: #d0cdec;
+
+  /* identidade de cada jogo: card, header e palco do lobby */
+  --game-termo: #1f9d55;
+  --game-buggle: #1c8fd6;
+  --game-drawit: #e3477a;
+  --game-corrida: #e58a0c;
 }
 
 .dark {
@@ -55,6 +61,38 @@
 
   --key-absent: #09080f;
   --key-absent-fg: #4a4568;
+
+  --game-termo: #2fbf6c;
+  --game-buggle: #2ea6ee;
+  --game-drawit: #f0608f;
+  --game-corrida: #f4a12a;
+}
+
+/* Palco dos lobbies: tons escuros derivados da cor do jogo. Redefinido em [data-game]
+   pra recalcular com o --game-accent da pagina. */
+:root,
+[data-game] {
+  --stage-1: color-mix(in srgb, var(--game-accent) 80%, #0c0b16);
+  --stage-2: color-mix(in srgb, var(--game-accent) 58%, #0c0b16);
+  --stage-3: color-mix(in srgb, var(--game-accent) 30%, #0c0b16);
+  --stage-4: color-mix(in srgb, var(--game-accent) 18%, #0c0b16);
+  --stage-soft: color-mix(in srgb, var(--game-accent) 55%, white);
+  --stage-softer: color-mix(in srgb, var(--game-accent) 30%, white);
+}
+:root {
+  --game-accent: var(--primary);
+}
+[data-game="termo"] {
+  --game-accent: var(--game-termo);
+}
+[data-game="buggle"] {
+  --game-accent: var(--game-buggle);
+}
+[data-game="drawit"] {
+  --game-accent: var(--game-drawit);
+}
+[data-game="corrida"] {
+  --game-accent: var(--game-corrida);
 }
 
 @theme inline {
@@ -62,6 +100,7 @@
   --color-foreground: var(--fg);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-bricolage);
 }
 
 body {
@@ -677,6 +716,103 @@ body {
   .draw-letter-flip,
   .draw-timer-urgent,
   .draw-confetti {
+    animation-duration: 1ms !important;
+  }
+}
+
+/* ---------- Acessibilidade ---------- */
+
+/* anel de foco so para teclado; :where() mantem especificidade zero pra nao brigar com utilitarios */
+:where(a, button, [role="button"], [role="menuitem"], [tabindex], summary):focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* quem pede menos movimento: animacoes e transicoes viram instantaneas no site todo */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------- Miniaturas dos jogos (cards da home) ---------- */
+.game-thumb {
+  background-color: var(--thumb-color);
+}
+.game-thumb[data-slug="termo"] {
+  background-image: linear-gradient(rgb(255 255 255 / 0.18) 2px, transparent 2px),
+    linear-gradient(90deg, rgb(255 255 255 / 0.18) 2px, transparent 2px);
+  background-size: 22px 22px;
+}
+.game-thumb[data-slug="buggle"] {
+  background-image: radial-gradient(rgb(255 255 255 / 0.35) 2.5px, transparent 3px);
+  background-size: 16px 16px;
+}
+.game-thumb[data-slug="drawit"] {
+  background-image: repeating-radial-gradient(circle at 15% 120%, rgb(255 255 255 / 0.2) 0 3px, transparent 3px 16px);
+}
+.game-thumb[data-slug="corrida"] {
+  background-image: repeating-linear-gradient(45deg, rgb(0 0 0 / 0.12) 0 10px, transparent 10px 20px);
+}
+
+/* ---------- Letrado (Termo) ---------- */
+
+/* cores das letras; o modo daltonico troca verde/amarelo por laranja/azul (igual Wordle) */
+[data-game="termo"] {
+  --termo-correct: #8bbf6f;
+  --termo-correct-dark: #749f5c;
+  --termo-present: #e0c26e;
+  --termo-present-dark: #c2a558;
+}
+[data-game="termo"] [data-colorblind="true"] {
+  --termo-correct: #f5793a;
+  --termo-correct-dark: #c95f28;
+  --termo-present: #85c0f9;
+  --termo-present-dark: #5d9bd6;
+}
+
+/* letra digitada "salta" no quadrado */
+@keyframes termoTilePop {
+  0% {
+    transform: scale(0.8);
+  }
+  50% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1.05);
+  }
+}
+.termo-tile-pop {
+  animation: termoTilePop 0.12s ease-out;
+}
+
+/* linha vencedora pula em onda depois de virar */
+@keyframes termoTileBounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-30%);
+  }
+  60% {
+    transform: translateY(5%);
+  }
+}
+.termo-tile-bounce {
+  animation: termoTileBounce 0.6s ease-in-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .termo-tile-pop,
+  .termo-tile-bounce {
     animation-duration: 1ms !important;
   }
 }

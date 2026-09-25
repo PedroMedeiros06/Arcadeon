@@ -7,6 +7,11 @@ export interface GameInfo {
   icon: string;
   status: GameStatus;
   multiplayer: boolean;
+  /** cor de identidade do jogo (token CSS), usada no card, header e lobby */
+  accent: string;
+  /** texto curto de quantos jogam, ex.: "Solo", "Até 16" */
+  players: string;
+  tags: string[];
 }
 
 export interface Avatar {
@@ -17,6 +22,8 @@ export interface Avatar {
   image_url: string | null;
   price_coins: number | null;
   unlock_achievement_id: string | null;
+  /** conquista que libera o avatar (so vem no catalogo da loja) */
+  achievement?: { name: string; description: string } | null;
 }
 
 export interface Achievement {

@@ -9,7 +9,7 @@ export function ThemeToggle() {
     <button
       onClick={toggleTheme}
       aria-label="Alternar tema"
-      className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border-2 transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--primary)]"
+      className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border-2 transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--primary)]"
       style={{ borderColor: "var(--border)", background: "var(--card)" }}
     >
       <span key={theme} className="animate-pop-in flex items-center justify-center">

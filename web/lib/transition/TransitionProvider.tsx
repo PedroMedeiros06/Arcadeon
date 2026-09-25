@@ -74,10 +74,15 @@ export function TransitionProvider({ children }: { children: React.ReactNode }) 
   const navigate = useCallback(
     (href: string) => {
       if (phase !== "idle") return;
+      // sem a cortina de blocos pra quem pediu menos movimento
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        router.push(href);
+        return;
+      }
       pendingHref.current = href;
       setPhase("covering");
     },
-    [phase],
+    [phase, router],
   );
 
   useEffect(() => {

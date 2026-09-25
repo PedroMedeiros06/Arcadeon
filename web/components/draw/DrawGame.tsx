@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import { GameHeader } from "@/components/GameHeader";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, LogOut, Palette, Pencil } from "lucide-react";
+import { Pencil } from "lucide-react";
 import { getDrawSocket } from "@/lib/draw/socket";
 import { initDrawSound, playDrawSfx } from "@/lib/draw/sound";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -41,42 +41,6 @@ function feedId(): string {
   return `${Date.now()}-${feedSeq}`;
 }
 
-function GameHeader({ onLeaveRoom }: { onLeaveRoom?: () => void }) {
-  return (
-    <header className="sticky top-0 z-40 shrink-0 border-b-2 border-[var(--border)] bg-[var(--card)] px-3 py-2 sm:px-6 sm:py-4">
-      <div className="flex items-center justify-between gap-2">
-        <Link
-          href="/"
-          aria-label="Voltar ao hub"
-          className="flex h-9 items-center gap-1.5 rounded-xl border-2 border-[var(--border)] bg-[var(--card)] px-2.5 text-sm font-extrabold text-[var(--fg-muted)] transition hover:bg-[var(--bg)] sm:rounded-2xl sm:px-4"
-        >
-          <ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">Hub</span>
-        </Link>
-
-        <h1 className="flex items-center gap-2 text-base font-extrabold tracking-tight text-[var(--fg)] sm:gap-2.5 sm:text-lg">
-          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--primary)] text-white sm:h-9 sm:w-9">
-            <Palette className="h-4 w-4" />
-          </span>
-          DrawIt
-        </h1>
-
-        <div className="flex items-center gap-1.5">
-          <SoundToggle />
-          {onLeaveRoom && (
-            <button
-              aria-label="Sair da sala"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={onLeaveRoom}
-              className="flex h-9 items-center gap-1.5 rounded-xl border-2 border-[var(--danger-border)] bg-[var(--danger-bg)] px-2.5 text-sm font-extrabold text-[var(--danger)] transition hover:opacity-80 sm:rounded-2xl sm:px-4"
-            >
-              <LogOut className="h-4 w-4" /> <span className="hidden sm:inline">Sair da sala</span>
-            </button>
-          )}
-        </div>
-      </div>
-    </header>
-  );
-}
 
 export function DrawGame() {
   const { username, loading: authLoading } = useAuth();
@@ -154,7 +118,7 @@ export function DrawGame() {
     function handleGuessResult(result: GuessResult) {
       if (result.correct) {
         // so quem acertou ve a palavra que digitou; os outros recebem so "Fulano acertou!"
-        pushFeed({ kind: "own-correct", text: `Voce acertou "${result.guess}"! +${result.points}` });
+        pushFeed({ kind: "own-correct", text: `Você acertou "${result.guess}"! +${result.points}` });
         setCelebration({ key: Date.now(), points: result.points });
         playDrawSfx("correct");
       } else if (result.close) {
@@ -322,7 +286,7 @@ export function DrawGame() {
     if (authLoading) {
       return (
         <>
-          <GameHeader />
+          <GameHeader slug="drawit" actions={<SoundToggle />} />
           <div className="flex flex-1 items-center justify-center">
             <p className="font-semibold text-[var(--fg-muted)]">Carregando...</p>
           </div>
@@ -332,7 +296,7 @@ export function DrawGame() {
     if (!username) {
       return (
         <>
-          <GameHeader />
+          <GameHeader slug="drawit" actions={<SoundToggle />} />
           <JoinNameModal onConfirm={handleJoinWithName} joinError={joinError} />
         </>
       );
@@ -346,7 +310,7 @@ export function DrawGame() {
   if (!room) {
     return (
       <>
-        {lobbyMode !== "create" && <GameHeader />}
+        {lobbyMode !== "create" && <GameHeader slug="drawit" actions={<SoundToggle />} />}
         {roomClosed && (
           <p className="mt-4 text-center text-sm font-bold text-[var(--danger)]">A sala foi encerrada.</p>
         )}
@@ -387,7 +351,7 @@ export function DrawGame() {
   if (room.phase === "results" && gameResult) {
     return (
       <>
-        <GameHeader onLeaveRoom={handleLeaveRoom} />
+        <GameHeader slug="drawit" actions={<SoundToggle />} onLeaveRoom={handleLeaveRoom} />
         <ResultsScreen result={gameResult} gallery={gallery} mySocketId={mySocketId} isHost={amHost} onPlayAgain={handlePlayAgain} />
       </>
     );
@@ -400,7 +364,7 @@ export function DrawGame() {
   // rola durante o jogo, so o feed de chutes
   return (
     <div className="flex h-dvh flex-col overflow-hidden">
-      <GameHeader onLeaveRoom={handleLeaveRoom} />
+      <GameHeader slug="drawit" actions={<SoundToggle />} onLeaveRoom={handleLeaveRoom} />
       {room.phase === "picking-word" && isDrawer && room.wordOptions && (
         <WordPicker options={room.wordOptions} onChoose={handleChooseWord} />
       )}

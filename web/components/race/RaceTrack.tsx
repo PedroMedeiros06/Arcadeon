@@ -216,7 +216,7 @@ export function RaceTrack({ players, finishProgress, mySocketId, reveal, overtak
         })}
       </div>
       {compact && players.length > lanes.length && (
-        <p className="mt-1 text-center text-[10px] font-semibold text-[var(--fg-muted)]">você, o líder e seus vizinhos</p>
+        <p className="mt-1 text-center text-xs font-semibold text-[var(--fg-muted)]">você, o líder e seus vizinhos</p>
       )}
     </div>
   );

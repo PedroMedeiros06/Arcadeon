@@ -79,7 +79,7 @@ export function DrawingsSlideshow({ drawings }: { drawings: GalleryDrawing[] }) 
           </div>
         )}
 
-        <span className="absolute left-2 top-3 rounded-full bg-black/55 px-2 py-0.5 text-[11px] font-bold text-white">
+        <span className="absolute left-2 top-3 rounded-full bg-black/55 px-2 py-0.5 text-xs font-bold text-white">
           {index + 1}/{count}
         </span>
 
@@ -94,7 +94,7 @@ export function DrawingsSlideshow({ drawings }: { drawings: GalleryDrawing[] }) 
               <ChevronLeft size={20} />
             </button>
             <button
-              aria-label="Proximo desenho"
+              aria-label="Próximo desenho"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => go(1)}
               className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white transition hover:bg-black/65 active:scale-90"

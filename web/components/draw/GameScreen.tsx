@@ -91,7 +91,7 @@ function TurnResultsOverlay({ turn, mySocketId }: { turn: TurnEndedPayload; mySo
       <p className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wide text-[var(--fg-muted)] sm:text-sm">
         <Icon size={15} /> {text}
       </p>
-      <p className="text-[11px] font-bold text-[var(--fg-muted)] sm:text-xs">A palavra era</p>
+      <p className="text-xs font-bold text-[var(--fg-muted)] sm:text-xs">A palavra era</p>
       <div className="flex flex-wrap justify-center gap-0.5 sm:gap-1">
         {(turn.word ?? "?").split("").map((ch, i) => (
           <span
@@ -215,14 +215,14 @@ export function GameScreen({
             </div>
 
             <div className="flex min-w-0 flex-1 flex-col items-center gap-0.5">
-              <p className="flex max-w-full items-center gap-1 truncate text-[11px] font-bold text-[var(--fg-muted)] sm:text-xs">
+              <p className="flex max-w-full items-center gap-1 truncate text-xs font-bold text-[var(--fg-muted)] sm:text-xs">
                 {isDrawer ? (
                   <>
                     <Pencil size={11} className="shrink-0 text-[var(--primary)]" />
                     <span className="text-[var(--primary)]">Sua vez de desenhar!</span>
                   </>
                 ) : me?.hasGuessedThisTurn ? (
-                  <span className="text-[var(--draw-ok)]">Voce acertou!</span>
+                  <span className="text-[var(--draw-ok)]">Você acertou!</span>
                 ) : (
                   <span className="truncate">
                     <b className="text-[var(--fg)]">{drawerName}</b> esta desenhando

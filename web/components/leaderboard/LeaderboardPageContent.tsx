@@ -6,7 +6,17 @@ import { Medal, Flame, Trophy, Target, CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { Avatar } from "@/components/Avatar";
+import { GAME_ICONS } from "@/components/gameIcons";
 import { games } from "@/lib/games";
+
+function GameIconBadge({ slug, accent }: { slug: string; accent: string }) {
+  const Icon = GAME_ICONS[slug];
+  return (
+    <span className="flex h-16 w-16 items-center justify-center rounded-2xl text-white" style={{ backgroundColor: accent }}>
+      {Icon && <Icon className="h-8 w-8" />}
+    </span>
+  );
+}
 
 interface BaseRow {
   id: string;
@@ -23,6 +33,8 @@ interface TermoRow extends BaseRow {
   time_seconds: number;
   best_streak: number;
   current_streak: number;
+  /** so no Contra o Tempo: recorde de palavras em 3 minutos */
+  best?: number;
 }
 
 interface RaceRow extends BaseRow {
@@ -31,23 +43,27 @@ interface RaceRow extends BaseRow {
   best_streak: number;
 }
 
-type TermoCategory = "attempts" | "time" | "wins" | "streak";
+type TermoCategory = "today" | "attempts" | "time" | "wins" | "streak" | "speed";
 type RaceCategory = "streak" | "correct" | "wins";
 
 const TERMO_MODES = [
-  { count: 1, label: "Termo" },
-  { count: 2, label: "Dueto" },
-  { count: 4, label: "Quarteto" },
+  { count: 1, label: "Letrado" },
+  { count: 2, label: "Duplo" },
+  { count: 4, label: "Quádruplo" },
 ];
 
 const TERMO_CATEGORIES: { key: TermoCategory; label: string }[] = [
+  { key: "today", label: "Hoje" },
   { key: "attempts", label: "Menos tentativas" },
   { key: "time", label: "Menor tempo" },
   { key: "wins", label: "Mais vitórias" },
   { key: "streak", label: "Maior sequência" },
+  { key: "speed", label: "Contra o Tempo" },
 ];
 
 const TERMO_VALUE_LABEL: Record<TermoCategory, (row: TermoRow) => string> = {
+  today: (row) => `${row.attempts} tent. · ${Math.floor(row.time_seconds / 60)}m ${row.time_seconds % 60}s`,
+  speed: (row) => `${row.best ?? 0} palavras`,
   attempts: (row) => `${row.attempts} tentativas`,
   time: (row) => `${Math.floor(row.time_seconds / 60)}m ${row.time_seconds % 60}s`,
   wins: (row) => `${row.wins} vitórias`,
@@ -130,6 +146,7 @@ export function LeaderboardPageContent() {
       <div className="flex gap-3 overflow-x-auto pb-1">
         {games.map((g) => {
           const active = g.slug === gameSlug;
+          const Icon = GAME_ICONS[g.slug];
           return (
             <button
               key={g.slug}
@@ -140,11 +157,16 @@ export function LeaderboardPageContent() {
                   : "border-[var(--border)] bg-[var(--card)] text-[var(--fg-muted)] shadow-[0_4px_0_var(--border)] hover:-translate-y-0.5 hover:bg-[var(--bg)]"
               }`}
             >
-              <span className="text-xl">{g.icon}</span>
+              <span
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-white"
+                style={{ backgroundColor: active ? "rgb(255 255 255 / 0.2)" : g.accent }}
+              >
+                {Icon && <Icon className="h-4 w-4" />}
+              </span>
               {g.title}
               {!GAMES_WITH_RANKING.has(g.slug) && (
                 <span
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
+                  className={`rounded-full px-2 py-0.5 text-xs font-bold tracking-wide ${
                     active ? "bg-white/20 text-white" : "bg-[var(--bg)] text-[var(--fg-muted)]"
                   }`}
                 >
@@ -162,7 +184,7 @@ export function LeaderboardPageContent() {
         <RaceLeaderboard />
       ) : (
         <div className="flex flex-col items-center gap-3 rounded-3xl border-2 border-[var(--border)] bg-[var(--card)] px-6 py-16 text-center">
-          <span className="text-5xl">{game.icon}</span>
+          <GameIconBadge slug={game.slug} accent={game.accent} />
           <p className="text-lg font-extrabold text-[var(--fg)]">Ranking do {game.title} em breve</p>
           <p className="max-w-sm text-sm font-medium text-[var(--fg-muted)]">
             Ainda estamos preparando o ranking deste jogo. Enquanto isso, jogue algumas partidas pra treinar!
@@ -213,7 +235,7 @@ function ChipRow<K extends string | number>({
 
 function TermoLeaderboard() {
   const [boardCount, setBoardCount] = useState(1);
-  const [category, setCategory] = useState<TermoCategory>("attempts");
+  const [category, setCategory] = useState<TermoCategory>("today");
   const [scores, setScores] = useState<TermoRow[] | null>(null);
   const useMock = useSearchParams().get("mock") === "1";
 
@@ -225,7 +247,30 @@ function TermoLeaderboard() {
 
     setScores(null);
     const supabase = createClient();
-    const orderColumns: Record<TermoCategory, [string, boolean][]> = {
+    const avatarCols = "id, username, avatar_emoji, avatar_bg_color, avatar_image_url";
+    const blank = { wins: 0, board_count: boardCount, attempts: 0, time_seconds: 0, best_streak: 0, current_streak: 0 };
+
+    // "Hoje": vitorias do Diario de hoje (zera todo dia); ja vem ordenado pela view
+    if (category === "today") {
+      supabase
+        .from("termo_daily_leaderboard")
+        .select(`${avatarCols}, attempts, time_seconds`)
+        .eq("board_count", boardCount)
+        .limit(100)
+        .then(({ data }) => setScores((data ?? []).map((r) => ({ ...blank, ...r }) as TermoRow)));
+      return;
+    }
+    // Contra o Tempo nao depende do modo de tabuleiros
+    if (category === "speed") {
+      supabase
+        .from("termo_speed_leaderboard")
+        .select(`${avatarCols}, best`)
+        .limit(100)
+        .then(({ data }) => setScores((data ?? []).map((r) => ({ ...blank, ...r }) as TermoRow)));
+      return;
+    }
+
+    const orderColumns: Record<"attempts" | "time" | "wins" | "streak", [string, boolean][]> = {
       attempts: [
         ["attempts", true],
         ["time_seconds", true],
@@ -264,7 +309,7 @@ function TermoLeaderboard() {
         valueLabel={TERMO_VALUE_LABEL[category]}
         showFlame={category === "streak"}
         emptyStatsText="Você ainda não pontuou neste modo."
-        howToScore="Jogue partidas de Termo para subir no ranking. Categorias avaliam tentativas, tempo, vitórias e sequência."
+        howToScore="Jogue o Letrado diário para subir no ranking. A categoria Hoje zera todo dia; as outras avaliam tentativas, tempo, vitórias, sequência e o recorde no Contra o Tempo."
         myDetails={(row) => (
           <p className="flex items-center gap-1.5 text-sm font-bold text-[var(--primary)]">
             <Flame className="h-4 w-4" /> Sequência atual: {row.current_streak}

@@ -60,7 +60,7 @@ export function WordPicker({ options, onChoose }: WordPickerProps) {
           </span>
           <h2 className="text-lg font-extrabold text-[var(--fg)]">Sua vez! Escolha uma palavra</h2>
           <p className="text-xs font-semibold text-[var(--fg-muted)]">
-            Mais dificil = mais pontos pra quem acerta e pra voce
+            Mais difícil = mais pontos pra quem acerta e pra você
           </p>
         </div>
 
@@ -88,19 +88,19 @@ export function WordPicker({ options, onChoose }: WordPickerProps) {
                   </span>
                   <span className="flex items-center gap-2">
                     <span
-                      className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide"
+                      className="flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-extrabold uppercase tracking-wide"
                       style={{ color: style.color, backgroundColor: style.bg }}
                     >
                       <DifficultyStars difficulty={entry.difficulty} size={10} />
                       {DIFFICULTY_LABEL[entry.difficulty]}
                     </span>
-                    <span className="text-[10px] font-bold uppercase tracking-wide text-[var(--fg-muted)]">
+                    <span className="text-xs font-bold uppercase tracking-wide text-[var(--fg-muted)]">
                       {CATEGORY_LABEL[entry.category] ?? entry.category}
                     </span>
                   </span>
                 </div>
                 <div className="flex shrink-0 flex-col items-end leading-none">
-                  <span className="text-[9px] font-bold uppercase text-[var(--fg-muted)]">ate</span>
+                  <span className="text-[9px] font-bold uppercase text-[var(--fg-muted)]">até</span>
                   <span className="text-xl font-black tabular-nums" style={{ color: style.color }}>
                     {entry.maxPoints}
                   </span>

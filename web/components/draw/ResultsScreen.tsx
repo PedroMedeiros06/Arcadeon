@@ -57,7 +57,7 @@ export function ResultsScreen({ result, gallery, mySocketId, isHost, onPlayAgain
         <h1 className="animate-fade-up text-xl font-extrabold text-[var(--fg)] sm:text-2xl">Fim de jogo!</h1>
         {myPlace > 0 && (
           <p className="animate-fade-up text-sm font-bold text-[var(--fg-muted)]" style={{ animationDelay: "120ms" }}>
-            {myPlace === 1 ? "Voce venceu! 🎉" : `Voce ficou em ${myPlace}º lugar`}
+            {myPlace === 1 ? "Você venceu! 🎉" : `Você ficou em ${myPlace}º lugar`}
           </p>
         )}
       </div>
@@ -123,7 +123,7 @@ export function ResultsScreen({ result, gallery, mySocketId, isHost, onPlayAgain
             </span>
             <span className="flex-1 truncate font-bold text-[var(--fg)]">
               {p.name}
-              {p.socketId === mySocketId && <span className="ml-1 text-xs text-[var(--fg-muted)]">(voce)</span>}
+              {p.socketId === mySocketId && <span className="ml-1 text-xs text-[var(--fg-muted)]">(você)</span>}
             </span>
             {i === 0 && (
               <Crown
@@ -148,7 +148,7 @@ export function ResultsScreen({ result, gallery, mySocketId, isHost, onPlayAgain
           Jogar novamente
         </button>
       ) : (
-        <p className="text-sm font-semibold text-[var(--fg-muted)]">Aguardando o anfitriao...</p>
+        <p className="text-sm font-semibold text-[var(--fg-muted)]">Aguardando o anfitrião...</p>
       )}
     </div>
   );

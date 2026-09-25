@@ -52,13 +52,13 @@ export function Lobby({ defaultName, isNameLocked, connected, onCreate, onJoin, 
 
   if (mode === "choose") {
     return (
-      <div className="flex flex-1 items-center justify-center bg-linear-to-br from-[var(--primary)] via-[var(--primary-dark)] to-[#1a0f38] p-6">
+      <div className="flex flex-1 items-center justify-center bg-linear-to-br from-[var(--stage-1)] via-[var(--stage-2)] to-[var(--stage-4)] p-6">
         <div className="w-full max-w-lg">
           <div className="mb-8 text-center">
             <span className="mb-4 inline-flex h-16 w-16 animate-float-slow items-center justify-center rounded-2xl bg-white/15 text-white backdrop-blur">
               <Flag className="h-8 w-8" />
             </span>
-            <h2 className="mb-2 text-3xl font-extrabold tracking-tight text-white">Corrida do Conhecimento</h2>
+            <h2 className="mb-2 font-display text-3xl font-extrabold tracking-tight text-white">Corrida do Conhecimento</h2>
             <p className="font-medium text-white/70">Responda rápido, acerte e cruze a linha de chegada primeiro.</p>
           </div>
 
@@ -68,11 +68,11 @@ export function Lobby({ defaultName, isNameLocked, connected, onCreate, onJoin, 
               onClick={() => setMode("create")}
               className="group flex flex-1 flex-col items-start gap-3 rounded-2xl border-2 border-white/15 bg-white/10 p-5 text-left backdrop-blur transition hover:-translate-y-1 hover:border-white/30 hover:bg-white/15"
             >
-              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--primary)] text-white">
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-[var(--stage-2)]">
                 <Plus className="h-5 w-5" />
               </span>
               <span className="text-lg font-extrabold text-white">Criar sala</span>
-              <span className="text-sm font-medium text-white/60">Configure a corrida e convide amigos</span>
+              <span className="text-sm font-medium text-white/75">Configure a corrida e convide amigos</span>
             </button>
 
             <button
@@ -80,11 +80,11 @@ export function Lobby({ defaultName, isNameLocked, connected, onCreate, onJoin, 
               onClick={() => setMode("join")}
               className="group flex flex-1 flex-col items-start gap-3 rounded-2xl border-2 border-white/15 bg-white/10 p-5 text-left backdrop-blur transition hover:-translate-y-1 hover:border-white/30 hover:bg-white/15"
             >
-              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--accent)] text-white">
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/20 text-white">
                 <KeyRound className="h-5 w-5" />
               </span>
               <span className="text-lg font-extrabold text-white">Entrar com código</span>
-              <span className="text-sm font-medium text-white/60">Tem um código? Entre em uma sala existente</span>
+              <span className="text-sm font-medium text-white/75">Tem um código? Entre em uma sala existente</span>
             </button>
           </div>
           <button
@@ -102,7 +102,7 @@ export function Lobby({ defaultName, isNameLocked, connected, onCreate, onJoin, 
 
   if (mode === "join") {
     return (
-      <div className="flex flex-1 items-center justify-center bg-linear-to-br from-[var(--accent)] via-[var(--accent-dark)] to-[#0c2b3d] p-4 sm:p-6">
+      <div className="flex flex-1 items-center justify-center bg-linear-to-br from-[var(--stage-1)] via-[var(--stage-2)] to-[var(--stage-4)] p-4 sm:p-6">
         <div className="max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-3xl border-2 border-white/15 bg-white/10 p-5 backdrop-blur sm:p-6">
           <div className="relative mb-5 flex items-center justify-center">
             <h2 className="text-lg font-extrabold text-white">Entrar na sala</h2>
@@ -130,7 +130,7 @@ export function Lobby({ defaultName, isNameLocked, connected, onCreate, onJoin, 
               onMouseDown={(e) => e.preventDefault()}
               disabled={!name.trim() || joinCode.length !== 5 || !connected}
               onClick={() => onJoin(name.trim(), joinCode)}
-              className="mt-1 w-full rounded-xl border-2 border-white/20 bg-white py-2.5 font-extrabold text-[var(--accent-dark)] transition disabled:opacity-40"
+              className="mt-1 w-full rounded-xl border-2 border-white/20 bg-white py-2.5 font-extrabold text-[var(--stage-2)] transition disabled:opacity-40"
             >
               Entrar
             </button>
@@ -142,8 +142,8 @@ export function Lobby({ defaultName, isNameLocked, connected, onCreate, onJoin, 
   }
 
   return (
-    <div className="flex flex-1 items-center justify-center bg-linear-to-br from-[#7c3fe0] via-[#5a2fc2] to-[#26124f] p-3 sm:p-4">
-      <div className="relative max-h-[92vh] w-full max-w-md overflow-y-auto rounded-3xl bg-linear-to-b from-[#7c3fe0] to-[#3a1a7a] p-4 shadow-2xl sm:p-5">
+    <div className="flex flex-1 items-center justify-center bg-linear-to-br from-[var(--stage-1)] via-[var(--stage-2)] to-[var(--stage-3)] p-3 sm:p-4">
+      <div className="relative max-h-[92vh] w-full max-w-md overflow-y-auto rounded-3xl bg-linear-to-b from-[var(--stage-1)] to-[var(--stage-2)] p-4 shadow-2xl sm:p-5">
         <div className="relative mb-4 flex items-center justify-center">
           <h2 className="text-lg font-extrabold text-white">Criar sala</h2>
           <button
@@ -155,7 +155,7 @@ export function Lobby({ defaultName, isNameLocked, connected, onCreate, onJoin, 
           </button>
         </div>
 
-        <div className="rounded-2xl bg-[#26124f]/50 p-5 backdrop-blur">
+        <div className="rounded-2xl bg-[var(--stage-3)]/50 p-5 backdrop-blur">
           {nameInput}
           <div className="my-4 h-px bg-white/15" />
           <RaceConfigFields config={config} onChange={setConfig} />

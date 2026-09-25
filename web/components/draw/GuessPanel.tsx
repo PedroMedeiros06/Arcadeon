@@ -103,13 +103,13 @@ function FeedLine({ item }: { item: FeedItem }) {
   if (item.kind === "close") {
     return (
       <p className="draw-feed-in rounded-lg bg-[var(--draw-close-bg)] px-2 py-0.5 text-xs font-bold text-[var(--draw-close)] sm:text-sm">
-        <b>Voce:</b> {item.text} <span className="font-extrabold">— quase la!</span>
+        <b>Você:</b> {item.text} <span className="font-extrabold">— quase lá!</span>
       </p>
     );
   }
   if (item.kind === "system") {
     return (
-      <p className="draw-feed-in px-2 py-0.5 text-center text-[11px] font-bold uppercase tracking-wide text-[var(--fg-muted)] sm:text-xs">
+      <p className="draw-feed-in px-2 py-0.5 text-center text-xs font-bold uppercase tracking-wide text-[var(--fg-muted)] sm:text-xs">
         {item.text}
       </p>
     );
@@ -117,7 +117,7 @@ function FeedLine({ item }: { item: FeedItem }) {
   return (
     <p className="draw-feed-in break-words px-2 py-0.5 text-xs font-medium text-[var(--fg-muted)] sm:text-sm">
       <b className={item.kind === "own-wrong" ? "text-[var(--primary)]" : "text-[var(--fg)]"}>
-        {item.kind === "own-wrong" ? "Voce" : item.name}:
+        {item.kind === "own-wrong" ? "Você" : item.name}:
       </b>{" "}
       {item.text}
     </p>
@@ -181,7 +181,7 @@ export function GuessPanel({
       {!isDrawer &&
         (hasGuessed ? (
           <div className="animate-pop-in flex shrink-0 items-center justify-center gap-2 rounded-xl border-2 border-[var(--draw-ok)] bg-[var(--draw-ok-bg)] py-2.5 text-sm font-extrabold text-[var(--draw-ok)]">
-            <Check size={16} strokeWidth={3} /> Voce acertou! Aguarde os outros...
+            <Check size={16} strokeWidth={3} /> Você acertou! Aguarde os outros...
           </div>
         ) : (
           <form onSubmit={submit} className="flex shrink-0 gap-1.5">

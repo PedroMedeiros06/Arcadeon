@@ -127,7 +127,7 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
                 maxLength={20}
                 pattern="[a-zA-Z0-9_]+"
                 title="Apenas letras, numeros e underscore"
-                placeholder="Nome de usuario"
+                placeholder="Nome de usuário"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="w-full rounded-2xl border-2 border-[var(--border)] bg-[var(--bg)] py-3 pl-11 pr-4 text-sm font-medium text-[var(--fg)] outline-none transition focus:border-[var(--primary)] focus:bg-[var(--card)]"

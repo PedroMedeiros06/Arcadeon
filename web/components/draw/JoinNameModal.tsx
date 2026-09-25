@@ -13,7 +13,7 @@ export function JoinNameModal({ onConfirm, joinError }: JoinNameModalProps) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6">
       <h2 className="text-xl font-extrabold text-[var(--fg)]">Entrar na sala</h2>
-      <p className="text-sm text-[var(--fg-muted)]">Como voce quer ser chamado?</p>
+      <p className="text-sm text-[var(--fg-muted)]">Como você quer ser chamado?</p>
       <input
         value={name}
         onChange={(e) => setName(e.target.value)}
