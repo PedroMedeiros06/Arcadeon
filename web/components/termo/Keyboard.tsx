@@ -8,6 +8,7 @@ export const KEY_ROWS = [
   ["Enter", "Z", "X", "C", "V", "B", "N", "M", "Back"],
 ];
 
+
 const keySliceBg: Record<LetterState, string> = {
   correct: "bg-[var(--termo-correct)]",
   present: "bg-[var(--termo-present)]",
@@ -29,10 +30,13 @@ interface KeyboardProps {
 }
 
 export function Keyboard({ boardCount, keyStates, onKey }: KeyboardProps) {
+  // Quádruplo precisa de cada pixel de altura pros 36 quadradinhos
+  const KEY_HEIGHT = boardCount === 4 ? "h-11 sm:h-14 lg:h-11" : "h-12 sm:h-14 lg:h-12";
   return (
-    <div className={`flex shrink-0 flex-col items-center sm:gap-2.5 lg:gap-1.5 ${boardCount === 4 ? "gap-1" : "gap-1.5"}`}>
+    // teclas esticam pra ocupar a largura no celular (alvo maior pro dedo); no desktop param em max-w-xl
+    <div className="flex w-full max-w-xl shrink-0 flex-col items-stretch gap-1.5 sm:gap-2 lg:gap-1.5">
       {KEY_ROWS.map((row, i) => (
-        <div key={i} className="flex gap-1 sm:gap-2 lg:gap-1.5">
+        <div key={i} className={`flex gap-1 sm:gap-1.5 ${i === 1 ? "px-[4.5%]" : ""}`}>
           {row.map((key) => {
             const isWide = key === "Enter" || key === "Back";
             const boardStates = isWide ? null : (keyStates[key.toLowerCase()] ?? Array(boardCount).fill("empty"));
@@ -45,7 +49,7 @@ export function Keyboard({ boardCount, keyStates, onKey }: KeyboardProps) {
                   aria-label={key}
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => onKey(key)}
-                  className={`relative min-w-8 overflow-hidden rounded-lg text-xs font-extrabold uppercase text-white transition active:scale-95 sm:h-14 sm:min-w-11 sm:text-sm lg:h-11 lg:min-w-9 ${boardCount === 4 ? "h-9" : "h-11"}`}
+                  className={`relative min-w-0 flex-1 overflow-hidden rounded-lg text-sm font-extrabold uppercase text-white transition active:scale-95 ${KEY_HEIGHT}`}
                 >
                   <div className={`absolute inset-0 grid ${boardCount === 4 ? "grid-cols-2 grid-rows-2" : "grid-cols-2"}`}>
                     {boardStates.map((s, b) => (
@@ -64,10 +68,8 @@ export function Keyboard({ boardCount, keyStates, onKey }: KeyboardProps) {
                 aria-label={key === "Back" ? "Apagar" : key === "Enter" ? "Enviar" : key}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => onKey(key)}
-                className={`rounded-lg text-xs font-extrabold uppercase transition active:scale-95 sm:text-sm ${keyClasses[state]} ${
-                  isWide
-                    ? `px-3 sm:px-5 sm:py-4 lg:py-3 ${boardCount === 4 ? "py-2" : "py-3"}`
-                    : `min-w-8 px-2 sm:min-w-11 sm:px-3 sm:py-4 lg:min-w-9 lg:py-3 ${boardCount === 4 ? "py-2" : "py-3"}`
+                className={`flex min-w-0 items-center justify-center rounded-lg font-extrabold uppercase transition active:scale-95 ${KEY_HEIGHT} ${keyClasses[state]} ${
+                  isWide ? "flex-[1.6] text-[11px] sm:text-xs" : "flex-1 text-sm"
                 }`}
               >
                 {key === "Back" ? "⌫" : key}

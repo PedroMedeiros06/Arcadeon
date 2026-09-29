@@ -1,10 +1,60 @@
 "use client";
 
 import { useState } from "react";
-import { Award, Bot, Clock, Coins, Flame, RotateCcw, Share2, Shield, Swords, Target } from "lucide-react";
+import { Award, Bot, Clock, Coins, Flame, Infinity as InfinityIcon, RotateCcw, Share2, Shield, Swords, Target } from "lucide-react";
 import { LoginModal } from "@/components/LoginModal";
 import { Leaderboard } from "./Leaderboard";
 import { NextWordCountdown } from "./Extras";
+import { ModeGlyph } from "./ModeMenu";
+import type { BoardCount } from "@/lib/termo/logic";
+
+/** Botao de "continuar jogando": outro Diario (count), o Infinito ou jogar de novo. */
+export interface WinAction {
+  label: string;
+  onClick: () => void;
+  count?: BoardCount;
+  infinite?: boolean;
+}
+
+const primaryClass =
+  "flex flex-1 items-center justify-center gap-2 rounded-2xl border-b-4 border-[var(--primary-dark)] bg-[var(--primary)] px-4 py-3 text-sm font-extrabold text-white transition hover:brightness-110 active:translate-y-1 active:border-b-2";
+const secondaryClass =
+  "flex flex-1 items-center justify-center gap-2 rounded-2xl border-2 border-[var(--border)] bg-[var(--card)] px-4 py-2.5 text-sm font-extrabold text-[var(--fg)] transition hover:bg-[var(--bg)]";
+
+/** Proximos passos: Diarios que faltam hoje em destaque, Infinito ao lado. */
+export function NextActions({ actions }: { actions: WinAction[] }) {
+  const daily = actions.filter((a) => a.count);
+  const rest = actions.filter((a) => !a.count);
+  return (
+    <div className="flex w-full flex-col gap-2">
+      {daily.length > 0 && (
+        <p className="text-center text-xs font-extrabold uppercase tracking-wide text-[var(--fg-muted)]">
+          Continue no Diário
+        </p>
+      )}
+      {daily.length > 0 && (
+        <div className="flex gap-2">
+          {daily.map((a) => (
+            <button key={a.label} onMouseDown={(e) => e.preventDefault()} onClick={a.onClick} className={primaryClass}>
+              <ModeGlyph count={a.count!} size={14} /> {a.label}
+            </button>
+          ))}
+        </div>
+      )}
+      {rest.map((a) => (
+        <button
+          key={a.label}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={a.onClick}
+          className={daily.length > 0 ? secondaryClass : primaryClass}
+        >
+          {a.infinite ? <InfinityIcon className="h-4 w-4" /> : <RotateCcw className="h-4 w-4" />}
+          {a.infinite ? "Jogar o Infinito" : a.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 interface WinModalProps {
   open: boolean;
@@ -21,8 +71,8 @@ interface WinModalProps {
   loginHint?: boolean;
   shareFeedback?: string | null;
   onShare: () => void;
-  onPlayAgain: () => void;
-  playAgainLabel?: string;
+  /** botoes do fim: outros Diarios de hoje, Infinito ou jogar de novo */
+  actions: WinAction[];
   /** Diario: mostra contagem pra proxima palavra */
   showCountdown?: boolean;
   /** conquistas liberadas nesta partida */
@@ -60,8 +110,7 @@ export function WinModal({
   loginHint = false,
   shareFeedback,
   onShare,
-  onPlayAgain,
-  playAgainLabel = "Jogar novamente",
+  actions,
   showCountdown = false,
   achievements = [],
   shieldsUsed = 0,
@@ -82,7 +131,7 @@ export function WinModal({
       aria-label={won ? "Você acertou" : "Fim de jogo"}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]"
     >
-      <div className="relative flex max-h-[85vh] w-full max-w-sm flex-col overflow-hidden rounded-3xl border-2 border-[var(--border)] bg-[var(--card)] shadow-[0_16px_40px_-8px_rgba(0,0,0,0.4)] animate-[scaleIn_0.25s_ease-out]">
+      <div className="relative flex max-h-[92dvh] w-full max-w-sm flex-col overflow-hidden rounded-3xl border-2 border-[var(--border)] bg-[var(--card)] shadow-[0_16px_40px_-8px_rgba(0,0,0,0.4)] animate-[scaleIn_0.25s_ease-out]">
         <div
           className={`relative shrink-0 overflow-hidden px-8 pb-8 pt-9 text-center ${
             won
@@ -222,14 +271,7 @@ export function WinModal({
             <Share2 className="h-4 w-4" />
             {shareFeedback === "Resultado copiado!" ? "Copiado!" : "Compartilhar resultado"}
           </button>
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={onPlayAgain}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border-b-4 border-[var(--primary-dark)] bg-[var(--primary)] px-6 py-3 text-sm font-extrabold text-white transition hover:brightness-110 active:translate-y-1 active:border-b-2"
-          >
-            <RotateCcw className="h-4 w-4" />
-            {playAgainLabel}
-          </button>
+          <NextActions actions={actions} />
         </div>
       </div>
       <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />

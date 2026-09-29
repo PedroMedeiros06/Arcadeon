@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { BarChart3, CircleHelp, Lightbulb, Settings, Share2, Skull, Timer } from "lucide-react";
+import { BarChart3, CircleHelp, Lightbulb, Settings, Share2, Skull } from "lucide-react";
 import { GameHeader, headerButtonClass } from "@/components/GameHeader";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useLocalFlag } from "@/lib/race/useLocalFlag";
@@ -28,17 +28,21 @@ import {
   clearLegacyProgress,
   errorMessage,
   fetchDailyState,
+  fetchDailyStatus,
   payInfiniteHint,
   requestDailyHint,
   sendDailyGuess,
   setDailyHardMode,
+  type DailyModeStatus,
   type DailyState,
   type Hint,
 } from "@/lib/termo/daily";
 import { useWordInput } from "@/lib/termo/useWordInput";
-import { Boards, cellStyle } from "./Board";
+import { useFitBoards } from "@/lib/termo/useFitBoards";
+import { Boards } from "./Board";
 import { Keyboard, KEY_ROWS } from "./Keyboard";
-import { WinModal } from "./WinModal";
+import { ModeMenu, type ExtraMode } from "./ModeMenu";
+import { NextActions, WinModal, type WinAction } from "./WinModal";
 import { TermoTutorial } from "./TermoTutorial";
 import { StatsModal } from "./StatsModal";
 import { AnalysisModal } from "./AnalysisModal";
@@ -53,8 +57,6 @@ const REVEAL_MS = WORD_LENGTH * 200 + 500;
 const HINT_PRICE = 5;
 
 type Status = "loading" | "error" | "playing" | "revealing" | "won" | "lost";
-/** modos que nao usam os tabuleiros Letrado/Duplo/Quadruplo */
-type ExtraMode = "speed" | "villain";
 
 interface Game {
   mode: PlayMode;
@@ -178,9 +180,12 @@ export function TermoGame() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
   const [hintBusy, setHintBusy] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [dailyStatus, setDailyStatus] = useState<Record<BoardCount, DailyModeStatus> | null>(null);
   // primeira visita abre sozinho; depois so pelo botao "Como jogar"
   const showTutorial = tutorialOpen || !tutorialSeen;
-  const overlayOpen = showTutorial || statsOpen || settingsOpen || analysisOpen;
+  const overlayOpen = showTutorial || statsOpen || settingsOpen || analysisOpen || menuOpen;
+  const { ref: boardsAreaRef, fit } = useFitBoards(boardCount, maxAttemptsFor(boardCount));
   // numero da ultima troca de modo: resposta atrasada de uma troca antiga e descartada
   const requestRef = useRef(0);
   // palpite do Diario em voo: segura Enter repetido enquanto o servidor responde
@@ -290,13 +295,24 @@ export function TermoGame() {
     return () => clearTimeout(timer);
   }, [userId, targetWordPool, playMode, boardCount, extraMode, startGame]);
 
-  const changeMode = (count: BoardCount) => {
-    if (targetWordPool.length > 0) startGame(targetWordPool, count, playMode);
-  };
+  /** status de hoje por modo: marca o menu e escolhe os botoes do fim do Diario */
+  const refreshDailyStatus = useCallback(() => {
+    fetchDailyStatus()
+      .then((s) => setDailyStatus(s.modes))
+      .catch(() => {});
+  }, []);
 
-  const changePlayMode = (mode: PlayMode) => {
-    if (targetWordPool.length > 0) startGame(targetWordPool, boardCount, mode);
-  };
+  const handleMenuOpenChange = useCallback(
+    (open: boolean) => {
+      setMenuOpen(open);
+      if (open) refreshDailyStatus();
+    },
+    [refreshDailyStatus],
+  );
+
+  function pickMode(mode: PlayMode, count: BoardCount) {
+    if (targetWordPool.length > 0) startGame(targetWordPool, count, mode);
+  }
 
   function openExtra(mode: ExtraMode) {
     requestRef.current++;
@@ -357,6 +373,7 @@ export function TermoGame() {
         next.won ? REVEAL_MS + 700 : REVEAL_MS,
       );
       if (next.coinsAwarded > 0) refreshProfile().catch(() => {});
+      if (next.mode === "daily") refreshDailyStatus();
     }
   }
 
@@ -444,24 +461,6 @@ export function TermoGame() {
     if (result === "failed") setMessage("Não deu para compartilhar.");
   }
 
-  const dailySwitch = (
-    <div className="flex h-9 shrink-0 rounded-xl border-2 border-[var(--border)] bg-[var(--bg)] p-0.5">
-      {(["daily", "infinite"] as PlayMode[]).map((m) => (
-        <button
-          key={m}
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => changePlayMode(m)}
-          aria-pressed={playMode === m && !extraMode}
-          className={`rounded-lg px-2 text-xs font-bold transition sm:px-3 ${
-            playMode === m && !extraMode ? "bg-[var(--game-termo)] text-white" : "text-[var(--fg-muted)] hover:text-[var(--fg)]"
-          }`}
-        >
-          {m === "daily" ? "Diário" : "Infinito"}
-        </button>
-      ))}
-    </div>
-  );
-
   const header = (
     <GameHeader
       slug="termo"
@@ -538,7 +537,6 @@ export function TermoGame() {
               </>
             )}
           </div>
-          {dailySwitch}
         </>
       }
     />
@@ -566,46 +564,40 @@ export function TermoGame() {
     </>
   );
 
-  const modeSelector = (
-    <div className="flex flex-wrap items-center justify-center gap-2">
-      {MODES.map((mode) => (
-        <button
-          key={mode.count}
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => changeMode(mode.count)}
-          aria-pressed={boardCount === mode.count && !extraMode}
-          className={`rounded-xl border-2 px-4 py-1.5 text-xs font-extrabold uppercase transition lg:px-3 lg:py-1 ${
-            boardCount === mode.count && !extraMode
-              ? "border-[var(--primary-dark)] bg-[var(--primary)] text-white"
-              : "border-[var(--border)] bg-[var(--card)] text-[var(--fg-muted)] hover:bg-[var(--bg)]"
-          }`}
-        >
-          {mode.label}
-        </button>
-      ))}
-      <span aria-hidden className="hidden h-5 w-0.5 rounded bg-[var(--border)] sm:block" />
-      {(
-        [
-          { mode: "speed", label: "Contra o Tempo", Icon: Timer },
-          { mode: "villain", label: "Vilão", Icon: Skull },
-        ] as const
-      ).map(({ mode, label, Icon }) => (
-        <button
-          key={mode}
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => openExtra(mode)}
-          aria-pressed={extraMode === mode}
-          className={`flex items-center gap-1 rounded-xl border-2 px-3 py-1.5 text-xs font-extrabold uppercase transition lg:py-1 ${
-            extraMode === mode
-              ? "border-[var(--accent-dark)] bg-[var(--accent)] text-white"
-              : "border-[var(--border)] bg-[var(--card)] text-[var(--fg-muted)] hover:bg-[var(--bg)]"
-          }`}
-        >
-          <Icon className="h-3.5 w-3.5" /> {label}
-        </button>
-      ))}
+  const modeMenu = (
+    <ModeMenu
+      playMode={playMode}
+      boardCount={boardCount}
+      extraMode={extraMode}
+      dailyStatus={dailyStatus}
+      onOpenChange={handleMenuOpenChange}
+      onPick={pickMode}
+      onPickExtra={openExtra}
+    />
+  );
+
+  /** Linha do topo: menu de modos a esquerda, extras da partida (dica, selos) a direita. */
+  const toolbar = (right?: React.ReactNode) => (
+    <div className="flex w-full max-w-xl shrink-0 items-center justify-between gap-2">
+      {modeMenu}
+      {right && <div className="flex min-w-0 items-center justify-end gap-1.5">{right}</div>}
     </div>
   );
+
+  /** Botoes do fim do Diario: os outros diarios que faltam hoje e o Infinito. */
+  function nextActions(current: BoardCount): WinAction[] {
+    const pending = MODES.filter(
+      (m) => m.count !== current && (!dailyStatus || dailyStatus[m.count] === "not_started" || dailyStatus[m.count] === "playing"),
+    );
+    return [
+      ...pending.map((m) => ({
+        label: m.label,
+        count: m.count,
+        onClick: () => pickMode("daily", m.count),
+      })),
+      { label: "Infinito", infinite: true, onClick: () => pickMode("infinite", current) },
+    ];
+  }
 
   // sempre montado (leitor de tela anuncia mudancas); invisivel quando vazio
   const messageBox = (
@@ -614,7 +606,7 @@ export function TermoGame() {
       aria-live="polite"
       className={
         message
-          ? "flex items-center gap-2 rounded-xl border-2 border-[var(--border)] bg-[var(--card)] px-4 py-2.5 text-sm font-bold text-[var(--fg-muted)]"
+          ? "flex items-center gap-2 rounded-xl border-2 border-[var(--border)] bg-[var(--card)] px-4 py-2.5 text-sm font-bold text-[var(--fg)] shadow-lg"
           : "sr-only"
       }
     >
@@ -622,8 +614,12 @@ export function TermoGame() {
     </p>
   );
 
-  const root = (children: React.ReactNode) => (
-    <div className="flex flex-1 flex-col" data-colorblind={colorblind ? "true" : undefined}>
+  // fullScreen: a tela da partida ocupa exatamente a altura visivel (teclado sempre a vista, sem scroll)
+  const root = (children: React.ReactNode, fullScreen = false) => (
+    <div
+      className={`flex flex-col ${fullScreen ? "h-dvh overflow-hidden" : "flex-1"}`}
+      data-colorblind={colorblind ? "true" : undefined}
+    >
       {header}
       {overlays}
       {children}
@@ -633,7 +629,7 @@ export function TermoGame() {
   if (extraMode) {
     return root(
       <div className="relative mx-auto flex w-full max-w-6xl flex-1 flex-col items-center gap-4 px-3 pb-6 pt-3 sm:px-4">
-        {modeSelector}
+        {toolbar()}
         {extraMode === "speed" ? (
           <SpeedGame
             acceptedWords={acceptedWords}
@@ -658,11 +654,11 @@ export function TermoGame() {
 
   if (status === "loading" || status === "error" || !game) {
     return root(
-      <div className="relative mx-auto flex w-full max-w-6xl flex-1 flex-col items-center gap-4 overflow-x-auto px-3 pb-6 pt-3 sm:gap-6 sm:px-4 sm:pb-8">
-        {modeSelector}
+      <div className="relative mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col items-center gap-3 px-3 pb-3 pt-3 sm:px-4 sm:pb-6">
+        {toolbar()}
 
         {status === "error" ? (
-          <div className="flex max-w-sm flex-col items-center gap-4 rounded-3xl border-2 border-[var(--border)] bg-[var(--card)] p-8 text-center">
+          <div className="mt-6 flex max-w-sm flex-col items-center gap-4 rounded-3xl border-2 border-[var(--border)] bg-[var(--card)] p-8 text-center">
             <div className="text-5xl">📡</div>
             <h2 className="text-xl font-extrabold text-[var(--fg)]">Não foi possível carregar</h2>
             <p className="text-sm font-medium text-[var(--fg-muted)]">Confira sua conexão e tente de novo.</p>
@@ -677,37 +673,17 @@ export function TermoGame() {
           </div>
         ) : (
           <>
-            <div className="flex justify-center gap-3 sm:gap-8">
-              {Array.from({ length: boardCount }).map((_, boardIndex) => (
-                <div key={boardIndex} className="flex shrink-0 flex-col gap-1.5 sm:gap-2.5">
-                  {Array.from({ length: maxAttemptsFor(boardCount) }).map((_, rowIndex) => (
-                    <div key={rowIndex} className="flex gap-1.5 sm:gap-2">
-                      {Array.from({ length: WORD_LENGTH }).map((_, i) => (
-                        <div
-                          key={i}
-                          className={`animate-pulse rounded-xl border-2 border-[var(--border)] bg-[var(--border)]/40 ${
-                            boardCount === 4
-                              ? "h-9 w-9 sm:h-12 sm:w-12"
-                              : boardCount === 2
-                                ? "h-11 w-11 sm:h-14 sm:w-14"
-                                : "h-12 w-12 sm:h-16 sm:w-16"
-                          }`}
-                        />
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              ))}
+            <div className="flex min-h-0 w-full flex-1 items-center justify-center">
+              <div className="h-40 w-40 animate-pulse rounded-3xl bg-[var(--border)]/40" />
             </div>
-
-            <div className="flex flex-col items-center gap-1.5 sm:gap-2.5">
+            <div className="flex w-full max-w-xl flex-col gap-1.5">
               {KEY_ROWS.map((row, i) => (
-                <div key={i} className="flex gap-1 sm:gap-2">
+                <div key={i} className={`flex gap-1 ${i === 1 ? "px-[4.5%]" : ""}`}>
                   {row.map((key) => (
                     <div
                       key={key}
-                      className={`animate-pulse rounded-lg bg-[var(--border)]/40 ${
-                        key === "Enter" || key === "Back" ? "h-11 px-3 sm:h-14 sm:px-5" : "h-11 min-w-8 sm:h-14 sm:min-w-11"
+                      className={`h-12 animate-pulse rounded-lg bg-[var(--border)]/40 sm:h-14 lg:h-12 ${
+                        key === "Enter" || key === "Back" ? "flex-[1.6]" : "flex-1"
                       }`}
                     />
                   ))}
@@ -717,14 +693,15 @@ export function TermoGame() {
           </>
         )}
       </div>,
+      status !== "error",
     );
   }
 
   if (game.alreadyPlayed) {
     return root(
       <div className="flex flex-1 flex-col items-center gap-6 px-4 pb-8 pt-3">
-        {modeSelector}
-        <div className="flex max-w-sm flex-col items-center gap-4 rounded-3xl border-2 border-[var(--border)] bg-[var(--card)] p-8 text-center">
+        {toolbar()}
+        <div className="flex w-full max-w-sm flex-col items-center gap-4 rounded-3xl border-2 border-[var(--border)] bg-[var(--card)] p-8 text-center">
           <div className="text-5xl">{game.won ? "🎉" : "😔"}</div>
           <h2 className="text-xl font-extrabold text-[var(--fg)]">Você já jogou o diário de hoje!</h2>
           {game.answers && (
@@ -746,35 +723,27 @@ export function TermoGame() {
               <span className="text-xs font-bold uppercase text-[var(--fg-muted)]">Tempo</span>
             </div>
           </div>
-          <div className="flex flex-wrap justify-center gap-2">
-            {game.guesses.length > 0 && (
-              <>
+          {game.guesses.length > 0 && (
+            <div className="flex w-full gap-2">
+              <button
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={handleShare}
+                className="flex flex-1 items-center justify-center gap-2 rounded-2xl border-2 border-[var(--border)] bg-[var(--card)] px-4 py-2.5 text-sm font-extrabold text-[var(--fg)] transition hover:bg-[var(--bg)]"
+              >
+                <Share2 className="h-4 w-4" /> Compartilhar
+              </button>
+              {game.answers && (
                 <button
                   onMouseDown={(e) => e.preventDefault()}
-                  onClick={handleShare}
-                  className="flex items-center gap-2 rounded-2xl border-2 border-[var(--border)] bg-[var(--card)] px-4 py-2.5 text-sm font-extrabold text-[var(--fg)] transition hover:bg-[var(--bg)]"
+                  onClick={() => setAnalysisOpen(true)}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-2xl border-2 border-[var(--border)] bg-[var(--card)] px-4 py-2.5 text-sm font-extrabold text-[var(--fg)] transition hover:bg-[var(--bg)]"
                 >
-                  <Share2 className="h-4 w-4" /> Compartilhar
+                  Análise
                 </button>
-                {game.answers && (
-                  <button
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => setAnalysisOpen(true)}
-                    className="flex items-center gap-2 rounded-2xl border-2 border-[var(--border)] bg-[var(--card)] px-4 py-2.5 text-sm font-extrabold text-[var(--fg)] transition hover:bg-[var(--bg)]"
-                  >
-                    Análise
-                  </button>
-                )}
-              </>
-            )}
-            <button
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => changePlayMode("infinite")}
-              className="rounded-2xl border-b-4 border-[var(--primary-dark)] bg-[var(--primary)] px-6 py-2.5 text-sm font-extrabold text-white transition hover:brightness-110 active:translate-y-1 active:border-b-2"
-            >
-              Jogar modo infinito
-            </button>
-          </div>
+              )}
+            </div>
+          )}
+          <NextActions actions={nextActions(game.boardCount)} />
           {messageBox}
         </div>
       </div>,
@@ -785,57 +754,56 @@ export function TermoGame() {
   const lastRow = game.guesses.length - 1;
 
   return root(
-    <div
-      style={cellStyle(boardCount)}
-      className={`relative mx-auto flex w-full max-w-6xl flex-1 flex-col items-center justify-between overflow-x-auto px-3 sm:gap-6 sm:px-4 sm:pb-8 sm:pt-3 lg:gap-3 lg:overflow-visible lg:pb-4 lg:pt-3 ${boardCount === 4 ? "gap-1 pb-1 pt-1" : "gap-4 pb-6 pt-3"}`}
-    >
-      <div className={`flex flex-col items-center sm:gap-6 lg:mt-6 lg:flex-1 lg:justify-start lg:gap-3 ${boardCount === 4 ? "gap-1.5" : "gap-4"}`}>
-        {modeSelector}
-
-        {(game.hard || game.challenge) && (
-          <div className="flex flex-wrap justify-center gap-2 text-xs font-extrabold uppercase">
-            {game.hard && (
-              <span className="flex items-center gap-1 rounded-full bg-[var(--danger-bg)] px-2.5 py-1 text-[var(--danger)]">
-                <Skull className="h-3.5 w-3.5" /> Modo difícil
-              </span>
-            )}
-            {game.challenge && (
-              <span className="rounded-full bg-[var(--bg)] px-2.5 py-1 text-[var(--primary)]">
-                Desafio de {game.challenge.name ?? "um amigo"}
-              </span>
-            )}
-          </div>
-        )}
-
-        <Boards
-          boardCount={game.boardCount}
-          guesses={game.guesses}
-          evals={game.evals}
-          currentLetters={input.letters}
-          cursor={input.cursor}
-          revealRowIndex={revealRowIndex}
-          shakeRow={input.shake}
-          editable={status === "playing"}
-          onCellClick={input.setCursor}
-          hints={game.hints}
-          accents={accents}
-          bounceRowIndex={game.won && status !== "playing" ? lastRow : null}
-        />
-
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          {messageBox}
+    <div className="relative mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col items-center gap-2 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 sm:gap-3 sm:px-4 sm:pb-4 sm:pt-3">
+      {toolbar(
+        <>
+          {game.hard && (
+            <span
+              title="Modo difícil"
+              className="flex h-8 items-center gap-1 rounded-full bg-[var(--danger-bg)] px-2.5 text-[11px] font-extrabold uppercase text-[var(--danger)]"
+            >
+              <Skull className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Difícil</span>
+            </span>
+          )}
+          {game.challenge && (
+            <span className="h-8 truncate rounded-full bg-[var(--bg)] px-2.5 text-[11px] font-extrabold uppercase leading-8 text-[var(--primary)]">
+              Desafio de {game.challenge.name ?? "um amigo"}
+            </span>
+          )}
           {canHint && (
             <button
               onMouseDown={(e) => e.preventDefault()}
               onClick={handleHint}
               disabled={hintBusy || (!!user && coins < HINT_PRICE)}
               title={user ? `Revela uma letra por ${HINT_PRICE} moedas` : "Entre na sua conta para usar dicas"}
-              className="flex items-center gap-1.5 rounded-xl border-2 border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-xs font-extrabold text-[var(--fg-muted)] transition hover:bg-[var(--bg)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-9 shrink-0 items-center gap-1.5 rounded-xl border-2 border-[var(--border)] bg-[var(--card)] px-2.5 text-xs font-extrabold text-[var(--fg-muted)] transition hover:bg-[var(--bg)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Lightbulb className="h-4 w-4 text-[var(--termo-present)]" /> Dica · {HINT_PRICE}
             </button>
           )}
-        </div>
+        </>,
+      )}
+
+      {/* area medida: os tabuleiros ocupam o que sobra entre o topo e o teclado */}
+      <div ref={boardsAreaRef} className="relative flex min-h-0 w-full flex-1 items-center justify-center">
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center">{messageBox}</div>
+        {fit && (
+          <Boards
+            boardCount={game.boardCount}
+            guesses={game.guesses}
+            evals={game.evals}
+            currentLetters={input.letters}
+            cursor={input.cursor}
+            revealRowIndex={revealRowIndex}
+            shakeRow={input.shake}
+            editable={status === "playing"}
+            onCellClick={input.setCursor}
+            hints={game.hints}
+            accents={accents}
+            bounceRowIndex={game.won && status !== "playing" ? lastRow : null}
+            fit={fit}
+          />
+        )}
       </div>
 
       <Keyboard boardCount={game.boardCount} keyStates={keyStates} onKey={input.handleKey} />
@@ -856,10 +824,11 @@ export function TermoGame() {
         loginHint={game.mode === "daily" && !userId}
         shareFeedback={message}
         onShare={handleShare}
-        onPlayAgain={() =>
-          game.mode === "daily" ? changePlayMode("infinite") : startGame(targetWordPool, boardCount, "infinite")
+        actions={
+          game.mode === "daily"
+            ? nextActions(game.boardCount)
+            : [{ label: "Jogar novamente", onClick: () => startGame(targetWordPool, boardCount, "infinite") }]
         }
-        playAgainLabel={game.mode === "daily" ? "Jogar modo infinito" : "Jogar novamente"}
         showCountdown={game.mode === "daily"}
         achievements={game.achievements}
         shieldsUsed={game.shieldsUsed}
@@ -868,5 +837,6 @@ export function TermoGame() {
         challenger={game.challenge}
       />
     </div>,
+    true,
   );
 }

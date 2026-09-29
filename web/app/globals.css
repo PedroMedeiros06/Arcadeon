@@ -810,6 +810,16 @@ body {
   animation: termoTileBounce 0.6s ease-in-out both;
 }
 
+/* menu de modos sobe de baixo no celular */
+@keyframes termoSheetUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .termo-tile-pop,
   .termo-tile-bounce {

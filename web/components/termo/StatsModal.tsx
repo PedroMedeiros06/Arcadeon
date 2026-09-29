@@ -8,7 +8,21 @@ import { MODES, type BoardCount } from "@/lib/termo/logic";
 import { buyStreakShield, errorMessage, fetchMyStats, type MyStats } from "@/lib/termo/daily";
 import { NextWordCountdown } from "./Extras";
 
-const LETRADO_ACHIEVEMENTS = ["first_win", "streak_7", "termo_first_try", "termo_streak_30", "termo_quad_perfect", "termo_hard_win"];
+const LETRADO_ACHIEVEMENTS = [
+  "first_win",
+  "streak_7",
+  "termo_first_try",
+  "termo_quick",
+  "termo_last_try",
+  "termo_hard_win",
+  "termo_duo_perfect",
+  "termo_quad_perfect",
+  "termo_triple_crown",
+  "termo_speed_10",
+  "termo_streak_30",
+  "termo_streak_100",
+  "termo_wins_100",
+];
 
 interface AchievementRow {
   id: string;
