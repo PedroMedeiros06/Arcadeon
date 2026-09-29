@@ -1,3 +1,5 @@
+import { randomInt } from "crypto";
+
 export type Difficulty = 1 | 2 | 3;
 
 export interface WordEntry {
@@ -195,6 +197,164 @@ const RAW_WORDS: WordEntry[] = [
     "saci", "curupira", "mula sem cabeça", "boitatá", "frankenstein", "pé grande", "elfo", "troll",
     "cavalo de troia",
   ]),
+  // ---------- ampliacao (setembro/2026) ----------
+  ...group("animal", 1, [
+    "burro", "ganso", "grilo", "barata", "mosca", "lesma", "pombo", "peixinho", "cachorrinho", "gatinho",
+  ]),
+  ...group("animal", 2, [
+    "leão-marinho", "texugo", "lontra", "iguana", "salamandra", "jabuti", "piranha", "pelicano", "arara",
+    "gavião", "peixe-palhaço", "lula", "ostra", "enguia", "bode", "pônei", "joão-de-barro",
+  ]),
+  ...group("animal", 3, [
+    "axolote", "peixe-boi", "mico-leão-dourado", "boto", "carrapato", "cupim", "sanguessuga", "pulga",
+    "ouriço-do-mar", "lagartixa", "siri", "tatu-bola", "anta", "quati",
+  ]),
+  ...group("objeto", 1, [
+    "prego", "corda", "fita", "cola", "bolsa", "cesta", "vaso", "pincel", "apito", "sino", "almofada",
+    "tapete", "cortina", "caderno", "chupeta", "mamadeira",
+  ]),
+  ...group("objeto", 2, [
+    "funil", "peneira", "ralador", "saca-rolhas", "abridor de latas", "cadeira de rodas", "muleta", "berço",
+    "carrinho de bebê", "fralda", "baú", "corrente", "ímã", "cortador de unha", "estilingue", "bengala",
+    "boia", "cofre", "escorregador", "gangorra", "balanço", "cadeira de praia", "guarda-sol",
+  ]),
+  ...group("objeto", 3, [
+    "ratoeira", "desentupidor", "espanador", "colete salva-vidas", "filtro dos sonhos", "pêndulo",
+    "relógio cuco", "globo de neve", "ventosa", "lava-louças", "máquina de costura", "ferro de passar",
+    "tábua de passar", "varal", "fechadura", "campainha", "porta-retrato",
+  ]),
+  ...group("comida", 1, ["manteiga", "mel", "gelatina", "chá", "bolacha", "ovo de páscoa", "pão doce"]),
+  ...group("comida", 2, [
+    "cereal", "nugget", "brownie", "linguiça", "pimentão", "rabanete", "beterraba", "romã", "maracujá",
+    "goiaba", "jabuticaba", "caju", "salame", "picanha", "pão francês", "biscoito recheado",
+  ]),
+  ...group("comida", 3, [
+    "canjica", "cocada", "paçoca", "pé de moleque", "risoto", "nhoque", "caldo de cana", "carambola",
+    "sagu", "vatapá", "bolo de rolo", "baião de dois", "arroz-doce",
+  ]),
+  ...group("profissao", 1, ["vendedor", "fazendeiro", "babá", "atleta"]),
+  ...group("profissao", 2, [
+    "pedreiro", "costureira", "barbeiro", "frentista", "entregador", "guarda de trânsito", "comissário de bordo",
+    "surfista", "lixeiro", "cowboy",
+  ]),
+  ...group("profissao", 3, [
+    "paleontólogo", "cartógrafo", "tatuador", "chaveiro", "psicólogo", "florista", "confeiteiro", "leiloeiro",
+    "influenciador",
+  ]),
+  ...group("lugar", 1, ["loja", "rua", "estrada", "fonte", "poço", "torre", "túnel", "praça", "sorveteria"]),
+  ...group("lugar", 2, [
+    "celeiro", "moinho", "feira", "delegacia", "correio", "aquário", "estufa", "canteiro de obras",
+    "salão de beleza", "barbearia", "lavanderia", "garagem", "varanda", "quadra", "pista de skate",
+  ]),
+  ...group("lugar", 3, [
+    "torre de pisa", "big ben", "taj mahal", "pão de açúcar", "esfinge", "monte everest", "cânion",
+    "manguezal", "mesquita", "ilha deserta", "estação de esqui", "cratera",
+  ]),
+  ...group("acao", 1, [
+    "pular corda", "lavar", "tomar banho", "escovar os dentes", "jogar bola", "beijar", "tomar sorvete",
+  ]),
+  ...group("acao", 2, [
+    "mastigar", "piscar", "tocar violão", "passear com o cachorro", "fazer compras", "cortar cabelo",
+    "lavar louça", "passar roupa", "acampar", "velejar", "fazer careta", "tirar selfie", "bater palmas",
+    "espreguiçar", "coçar",
+  ]),
+  ...group("acao", 3, [
+    "soluçar", "engasgar", "maquiar", "fazer ioga", "espiar", "fazer malabarismo", "ficar de castigo",
+    "levar bronca", "perder o ônibus", "cair da cama", "ter um pesadelo",
+  ]),
+  ...group("natureza", 1, ["céu", "gota", "galho", "ninho", "lua cheia", "boneco de neve"]),
+  ...group("natureza", 2, [
+    "vento", "pôr do sol", "orquídea", "trigo", "musgo", "duna", "penhasco", "trevo de quatro folhas",
+    "vitória-régia", "carvalho", "salgueiro", "granizo", "estrela cadente",
+  ]),
+  ...group("natureza", 3, ["geada", "gêiser", "estalagmite", "maré alta", "chuva de meteoros", "ipê", "caatinga", "cerrado"]),
+  ...group("veiculo", 1, ["ônibus escolar", "carro de polícia", "barco a vela", "carrinho"]),
+  ...group("veiculo", 2, [
+    "veleiro", "iate", "caiaque", "limusine", "carro de corrida", "trem-bala", "bonde", "empilhadeira",
+    "quadriciclo", "caminhão-tanque", "betoneira",
+  ]),
+  ...group("veiculo", 3, [
+    "catamarã", "zepelim", "ônibus espacial", "sidecar", "carro alegórico", "diligência", "gôndola",
+    "hovercraft", "trem fantasma", "bondinho",
+  ]),
+  ...group("esporte", 1, ["corrida", "balé", "pesca", "queimada", "pega-pega", "esconde-esconde"]),
+  ...group("esporte", 2, [
+    "futebol americano", "canoagem", "remo", "vôlei de praia", "hipismo", "sumô", "luta livre", "frescobol",
+    "peteca", "amarelinha", "cabo de guerra", "bola de gude",
+  ]),
+  ...group("esporte", 3, [
+    "biatlo", "bobsled", "pentatlo", "slackline", "parkour", "bungee jump", "rapel", "kitesurfe",
+    "windsurfe", "corrida de saco", "stand up paddle",
+  ]),
+  ...group("fantasia", 1, ["anjo", "caveira", "papai noel", "abóbora de halloween"]),
+  ...group("fantasia", 2, [
+    "vassoura voadora", "caldeirão", "chapéu de bruxa", "anão", "ogro", "yeti", "fada madrinha",
+    "coelho da páscoa", "fada do dente", "espada mágica", "sapo príncipe",
+  ]),
+  ...group("fantasia", 3, [
+    "iara", "cuca", "boto cor-de-rosa", "quimera", "basilisco", "leviatã", "ciborgue", "golem",
+    "dragão chinês", "cavaleiro sem cabeça",
+  ]),
+
+  // ---------- corpo ----------
+  ...group("corpo", 1, [
+    "nariz", "olho", "boca", "orelha", "mão", "pé", "dente", "cabelo", "coração", "dedo", "perna", "braço",
+    "língua", "unha",
+  ]),
+  ...group("corpo", 2, [
+    "sobrancelha", "umbigo", "cérebro", "joelho", "cotovelo", "bigode", "barba", "pulmão", "osso", "careca",
+    "sardas", "tatuagem", "trança", "rabo de cavalo",
+  ]),
+  ...group("corpo", 3, [
+    "impressão digital", "dentadura", "aparelho dentário", "músculo", "estômago", "coluna vertebral",
+    "covinha", "olheira", "dor de cabeça", "arrepio", "cicatriz",
+  ]),
+
+  // ---------- roupas e acessorios ----------
+  ...group("roupa", 1, [
+    "saia", "bota", "pijama", "cinto", "biquíni", "cachecol", "avental", "brinco", "colar", "pulseira",
+    "chinelo", "sandália", "jaqueta", "touca", "shorts",
+  ]),
+  ...group("roupa", 2, [
+    "macacão", "capa de chuva", "uniforme", "máscara", "peruca", "suspensório", "gorro", "maiô", "sunga",
+    "salto alto", "tiara", "laço", "óculos de sol",
+  ]),
+  ...group("roupa", 3, [
+    "smoking", "quimono", "cartola", "sobretudo", "monóculo", "espartilho", "poncho", "sombrero", "turbante",
+    "colete", "galocha", "gravata-borboleta", "vestido de noiva",
+  ]),
+
+  // ---------- tecnologia ----------
+  ...group("tecnologia", 1, ["tablet", "notebook", "tomada", "pilha", "antena", "videogame", "drone", "calculadora"]),
+  ...group("tecnologia", 2, [
+    "satélite", "carregador", "pen drive", "selfie", "emoji", "wi-fi", "senha", "código de barras",
+    "caixa de som", "webcam", "relógio inteligente", "controle de videogame", "radar",
+  ]),
+  ...group("tecnologia", 3, [
+    "realidade virtual", "impressora 3d", "painel solar", "cabo usb", "torre de celular", "holograma",
+    "chip", "bateria fraca", "tela quebrada", "vírus de computador", "robô aspirador",
+  ]),
+
+  // ---------- musica ----------
+  ...group("musica", 1, ["nota musical", "pandeiro", "xilofone", "triângulo", "chocalho", "rádio"]),
+  ...group("musica", 2, [
+    "trombone", "tuba", "violoncelo", "berimbau", "cuíca", "ukulele", "banjo", "gaita", "maraca",
+    "castanhola", "disco de vinil", "partitura", "caixa de música", "megafone",
+  ]),
+  ...group("musica", 3, [
+    "órgão", "clarinete", "orquestra", "banda de rock", "karaokê", "dj", "coral", "fanfarra", "roda de samba",
+  ]),
+
+  // ---------- Brasil (festas e cultura) ----------
+  ...group("brasil", 1, ["carnaval", "fogueira", "samba", "festa junina", "bandeira do brasil"]),
+  ...group("brasil", 2, [
+    "quadrilha", "balão junino", "bandeirinha", "chimarrão", "pau de sebo", "escola de samba", "abadá",
+    "trio elétrico", "quentão",
+  ]),
+  ...group("brasil", 3, [
+    "bumba meu boi", "frevo", "carranca", "maracatu", "cordel", "mestre-sala", "porta-bandeira",
+    "baiana do acarajé",
+  ]),
 ];
 
 /** Mesma normalizacao usada no palpite: sem acento, sem hifen/espaco, minusculo. */
@@ -216,21 +376,69 @@ export const DRAW_WORDS: WordEntry[] = RAW_WORDS.filter((entry) => {
   return true;
 });
 
-function randomFrom<T>(list: T[]): T {
-  return list[Math.floor(Math.random() * list.length)];
+// ---------- sorteio ----------
+//
+// Cada dificuldade tem um "baralho" global (compartilhado por todas as salas do processo),
+// embaralhado com crypto. As palavras saem do topo e so voltam quando o baralho inteiro acaba:
+// abrir sala nova nao faz as mesmas palavras reaparecerem logo no comeco. Dentro da sala, nada
+// que ja foi oferecido reaparece, as 3 opcoes sao de categorias diferentes e o tema dos ultimos
+// turnos e evitado quando possivel.
+
+function shuffle<T>(list: T[]): T[] {
+  const out = [...list];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = randomInt(i + 1);
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+const decks = new Map<Difficulty, WordEntry[]>();
+
+function deckFor(difficulty: Difficulty): WordEntry[] {
+  let deck = decks.get(difficulty);
+  if (!deck || deck.length === 0) {
+    deck = shuffle(DRAW_WORDS.filter((w) => w.difficulty === difficulty));
+    decks.set(difficulty, deck);
+  }
+  return deck;
+}
+
+/** Tira do baralho a primeira palavra que passa no filtro; se nenhuma passar, retorna null. */
+function drawFromDeck(difficulty: Difficulty, accept: (w: WordEntry) => boolean): WordEntry | null {
+  const deck = deckFor(difficulty);
+  const index = deck.findIndex(accept);
+  if (index === -1) return null;
+  const [entry] = deck.splice(index, 1);
+  return entry;
 }
 
 /**
- * Uma opcao de cada dificuldade (facil, media, dificil), nessa ordem, nunca repetindo palavra ja
- * usada/oferecida na sala. Se uma dificuldade esgotar, reaproveita palavras dela (lista enorme,
- * so acontece em sessoes muito longas).
+ * Uma opcao de cada dificuldade (facil, media, dificil), nessa ordem. Relaxa as restricoes aos
+ * poucos (tema recente, depois categoria repetida) e, no limite, reembaralha o baralho; so repete
+ * palavra da sala se a dificuldade inteira ja tiver sido usada nela.
  */
-export function pickWordOptions(usedWords: Set<string>): WordEntry[] {
+export function pickWordOptions(usedWords: Set<string>, recentCategories: string[] = []): WordEntry[] {
   const options: WordEntry[] = [];
   for (const difficulty of [1, 2, 3] as const) {
-    const sameDifficulty = DRAW_WORDS.filter((w) => w.difficulty === difficulty);
-    const fresh = sameDifficulty.filter((w) => !usedWords.has(w.word));
-    options.push(randomFrom(fresh.length > 0 ? fresh : sameDifficulty));
+    const taken = new Set(options.map((o) => o.category));
+    const fresh = (w: WordEntry) => !usedWords.has(w.word);
+    const attempts: ((w: WordEntry) => boolean)[] = [
+      (w) => fresh(w) && !taken.has(w.category) && !recentCategories.includes(w.category),
+      (w) => fresh(w) && !taken.has(w.category),
+      fresh,
+    ];
+    let entry: WordEntry | null = null;
+    for (const accept of attempts) {
+      entry = drawFromDeck(difficulty, accept);
+      if (entry) break;
+    }
+    if (!entry) {
+      // baralho global sem nada novo pra essa sala: reembaralha e tenta de novo
+      decks.delete(difficulty);
+      entry = drawFromDeck(difficulty, fresh) ?? deckFor(difficulty)[randomInt(deckFor(difficulty).length)];
+    }
+    options.push(entry);
   }
   return options;
 }

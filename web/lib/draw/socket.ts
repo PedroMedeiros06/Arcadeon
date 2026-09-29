@@ -1,4 +1,5 @@
 import { io, Socket } from "socket.io-client";
+import type { DrawSession } from "./types";
 
 // remove barra final: env var com "https://host.com/" geraria "//draw"
 // (barra dupla) na URL do namespace, e o Engine.IO rejeita isso como
@@ -22,15 +23,37 @@ export function getDrawSocket(): Socket {
       reconnectionDelayMax: 3000,
       timeout: 10000,
     });
-
-    // logs temporarios de diagnostico, ajudam a ver o estado da conexao no
-    // console do navegador em producao
-    socket.on("connect", () => console.log("[drawit-socket] connected", socket!.id));
-    socket.on("disconnect", (reason) => console.log("[drawit-socket] disconnected", reason));
-    socket.on("connect_error", (err) => console.log("[drawit-socket] connect_error", err.message));
-    socket.io.on("reconnect_attempt", (attempt) => console.log("[drawit-socket] reconnect_attempt", attempt));
-    socket.io.on("reconnect_failed", () => console.log("[drawit-socket] reconnect_failed"));
-    socket.io.on("error", (err) => console.log("[drawit-socket] manager error", err.message));
   }
   return socket;
+}
+
+// Sessao da sala atual (id + token do jogador). sessionStorage sobrevive ao F5 mas e por aba:
+// duas abas no mesmo navegador continuam sendo dois jogadores diferentes.
+const SESSION_KEY = "drawSession";
+
+export function loadDrawSession(): DrawSession | null {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as DrawSession;
+    return parsed?.code && parsed.playerId && parsed.token ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveDrawSession(session: DrawSession): void {
+  try {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  } catch {
+    // modo privado/sem storage: so perde a retomada apos F5
+  }
+}
+
+export function clearDrawSession(): void {
+  try {
+    sessionStorage.removeItem(SESSION_KEY);
+  } catch {
+    // idem
+  }
 }

@@ -83,6 +83,70 @@ function PickDemo() {
   );
 }
 
+// forma desenhada, depois o balde pinta o miolo
+function ToolsDemo() {
+  const step = useLoopStep(4, 900);
+  return (
+    <div className="flex items-center gap-3">
+      <div className="rounded-2xl bg-white p-2 shadow-lg">
+        <svg viewBox="0 0 120 80" className="h-24 w-36">
+          <rect
+            x="18"
+            y="14"
+            width="50"
+            height="50"
+            rx="3"
+            stroke="#1c1a2e"
+            strokeWidth="3.5"
+            fill={step >= 2 ? "#1cb0f6" : "transparent"}
+            style={{ transition: "fill 0.35s ease-out", opacity: step >= 1 ? 1 : 0.15 }}
+          />
+          <ellipse
+            cx="92"
+            cy="40"
+            rx="17"
+            ry="17"
+            stroke="#1c1a2e"
+            strokeWidth="3.5"
+            fill={step >= 3 ? "#f59e0b" : "transparent"}
+            style={{ transition: "fill 0.35s ease-out", opacity: step >= 1 ? 1 : 0.15 }}
+          />
+        </svg>
+      </div>
+      <span className="text-4xl" style={{ animation: "wiggle 1s ease-in-out infinite" }}>
+        🪣
+      </span>
+    </div>
+  );
+}
+
+function ModesDemo() {
+  const step = useLoopStep(3, 1300);
+  const modes = [
+    { emoji: "🎨", label: "Clássico", text: "um desenha, todos chutam" },
+    { emoji: "⚔️", label: "Duelo de times", text: "roube nos últimos 10s" },
+    { emoji: "🎭", label: "Artista Impostor", text: "1 traço cada, ache o impostor" },
+  ];
+  return (
+    <div className="flex w-full max-w-xs flex-col gap-1.5">
+      {modes.map((m, i) => (
+        <div
+          key={m.label}
+          className={`flex items-center gap-2 rounded-xl border-2 px-3 py-1.5 text-left transition-all duration-300 ${
+            step === i ? "scale-105 border-yellow-300 bg-white/20" : "border-white/15 bg-white/5"
+          }`}
+        >
+          <span className="text-lg">{m.emoji}</span>
+          <span className="flex flex-col leading-tight">
+            <span className="text-sm font-extrabold">{m.label}</span>
+            <span className="text-xs font-semibold text-white/70">{m.text}</span>
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function GuessDemo() {
   const step = useLoopStep(5, 900);
   const lines = [
@@ -175,6 +239,16 @@ const SLIDES: Slide[] = [
     demo: <PickDemo />,
   },
   {
+    title: "🎭 Três modos",
+    text: "O anfitrião escolhe o modo e pode ligar modificadores, como desenhar às cegas ou só com preto. Cada turno sorteia um.",
+    demo: <ModesDemo />,
+  },
+  {
+    title: "🪣 Balde e formas",
+    text: "Além do pincel, use linha, retângulo e círculo, e pinte qualquer área fechada de uma vez com o balde de tinta.",
+    demo: <ToolsDemo />,
+  },
+  {
     title: "💬 Chute à vontade",
     text: "Digite quantos palpites quiser. Chutes errados aparecem pra todo mundo. Se errar por uma letra, avisamos que está quase!",
     demo: <GuessDemo />,
@@ -191,7 +265,7 @@ const SLIDES: Slide[] = [
   },
   {
     title: "🖼️ Relembre os desenhos",
-    text: "No fim da partida, depois do placar, todos os desenhos da sessão aparecem num slide. Dá até pra baixar!",
+    text: "No fim da partida, depois do placar, todos os desenhos da partida aparecem num slide. Dá até pra baixar!",
     demo: <GalleryDemo />,
   },
 ];

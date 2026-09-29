@@ -3,35 +3,37 @@
 import { useEffect, useRef, useState } from "react";
 import { GameHeader } from "@/components/GameHeader";
 import { useSearchParams } from "next/navigation";
-import { Pencil } from "lucide-react";
-import { getDrawSocket } from "@/lib/draw/socket";
+import { Loader2, Pencil, WifiOff } from "lucide-react";
+import { clearDrawSession, getDrawSocket, loadDrawSession, saveDrawSession } from "@/lib/draw/socket";
 import { initDrawSound, playDrawSfx } from "@/lib/draw/sound";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { Lobby } from "./Lobby";
 import { RoomWaiting } from "./RoomWaiting";
-import { WordPicker } from "./WordPicker";
+import { WordPicker, PickCountdown } from "./WordPicker";
 import { GameScreen, type Celebration } from "./GameScreen";
+import { ImpostorScreen } from "./ImpostorScreen";
+import { ModifierBadge } from "./ModifierBadge";
 import { ResultsScreen } from "./ResultsScreen";
 import { JoinNameModal } from "./JoinNameModal";
 import { SoundToggle } from "./SoundToggle";
 import { DrawTutorial } from "./DrawTutorial";
 import { useLocalFlag } from "@/lib/race/useLocalFlag";
 import type {
+  CanvasHandlers,
+  DrawEvent,
   DrawRoomConfig,
   DrawRoomState,
+  DrawSession,
   FeedItem,
+  FillEvent,
   GalleryDrawing,
-  GameEndedPayload,
   GuessResult,
+  Point,
+  ShapeEvent,
+  Team,
   TurnEndedPayload,
 } from "@/lib/draw/types";
-
-interface CanvasHandlers {
-  applyRemoteStroke: (strokeId: string, points: { x: number; y: number }[], color: string, width: number) => void;
-  applyUndo: (strokeId: string) => void;
-  applyClear: () => void;
-  snapshot: () => string | null;
-}
+import { TEAM_INFO } from "@/lib/draw/modes";
 
 const TUTORIAL_KEY = "drawTutorialSeen";
 
@@ -41,26 +43,33 @@ function feedId(): string {
   return `${Date.now()}-${feedSeq}`;
 }
 
+type Connection = "online" | "reconnecting";
 
 export function DrawGame() {
   const { username, loading: authLoading } = useAuth();
   const searchParams = useSearchParams();
   const joinCodeFromUrl = searchParams.get("join");
   const [room, setRoom] = useState<DrawRoomState | null>(null);
-  const [gameResult, setGameResult] = useState<GameEndedPayload | null>(null);
   const [joinError, setJoinError] = useState<string | null>(null);
+  const [startError, setStartError] = useState<string | null>(null);
   const [pendingAutoJoin, setPendingAutoJoin] = useState(!!joinCodeFromUrl);
   const [lobbyMode, setLobbyMode] = useState<"choose" | "create" | "join">("choose");
-  const [roomClosed, setRoomClosed] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [lastTurn, setLastTurn] = useState<TurnEndedPayload | null>(null);
   const [celebration, setCelebration] = useState<Celebration | null>(null);
+  const [connection, setConnection] = useState<Connection>("online");
+  /** true enquanto tenta voltar pra sala guardada (F5): evita piscar o lobby */
+  const [resuming, setResuming] = useState(false);
+  /** diferenca relogio do servidor - relogio local (celular com hora errada nao quebra o timer) */
+  const [clockOffset, setClockOffset] = useState(0);
   const socketRef = useRef(getDrawSocket());
   const canvasHandlersRef = useRef<CanvasHandlers | null>(null);
+  // eventos que chegaram antes do canvas montar (ex.: canvas-sync logo apos o F5)
+  const pendingCanvasRef = useRef<((h: CanvasHandlers) => void)[]>([]);
   const prevRoomRef = useRef<DrawRoomState | null>(null);
-  // desenhos da sessao (todas as partidas na mesma sala), capturados localmente no fim de cada turno
+  // desenhos da partida atual, capturados localmente no fim de cada turno
   const [gallery, setGallery] = useState<GalleryDrawing[]>([]);
-  const gameNumberRef = useRef(1);
   const [tutorialSeen, setTutorialSeen] = useLocalFlag(TUTORIAL_KEY, true);
   const [tutorialOpen, setTutorialOpen] = useState(false);
 
@@ -82,13 +91,63 @@ export function DrawGame() {
       setFeed((prev) => [...prev.slice(-60), { ...item, id: feedId() }]);
     }
 
-    function handleRoomUpdated(state: DrawRoomState | null) {
+    function withCanvas(fn: (h: CanvasHandlers) => void) {
+      if (canvasHandlersRef.current) fn(canvasHandlersRef.current);
+      else pendingCanvasRef.current.push(fn);
+    }
+
+    function dropRoom(message: string | null) {
+      clearDrawSession();
+      prevRoomRef.current = null;
+      pendingCanvasRef.current = [];
+      setRoom(null);
+      setGallery([]);
+      setFeed([]);
+      setLastTurn(null);
+      setNotice(message);
+    }
+
+    /** Volta pra sala guardada (F5, queda). Sem sessao guardada nao faz nada. */
+    function tryResume() {
+      const saved = loadDrawSession();
+      if (!saved) {
+        setResuming(false);
+        return;
+      }
+      setResuming(true);
+      socket.emit("resume", saved, (res: { ok: boolean } | undefined) => {
+        setResuming(false);
+        if (res?.ok) return;
+        const hadRoom = prevRoomRef.current !== null;
+        dropRoom(hadRoom ? "Você ficou desconectado por muito tempo e saiu da sala." : null);
+      });
+    }
+
+    function handleConnect() {
+      setConnection("online");
+      tryResume();
+    }
+    function handleDisconnect() {
+      setConnection("reconnecting");
+    }
+    function handleSession(session: DrawSession) {
+      saveDrawSession(session);
+    }
+    function handleSessionLost() {
+      // servidor nao reconhece este socket (reiniciou, ou a sessao expirou): tenta retomar
+      tryResume();
+    }
+
+    function handleRoomUpdated(state: DrawRoomState) {
       const prev = prevRoomRef.current;
       prevRoomRef.current = state;
       setRoom(state);
-      if (!state) return;
+      setNotice(null);
+      setJoinError(null);
+      setClockOffset(state.serverNow - Date.now());
+      if (state.phase !== "lobby") setStartError(null);
 
-      const me = socket.id;
+      const me = state.myId;
       const phaseChanged = prev?.phase !== state.phase;
       if (state.phase === "lobby" && prev?.phase === "lobby" && state.players.length > prev.players.length) {
         playDrawSfx("join");
@@ -96,44 +155,95 @@ export function DrawGame() {
       if (phaseChanged && state.phase === "picking-word") {
         setFeed([]);
         setLastTurn(null);
-        if (state.currentDrawerSocketId === me) playDrawSfx("yourTurn");
+        pendingCanvasRef.current = [];
+        if (state.drawerId === me) playDrawSfx("yourTurn");
       }
-      if (phaseChanged && state.phase === "drawing") playDrawSfx("turnStart");
-      if (state.phase === "lobby") setFeed([]);
-      if (state.phase !== "results") setGameResult(null);
+      if (phaseChanged && state.phase === "drawing" && prev) playDrawSfx("turnStart");
+
+      // ---------- artista impostor ----------
+      const round = state.impostor;
+      if (state.phase === "impostor-drawing" && (prev?.phase !== "impostor-drawing" || prev.round !== state.round)) {
+        // rodada nova: canvas novo (a tela e remontada pela rodada) e chat limpo
+        setFeed([]);
+        pendingCanvasRef.current = [];
+        if (prev) playDrawSfx("turnStart");
+      }
+      if (round?.strokerId === me && prev?.impostor?.strokerId !== me && state.phase === "impostor-drawing") {
+        playDrawSfx("yourTurn");
+      }
+      if (phaseChanged && state.phase === "impostor-voting") playDrawSfx("turnEnd");
+      if (phaseChanged && state.phase === "impostor-reveal" && round) {
+        const imageUrl = canvasHandlersRef.current?.snapshot() ?? null;
+        if (imageUrl && round.word) {
+          const drawing: GalleryDrawing = {
+            id: feedId(),
+            imageUrl,
+            word: round.word,
+            drawerName: "todos",
+            difficulty: null,
+            round: state.round,
+          };
+          setGallery((prevGallery) => [...prevGallery, drawing]);
+        }
+        const impostorWon = !round.caught || round.impostorGuessedRight;
+        playDrawSfx((round.impostorId === me) === impostorWon ? "win" : "turnEnd");
+      }
+      if (state.phase === "lobby") {
+        setFeed([]);
+        // "jogar de novo" (ou sala nova): a galeria e so da partida que acabou
+        if (phaseChanged) setGallery([]);
+      }
     }
     function handleJoinError(data: { message: string }) {
       setJoinError(data.message);
     }
-    function handleDrawEvent(event: { type: "stroke"; strokeId: string; points: { x: number; y: number }[]; color: string; width: number } | { type: "clear" }) {
-      if (event.type === "clear") {
-        canvasHandlersRef.current?.applyClear();
-      } else {
-        canvasHandlersRef.current?.applyRemoteStroke(event.strokeId, event.points, event.color, event.width);
-      }
+    function handleDrawEvent(event: DrawEvent) {
+      withCanvas((h) => h.applyEvent(event));
     }
-    function handleStrokeUndone(data: { strokeId: string }) {
-      canvasHandlersRef.current?.applyUndo(data.strokeId);
+    function handleEventUndone(data: { id: string }) {
+      withCanvas((h) => h.applyUndo(data.id));
+    }
+    function handleCanvasSync(data: { events: DrawEvent[]; serverNow?: number }) {
+      // estado completo substitui qualquer evento pendente
+      pendingCanvasRef.current = [];
+      const offset = data.serverNow ? data.serverNow - Date.now() : 0;
+      withCanvas((h) => h.load(data.events, offset));
     }
     function handleGuessResult(result: GuessResult) {
       if (result.correct) {
         // so quem acertou ve a palavra que digitou; os outros recebem so "Fulano acertou!"
-        pushFeed({ kind: "own-correct", text: `Você acertou "${result.guess}"! +${result.points}` });
+        pushFeed({
+          kind: "own-correct",
+          text: result.stole
+            ? `Roubou! Era "${result.guess}" +${result.points}`
+            : `Você acertou "${result.guess}"! +${result.points}`,
+        });
         setCelebration({ key: Date.now(), points: result.points });
         playDrawSfx("correct");
       } else if (result.close) {
         pushFeed({ kind: "close", text: result.guess });
         playDrawSfx("close");
-      } else if (!result.alreadyGuessed && !result.tooFast) {
+      } else if (!result.alreadyGuessed && !result.tooFast && !result.notYourTurn) {
         pushFeed({ kind: "own-wrong", text: result.guess });
         playDrawSfx("wrong");
       }
     }
-    function handlePlayerGuessed(data: { socketId: string; name: string }) {
-      pushFeed({ kind: "correct", name: data.name, text: "acertou!" });
+    function handlePlayerGuessed(data: { id: string; name: string; stole?: boolean }) {
+      if (data.stole) pushFeed({ kind: "steal", name: data.name, text: "roubou o turno!" });
+      else pushFeed({ kind: "correct", name: data.name, text: "acertou!" });
       playDrawSfx("otherCorrect");
     }
-    function handlePlayerGuessAttempt(data: { socketId: string; name: string; guess: string }) {
+    function handleChatMessage(data: { id: string; name: string; text: string }) {
+      pushFeed({ kind: "chat", name: data.id === prevRoomRef.current?.myId ? "Você" : data.name, text: data.text });
+    }
+    function handleChatBlocked() {
+      pushFeed({ kind: "system", text: "Não vale falar a palavra no chat!" });
+      playDrawSfx("wrong");
+    }
+    function handleStartError(data: { message: string }) {
+      setStartError(data.message);
+    }
+    function handlePlayerGuessAttempt(data: { id: string; name: string; guess: string }) {
       pushFeed({ kind: "wrong", name: data.name, text: data.guess });
     }
     function handleTurnEnded(data: TurnEndedPayload) {
@@ -146,11 +256,10 @@ export function DrawGame() {
           imageUrl,
           word: data.word,
           drawerName:
-            data.players.find((p) => p.socketId === data.drawerSocketId)?.name ??
-            turnRoom?.players.find((p) => p.socketId === data.drawerSocketId)?.name ??
+            data.players.find((p) => p.id === data.drawerId)?.name ??
+            turnRoom?.players.find((p) => p.id === data.drawerId)?.name ??
             "?",
           difficulty: data.difficulty,
-          game: gameNumberRef.current,
           round: turnRoom?.round ?? 1,
         };
         setGallery((prev) => [...prev, drawing]);
@@ -159,58 +268,79 @@ export function DrawGame() {
       pushFeed({ kind: "system", text: `A palavra era: ${data.word ?? "?"}` });
       playDrawSfx("turnEnd");
     }
-    function handleGameEnded(data: GameEndedPayload) {
-      setGameResult(data);
-      gameNumberRef.current += 1;
-      playDrawSfx(data.players[0]?.socketId === socket.id ? "win" : "gameEnd");
-    }
-    function handleRoomClosed() {
-      prevRoomRef.current = null;
-      setGallery([]);
-      gameNumberRef.current = 1;
-      setRoom(null);
-      setGameResult(null);
-      setRoomClosed(true);
+    function handleGameEnded(data: { players: { id: string }[] }) {
+      playDrawSfx(data.players[0]?.id === prevRoomRef.current?.myId ? "win" : "gameEnd");
     }
 
+    // aba voltou do segundo plano (celular bloqueado, troca de app): garante estado fresco
+    function handleVisibility() {
+      if (document.visibilityState !== "visible") return;
+      if (!socket.connected) socket.connect();
+      else if (prevRoomRef.current) socket.emit("sync");
+    }
+
+    socket.on("connect", handleConnect);
+    socket.on("disconnect", handleDisconnect);
+    socket.on("session", handleSession);
+    socket.on("session-lost", handleSessionLost);
     socket.on("room-updated", handleRoomUpdated);
     socket.on("join-error", handleJoinError);
     socket.on("draw-event", handleDrawEvent);
-    socket.on("stroke-undone", handleStrokeUndone);
+    socket.on("event-undone", handleEventUndone);
+    socket.on("canvas-sync", handleCanvasSync);
     socket.on("guess-result", handleGuessResult);
     socket.on("player-guessed", handlePlayerGuessed);
     socket.on("player-guess-attempt", handlePlayerGuessAttempt);
     socket.on("turn-ended", handleTurnEnded);
     socket.on("game-ended", handleGameEnded);
-    socket.on("room-closed", handleRoomClosed);
+    socket.on("chat-message", handleChatMessage);
+    socket.on("chat-blocked", handleChatBlocked);
+    socket.on("start-error", handleStartError);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    if (socket.connected) tryResume();
+    else if (!socket.active) socket.connect();
 
     return () => {
+      socket.off("connect", handleConnect);
+      socket.off("disconnect", handleDisconnect);
+      socket.off("session", handleSession);
+      socket.off("session-lost", handleSessionLost);
       socket.off("room-updated", handleRoomUpdated);
       socket.off("join-error", handleJoinError);
       socket.off("draw-event", handleDrawEvent);
-      socket.off("stroke-undone", handleStrokeUndone);
+      socket.off("event-undone", handleEventUndone);
+      socket.off("canvas-sync", handleCanvasSync);
       socket.off("guess-result", handleGuessResult);
       socket.off("player-guessed", handlePlayerGuessed);
       socket.off("player-guess-attempt", handlePlayerGuessAttempt);
       socket.off("turn-ended", handleTurnEnded);
       socket.off("game-ended", handleGameEnded);
-      socket.off("room-closed", handleRoomClosed);
+      socket.off("chat-message", handleChatMessage);
+      socket.off("chat-blocked", handleChatBlocked);
+      socket.off("start-error", handleStartError);
+      document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, []);
 
   useEffect(() => {
-    if (!joinCodeFromUrl || authLoading || room) return;
+    if (!joinCodeFromUrl || authLoading || room || resuming) return;
+    // ja estava nessa sala antes do F5: a retomada cuida, nao entra de novo como jogador novo
+    if (loadDrawSession()?.code === joinCodeFromUrl.toUpperCase()) return;
     if (username) {
       socketRef.current.emit("join-room", { code: joinCodeFromUrl, name: username });
       setPendingAutoJoin(false);
     }
-  }, [joinCodeFromUrl, authLoading, username, room]);
+  }, [joinCodeFromUrl, authLoading, username, room, resuming]);
+
+  function emit(event: string, payload?: unknown) {
+    socketRef.current.emit(event, payload);
+  }
 
   function handleCreate(config: DrawRoomConfig, name: string) {
-    setRoomClosed(false);
+    setNotice(null);
     const socket = socketRef.current;
     if (!socket.connected) {
-      console.log("[drawit] socket desconectado ao criar sala, forcando reconexao");
       socket.connect();
       socket.once("connect", () => socket.emit("create-room", { config, name }));
       return;
@@ -220,66 +350,65 @@ export function DrawGame() {
 
   function handleJoinWithName(name: string) {
     if (joinCodeFromUrl) {
-      socketRef.current.emit("join-room", { code: joinCodeFromUrl, name });
+      emit("join-room", { code: joinCodeFromUrl, name });
       setPendingAutoJoin(false);
     }
   }
 
   function handleJoin(name: string, code: string) {
     setJoinError(null);
-    setRoomClosed(false);
-    socketRef.current.emit("join-room", { code, name });
-  }
-
-  function handleStart() {
-    if (room) socketRef.current.emit("start-game", { code: room.code });
-  }
-
-  function handlePlayAgain() {
-    if (room) socketRef.current.emit("restart-game", { code: room.code });
-  }
-
-  function handleUpdateConfig(config: DrawRoomConfig) {
-    if (room) socketRef.current.emit("update-config", { code: room.code, config });
-  }
-
-  function handleTransferHost(newHostSocketId: string) {
-    if (room) socketRef.current.emit("transfer-host", { code: room.code, newHostSocketId });
+    setNotice(null);
+    emit("join-room", { code, name });
   }
 
   function handleChooseWord(word: string) {
     playDrawSfx("pick");
-    if (room) socketRef.current.emit("choose-word", { code: room.code, word });
-  }
-
-  function handleStroke(strokeId: string, points: { x: number; y: number }[], color: string, width: number) {
-    if (room) socketRef.current.emit("draw-stroke", { code: room.code, strokeId, points, color, width });
-  }
-
-  function handleClear() {
-    if (room) socketRef.current.emit("clear-canvas", { code: room.code });
-  }
-
-  function handleUndo() {
-    if (room) socketRef.current.emit("undo-last", { code: room.code });
-  }
-
-  function handleSubmitGuess(guess: string) {
-    if (room) socketRef.current.emit("submit-guess", { code: room.code, guess });
+    emit("choose-word", { word });
   }
 
   function handleLeaveRoom() {
-    if (room) socketRef.current.emit("leave-room", { code: room.code });
+    emit("leave-room");
+    clearDrawSession();
     prevRoomRef.current = null;
+    pendingCanvasRef.current = [];
     setRoom(null);
-    setGameResult(null);
     setGallery([]);
-    gameNumberRef.current = 1;
+  }
+
+  function registerCanvasHandlers(handlers: CanvasHandlers | null) {
+    canvasHandlersRef.current = handlers;
+    if (!handlers) return;
+    const pending = pendingCanvasRef.current;
+    pendingCanvasRef.current = [];
+    for (const fn of pending) fn(handlers);
   }
 
   function closeTutorial() {
     setTutorialSeen(true);
     setTutorialOpen(false);
+  }
+
+  const reconnectBanner =
+    connection === "reconnecting" && room ? (
+      <div
+        role="status"
+        className="animate-fade-up fixed inset-x-0 top-2 z-[60] mx-auto flex w-fit items-center gap-2 rounded-full bg-[var(--danger)] px-4 py-2 text-xs font-extrabold text-white shadow-lg"
+      >
+        <WifiOff size={14} />
+        Conexão perdida, reconectando...
+      </div>
+    ) : null;
+
+  if (!room && resuming) {
+    return (
+      <>
+        <GameHeader slug="drawit" actions={<SoundToggle />} />
+        <div className="flex flex-1 flex-col items-center justify-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-[var(--primary)]" />
+          <p className="font-semibold text-[var(--fg-muted)]">Voltando pra sala...</p>
+        </div>
+      </>
+    );
   }
 
   if (!room && joinCodeFromUrl && pendingAutoJoin) {
@@ -311,9 +440,7 @@ export function DrawGame() {
     return (
       <>
         {lobbyMode !== "create" && <GameHeader slug="drawit" actions={<SoundToggle />} />}
-        {roomClosed && (
-          <p className="mt-4 text-center text-sm font-bold text-[var(--danger)]">A sala foi encerrada.</p>
-        )}
+        {notice && <p className="mt-4 px-4 text-center text-sm font-bold text-[var(--danger)]">{notice}</p>}
         <Lobby
           defaultName={username ?? ""}
           isNameLocked={!!username}
@@ -328,19 +455,26 @@ export function DrawGame() {
     );
   }
 
-  const mySocketId = socketRef.current.id ?? "";
-  const amHost = room.hostSocketId === mySocketId;
+  const myId = room.myId;
+  const amHost = room.hostId === myId;
 
   if (room.phase === "lobby") {
     return (
       <>
+        {reconnectBanner}
         <RoomWaiting
           room={room}
-          mySocketId={mySocketId}
-          onStart={handleStart}
+          myId={myId}
+          onStart={() => {
+            setStartError(null);
+            emit("start-game");
+          }}
+          onSetTeam={(playerId: string, team: Team) => emit("set-team", { playerId, team })}
+          onShuffleTeams={() => emit("shuffle-teams")}
+          startError={startError}
           onLeaveRoom={handleLeaveRoom}
-          onUpdateConfig={handleUpdateConfig}
-          onTransferHost={handleTransferHost}
+          onUpdateConfig={(config) => emit("update-config", { config })}
+          onTransferHost={(newHostId) => emit("transfer-host", { newHostId })}
           onHowToPlay={() => setTutorialOpen(true)}
         />
         {tutorial}
@@ -348,58 +482,103 @@ export function DrawGame() {
     );
   }
 
-  if (room.phase === "results" && gameResult) {
+  if (room.phase === "results") {
+    const ranking = room.players
+      .map((p) => ({ id: p.id, name: p.name, score: p.score, team: p.team }))
+      .sort((a, b) => b.score - a.score);
     return (
       <>
+        {reconnectBanner}
         <GameHeader slug="drawit" actions={<SoundToggle />} onLeaveRoom={handleLeaveRoom} />
-        <ResultsScreen result={gameResult} gallery={gallery} mySocketId={mySocketId} isHost={amHost} onPlayAgain={handlePlayAgain} />
+        <ResultsScreen
+          ranking={ranking}
+          gallery={gallery}
+          myId={myId}
+          isHost={amHost}
+          showTeams={room.config.mode === "teams"}
+          onPlayAgain={() => emit("restart-game")}
+        />
       </>
     );
   }
 
-  const isDrawer = room.currentDrawerSocketId === mySocketId;
-  const drawerName = room.players.find((p) => p.socketId === room.currentDrawerSocketId)?.name ?? "Alguem";
+  const isDrawer = room.drawerId === myId;
+  const drawerPlayer = room.players.find((p) => p.id === room.drawerId);
+  const drawerName = drawerPlayer?.name ?? "Alguém";
+  const drawerTeam = drawerPlayer?.team ?? null;
 
   // altura travada na viewport (dvh acompanha a barra do navegador no celular): a pagina nunca
   // rola durante o jogo, so o feed de chutes
   return (
     <div className="flex h-dvh flex-col overflow-hidden">
+      {reconnectBanner}
       <GameHeader slug="drawit" actions={<SoundToggle />} onLeaveRoom={handleLeaveRoom} />
       {room.phase === "picking-word" && isDrawer && room.wordOptions && (
-        <WordPicker options={room.wordOptions} onChoose={handleChooseWord} />
+        <WordPicker
+          options={room.wordOptions}
+          pickEndsAt={room.pickEndsAt}
+          clockOffset={clockOffset}
+          modifier={room.turnModifier}
+          onChoose={handleChooseWord}
+        />
       )}
       {room.phase === "picking-word" && !isDrawer && (
         <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center">
-          <span
-            className="animate-pop-in flex h-16 w-16 items-center justify-center rounded-3xl bg-[var(--primary)] text-white shadow-[0_6px_0_var(--primary-dark)]"
-          >
+          <span className="animate-pop-in flex h-16 w-16 items-center justify-center rounded-3xl bg-[var(--primary)] text-white shadow-[0_6px_0_var(--primary-dark)]">
             <Pencil className="h-8 w-8" style={{ animation: "wiggle 1s ease-in-out infinite" }} />
           </span>
           <p className="animate-fade-up text-base font-bold text-[var(--fg)] sm:text-lg">
-            <b className="text-[var(--primary)]">{drawerName}</b> esta escolhendo uma palavra
+            <b className="text-[var(--primary)]">{drawerName}</b> está escolhendo uma palavra
             <span className="inline-flex w-6 justify-start">
               <span className="animate-pulse">...</span>
             </span>
           </p>
+          {room.config.mode === "teams" && drawerTeam && (
+            <p className="text-sm font-extrabold" style={{ color: TEAM_INFO[drawerTeam].color }}>
+              Vez do {TEAM_INFO[drawerTeam].label}
+            </p>
+          )}
+          {room.turnModifier && <ModifierBadge modifier={room.turnModifier} size="lg" />}
+          <PickCountdown pickEndsAt={room.pickEndsAt} clockOffset={clockOffset} />
           <p className="text-xs font-bold uppercase tracking-wide text-[var(--fg-muted)]">
             Rodada {room.round}/{room.config.roundsPerPlayer}
           </p>
         </div>
       )}
+      {room.phase.startsWith("impostor-") && (
+        <ImpostorScreen
+          // rodada nova = canvas novo
+          key={`impostor-${room.round}`}
+          room={room}
+          myId={myId}
+          clockOffset={clockOffset}
+          feed={feed}
+          onStroke={(id: string, points: Point[], color: string, width: number) =>
+            emit("draw-stroke", { id, points, color, width })
+          }
+          onStrokeDone={() => emit("stroke-done")}
+          onVote={(targetId: string) => emit("cast-vote", { targetId })}
+          onSubmitText={(text: string) => emit("submit-guess", { guess: text })}
+          registerCanvasHandlers={registerCanvasHandlers}
+        />
+      )}
       {(room.phase === "drawing" || room.phase === "turn-results") && (
         <GameScreen
           room={room}
-          mySocketId={mySocketId}
+          myId={myId}
+          clockOffset={clockOffset}
           feed={feed}
           lastTurn={lastTurn}
           celebration={celebration}
-          onStroke={handleStroke}
-          onClear={handleClear}
-          onUndo={handleUndo}
-          onSubmitGuess={handleSubmitGuess}
-          registerCanvasHandlers={(handlers) => {
-            canvasHandlersRef.current = handlers;
-          }}
+          onStroke={(id: string, points: Point[], color: string, width: number) =>
+            emit("draw-stroke", { id, points, color, width })
+          }
+          onFill={(event: FillEvent) => emit("draw-fill", event)}
+          onShape={(event: ShapeEvent) => emit("draw-shape", event)}
+          onClear={(id: string) => emit("clear-canvas", { id })}
+          onUndo={() => emit("undo-last")}
+          onSubmitGuess={(guess: string) => emit("submit-guess", { guess })}
+          registerCanvasHandlers={registerCanvasHandlers}
         />
       )}
     </div>

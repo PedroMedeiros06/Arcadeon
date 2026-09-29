@@ -1,19 +1,23 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Clock, Pencil, UserX, Timer, PartyPopper } from "lucide-react";
+import { Clock, Pencil, UserX, Timer, PartyPopper, Swords } from "lucide-react";
 import { Canvas } from "./Canvas";
+import { ModifierBadge, rulesFor } from "./ModifierBadge";
 import { GuessPanel } from "./GuessPanel";
 import { DifficultyStars } from "./WordPicker";
 import { playDrawSfx } from "@/lib/draw/sound";
-import { DIFFICULTY_LABEL, type DrawRoomState, type FeedItem, type TurnEndedPayload } from "@/lib/draw/types";
-
-interface CanvasHandlers {
-  applyRemoteStroke: (strokeId: string, points: { x: number; y: number }[], color: string, width: number) => void;
-  applyUndo: (strokeId: string) => void;
-  applyClear: () => void;
-  snapshot: () => string | null;
-}
+import { STEAL_WINDOW_MS, TEAM_INFO } from "@/lib/draw/modes";
+import {
+  DIFFICULTY_LABEL,
+  type CanvasHandlers,
+  type DrawRoomState,
+  type FeedItem,
+  type FillEvent,
+  type Point,
+  type ShapeEvent,
+  type TurnEndedPayload,
+} from "@/lib/draw/types";
 
 export interface Celebration {
   key: number;
@@ -22,15 +26,18 @@ export interface Celebration {
 
 interface GameScreenProps {
   room: DrawRoomState;
-  mySocketId: string;
+  myId: string;
+  clockOffset: number;
   feed: FeedItem[];
   lastTurn: TurnEndedPayload | null;
   celebration: Celebration | null;
-  onStroke: (strokeId: string, points: { x: number; y: number }[], color: string, width: number) => void;
-  onClear: () => void;
+  onStroke: (id: string, points: Point[], color: string, width: number) => void;
+  onFill: (event: FillEvent) => void;
+  onShape: (event: ShapeEvent) => void;
+  onClear: (id: string) => void;
   onUndo: () => void;
   onSubmitGuess: (guess: string) => void;
-  registerCanvasHandlers: (handlers: CanvasHandlers) => void;
+  registerCanvasHandlers: (handlers: CanvasHandlers | null) => void;
 }
 
 const CONFETTI_COLORS = ["#ef4444", "#f59e0b", "#22c55e", "#1cb0f6", "#8b5cf6", "#ec4899"];
@@ -80,11 +87,14 @@ const REASON_TEXT: Record<TurnEndedPayload["reason"], { text: string; Icon: type
   "all-guessed": { text: "Todo mundo acertou!", Icon: PartyPopper },
   timeout: { text: "Tempo esgotado", Icon: Timer },
   "drawer-left": { text: "O desenhista saiu", Icon: UserX },
+  stolen: { text: "Roubado!", Icon: Swords },
 };
 
 /** Resumo do turno: revela a palavra e quanto cada um ganhou. */
-function TurnResultsOverlay({ turn, mySocketId }: { turn: TurnEndedPayload; mySocketId: string }) {
-  const { text, Icon } = REASON_TEXT[turn.reason];
+function TurnResultsOverlay({ turn, myId }: { turn: TurnEndedPayload; myId: string }) {
+  const { Icon } = REASON_TEXT[turn.reason];
+  const thief = turn.stolenBy ? turn.players.find((p) => p.id === turn.stolenBy) : null;
+  const text = thief ? `${thief.name} roubou pro ${TEAM_INFO[thief.team].label}!` : REASON_TEXT[turn.reason].text;
   const gains = [...turn.players].sort((a, b) => b.gained - a.gained);
   return (
     <div className="animate-fade-up absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-[var(--card)]/92 p-3 backdrop-blur-sm sm:gap-3">
@@ -106,14 +116,14 @@ function TurnResultsOverlay({ turn, mySocketId }: { turn: TurnEndedPayload; mySo
       <div className="mt-1 flex w-full max-w-xs flex-col gap-1 overflow-y-auto">
         {gains.map((p, i) => (
           <div
-            key={p.socketId}
+            key={p.id}
             className={`animate-fade-up flex items-center justify-between rounded-lg px-3 py-1 text-xs font-bold sm:text-sm ${
-              p.socketId === mySocketId ? "bg-[var(--primary-tint)]" : "bg-[var(--bg)]"
+              p.id === myId ? "bg-[var(--primary-tint)]" : "bg-[var(--bg)]"
             }`}
             style={{ animationDelay: `${300 + i * 70}ms` }}
           >
             <span className="flex items-center gap-1 truncate text-[var(--fg)]">
-              {p.socketId === turn.drawerSocketId && <Pencil size={12} className="text-[var(--primary)]" />}
+              {p.id === turn.drawerId && <Pencil size={12} className="text-[var(--primary)]" />}
               {p.name}
             </span>
             <span className={p.gained > 0 ? "text-[var(--draw-ok)]" : "text-[var(--fg-muted)]"}>
@@ -160,34 +170,44 @@ function WordSlots({ word, mask }: { word: string | null; mask: string | null })
 
 export function GameScreen({
   room,
-  mySocketId,
+  myId,
+  clockOffset,
   feed,
   lastTurn,
   celebration,
   onStroke,
+  onFill,
+  onShape,
   onClear,
   onUndo,
   onSubmitGuess,
   registerCanvasHandlers,
 }: GameScreenProps) {
-  const isDrawer = room.currentDrawerSocketId === mySocketId;
-  const drawerName = room.players.find((p) => p.socketId === room.currentDrawerSocketId)?.name ?? "";
-  const me = room.players.find((p) => p.socketId === mySocketId);
+  const isDrawer = room.drawerId === myId;
+  const drawerName = room.players.find((p) => p.id === room.drawerId)?.name ?? "";
+  const me = room.players.find((p) => p.id === myId);
   const isDrawing = room.phase === "drawing";
+  const isTeams = room.config.mode === "teams";
+  const drawer = room.players.find((p) => p.id === room.drawerId);
+  const drawerTeam = drawer?.team ?? null;
+  const isOpponent = isTeams && !isDrawer && !!me && !!drawerTeam && me.team !== drawerTeam;
 
   const [msLeft, setMsLeft] = useState(0);
   useEffect(() => {
     if (!room.turnEndsAt) return;
-    const update = () => setMsLeft(Math.max(0, room.turnEndsAt! - Date.now()));
+    const update = () => setMsLeft(Math.max(0, room.turnEndsAt! - (Date.now() + clockOffset)));
     update();
     const interval = setInterval(update, 250);
     return () => clearInterval(interval);
-  }, [room.turnEndsAt]);
+  }, [room.turnEndsAt, clockOffset]);
 
   const secondsLeft = isDrawing ? Math.ceil(msLeft / 1000) : 0;
   const totalMs = room.config.turnSeconds * 1000;
   const ratio = isDrawing && totalMs > 0 ? msLeft / totalMs : 0;
   const isUrgent = isDrawing && secondsLeft <= 10 && secondsLeft > 0;
+  // times: adversario so chuta nos ultimos 10s
+  const stealOpen = isDrawing && msLeft > 0 && msLeft <= STEAL_WINDOW_MS;
+  const guessBlocked = isOpponent && !stealOpen ? "Roubo liberado nos últimos 10s" : null;
 
   // tique nos ultimos 10s (uma vez por segundo)
   const lastTickRef = useRef<number | null>(null);
@@ -223,6 +243,10 @@ export function GameScreen({
                   </>
                 ) : me?.hasGuessedThisTurn ? (
                   <span className="text-[var(--draw-ok)]">Você acertou!</span>
+                ) : isOpponent ? (
+                  <span className="truncate" style={{ color: stealOpen ? "var(--danger)" : undefined }}>
+                    {stealOpen ? "Roubo liberado! Chute agora" : `${TEAM_INFO[drawerTeam!].label} desenhando`}
+                  </span>
                 ) : (
                   <span className="truncate">
                     <b className="text-[var(--fg)]">{drawerName}</b> esta desenhando
@@ -239,6 +263,11 @@ export function GameScreen({
               </div>
             </div>
 
+            {room.turnModifier && (
+              <span className="hidden sm:inline-flex">
+                <ModifierBadge modifier={room.turnModifier} />
+              </span>
+            )}
             <div className="flex shrink-0 flex-col items-center rounded-lg bg-[var(--bg)] px-2 py-1 leading-tight">
               <span className="text-[9px] font-bold uppercase tracking-wide text-[var(--fg-muted)] sm:text-[10px]">Rodada</span>
               <span className="text-xs font-black tabular-nums text-[var(--fg)] sm:text-sm">
@@ -257,25 +286,37 @@ export function GameScreen({
           </div>
         </div>
 
+        {room.turnModifier && (
+          <div className="-mt-0.5 flex justify-center sm:hidden">
+            <ModifierBadge modifier={room.turnModifier} />
+          </div>
+        )}
+
         <Canvas
           canDraw={isDrawer && isDrawing}
+          rules={rulesFor(room.turnModifier)}
           onStroke={onStroke}
+          onFill={onFill}
+          onShape={onShape}
           onClear={onClear}
           onUndo={onUndo}
           registerHandlers={registerCanvasHandlers}
         >
           {celebration && <CelebrationOverlay key={celebration.key} celebration={celebration} />}
-          {room.phase === "turn-results" && lastTurn && <TurnResultsOverlay turn={lastTurn} mySocketId={mySocketId} />}
+          {room.phase === "turn-results" && lastTurn && <TurnResultsOverlay turn={lastTurn} myId={myId} />}
         </Canvas>
       </div>
 
       <GuessPanel
         isDrawer={isDrawer}
-        canGuess={isDrawing}
+        canGuess={isDrawing && !guessBlocked}
+        guessBlockedReason={guessBlocked}
+        stealOpen={isOpponent && stealOpen}
+        teamsView={isTeams ? { drawerTeam } : null}
         hasGuessed={me?.hasGuessedThisTurn ?? false}
         players={room.players}
-        drawerSocketId={room.currentDrawerSocketId}
-        mySocketId={mySocketId}
+        drawerId={room.drawerId}
+        myId={myId}
         feed={feed}
         onSubmitGuess={onSubmitGuess}
       />

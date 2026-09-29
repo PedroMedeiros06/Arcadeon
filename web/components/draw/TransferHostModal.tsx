@@ -5,8 +5,8 @@ import type { DrawRoomState } from "@/lib/draw/types";
 
 interface TransferHostModalProps {
   room: DrawRoomState;
-  mySocketId: string;
-  onTransferHost: (newHostSocketId: string) => void;
+  myId: string;
+  onTransferHost: (newHostId: string) => void;
   onClose: () => void;
 }
 
@@ -18,8 +18,8 @@ function colorFor(id: string): string {
   return AVATAR_COLORS[hash % AVATAR_COLORS.length];
 }
 
-export function TransferHostModal({ room, mySocketId, onTransferHost, onClose }: TransferHostModalProps) {
-  const others = room.players.filter((p) => p.socketId !== mySocketId);
+export function TransferHostModal({ room, myId, onTransferHost, onClose }: TransferHostModalProps) {
+  const others = room.players.filter((p) => p.id !== myId);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
@@ -46,17 +46,17 @@ export function TransferHostModal({ room, mySocketId, onTransferHost, onClose }:
             <div className="flex flex-col gap-2">
               {others.map((p) => (
                 <button
-                  key={p.socketId}
+                  key={p.id}
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
-                    onTransferHost(p.socketId);
+                    onTransferHost(p.id);
                     onClose();
                   }}
                   className="flex items-center gap-3 rounded-xl border-2 border-[var(--border)] bg-[var(--bg)] px-3 py-2.5 text-left transition hover:border-[var(--primary)]"
                 >
                   <span
                     className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-extrabold text-white"
-                    style={{ backgroundColor: colorFor(p.socketId) }}
+                    style={{ backgroundColor: colorFor(p.id) }}
                   >
                     {p.name.trim().charAt(0).toUpperCase() || "?"}
                   </span>

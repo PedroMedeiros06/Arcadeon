@@ -7,7 +7,7 @@ import type { GalleryDrawing } from "@/lib/draw/types";
 
 const SLIDE_MS = 3500;
 
-/** Slide automatico com todos os desenhos da sessao. Swipe, setas do teclado, pausa e download. */
+/** Slide automatico com todos os desenhos da partida. Swipe, setas do teclado, pausa e download. */
 export function DrawingsSlideshow({ drawings }: { drawings: GalleryDrawing[] }) {
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(true);
@@ -15,7 +15,6 @@ export function DrawingsSlideshow({ drawings }: { drawings: GalleryDrawing[] }) 
   const stripRef = useRef<HTMLDivElement>(null);
   const count = drawings.length;
   const current = drawings[Math.min(index, count - 1)];
-  const multipleGames = new Set(drawings.map((d) => d.game)).size > 1;
 
   function go(delta: number) {
     setIndex((i) => (i + delta + count) % count);
@@ -44,7 +43,7 @@ export function DrawingsSlideshow({ drawings }: { drawings: GalleryDrawing[] }) 
 
   if (!current) return null;
 
-  const fileName = `drawit-${current.word.replace(/\s+/g, "-")}.jpg`;
+  const fileName = `rabiscado-${current.word.replace(/\s+/g, "-")}.jpg`;
 
   return (
     <div className="flex w-full max-w-lg flex-col gap-2">
@@ -112,7 +111,7 @@ export function DrawingsSlideshow({ drawings }: { drawings: GalleryDrawing[] }) 
             {current.difficulty && <DifficultyStars difficulty={current.difficulty} size={11} />}
           </span>
           <span className="truncate text-xs font-semibold text-[var(--fg-muted)]">
-            por <b className="text-[var(--fg)]">{current.drawerName}</b> · {multipleGames ? `Partida ${current.game} · ` : ""}
+            por <b className="text-[var(--fg)]">{current.drawerName}</b> ·
             Rodada {current.round}
           </span>
         </div>

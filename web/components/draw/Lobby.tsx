@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CircleHelp, Globe, Lock, Users, X, KeyRound, Plus, Palette } from "lucide-react";
+import { CircleHelp, X, KeyRound, Plus, Palette } from "lucide-react";
+import { RoomSettingsFields } from "./RoomSettingsFields";
 import type { DrawRoomConfig } from "@/lib/draw/types";
 
 interface LobbyProps {
@@ -13,8 +14,6 @@ interface LobbyProps {
   onModeChange?: (mode: "choose" | "create" | "join") => void;
   onHowToPlay: () => void;
 }
-
-const TURN_OPTIONS = [60, 90, 120];
 
 export function Lobby({ defaultName, isNameLocked, onCreate, onJoin, joinError, onModeChange, onHowToPlay }: LobbyProps) {
   const [mode, setModeState] = useState<"choose" | "create" | "join">("choose");
@@ -29,10 +28,14 @@ export function Lobby({ defaultName, isNameLocked, onCreate, onJoin, joinError, 
     if (isNameLocked) setName(defaultName);
   }, [defaultName, isNameLocked]);
 
-  const [roundsPerPlayer, setRoundsPerPlayer] = useState(2);
-  const [turnSeconds, setTurnSeconds] = useState(90);
-  const [maxPlayers, setMaxPlayers] = useState(8);
-  const [visibility, setVisibility] = useState<"public" | "private">("public");
+  const [config, setConfig] = useState<DrawRoomConfig>({
+    roundsPerPlayer: 2,
+    turnSeconds: 90,
+    maxPlayers: 8,
+    visibility: "public",
+    mode: "classic",
+    modifiers: [],
+  });
   const [joinCode, setJoinCode] = useState("");
 
   if (mode === "choose") {
@@ -43,7 +46,7 @@ export function Lobby({ defaultName, isNameLocked, onCreate, onJoin, joinError, 
             <span className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 text-white backdrop-blur">
               <Palette className="h-8 w-8" />
             </span>
-            <h2 className="mb-2 font-display text-3xl font-extrabold tracking-tight text-white">DrawIt</h2>
+            <h2 className="mb-2 font-display text-3xl font-extrabold tracking-tight text-white">Rabiscado</h2>
             <p className="font-medium text-white/70">Desenhe e adivinhe com seus amigos.</p>
           </div>
 
@@ -159,94 +162,13 @@ export function Lobby({ defaultName, isNameLocked, onCreate, onJoin, joinError, 
 
           <div className="my-4 h-px bg-white/15" />
 
-          <div className="flex flex-col gap-1">
-            <p className="text-sm font-bold text-white/90">
-              Rodadas por jogador: <span className="text-[var(--stage-softer)]">{roundsPerPlayer}</span>
-            </p>
-            <input
-              type="range"
-              min={1}
-              max={5}
-              value={roundsPerPlayer}
-              onChange={(e) => setRoundsPerPlayer(Number(e.target.value))}
-              className="w-full accent-[var(--stage-soft)]"
-            />
-          </div>
-
-          <div className="my-4 h-px bg-white/15" />
-
-          <div className="flex flex-col gap-1">
-            <p className="text-sm font-bold text-white/90">
-              Tempo por turno: <span className="text-[var(--stage-softer)]">{turnSeconds}s</span>
-            </p>
-            <input
-              type="range"
-              min={0}
-              max={TURN_OPTIONS.length - 1}
-              step={1}
-              value={TURN_OPTIONS.indexOf(turnSeconds)}
-              onChange={(e) => setTurnSeconds(TURN_OPTIONS[Number(e.target.value)])}
-              className="w-full accent-[var(--stage-soft)]"
-            />
-            <div className="flex justify-between text-xs font-semibold text-white/75">
-              {TURN_OPTIONS.map((mark) => (
-                <span key={mark}>{mark}s</span>
-              ))}
-            </div>
-          </div>
-
-          <div className="my-4 h-px bg-white/15" />
-
-          <div className="flex flex-col gap-1">
-            <p className="flex items-center gap-1.5 text-sm font-bold text-white/90">
-              <Users size={14} />
-              Máximo de jogadores: <span className="text-[var(--stage-softer)]">{maxPlayers}</span>
-            </p>
-            <input
-              type="range"
-              min={2}
-              max={16}
-              value={maxPlayers}
-              onChange={(e) => setMaxPlayers(Number(e.target.value))}
-              className="w-full accent-[var(--stage-soft)]"
-            />
-          </div>
-
-          <div className="my-4 h-px bg-white/15" />
-
-          <div className="flex flex-col gap-2">
-            <p className="text-sm font-bold text-white/90">Visibilidade</p>
-            <div className="flex gap-2 rounded-xl bg-[var(--stage-4)] p-1">
-              <button
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => setVisibility("public")}
-                className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-bold transition ${
-                  visibility === "public" ? "bg-[var(--stage-soft)] text-[var(--stage-4)]" : "text-white/75 hover:text-white"
-                }`}
-              >
-                <Globe size={14} />
-                Publica
-              </button>
-              <button
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => setVisibility("private")}
-                className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-bold transition ${
-                  visibility === "private" ? "bg-[var(--stage-soft)] text-[var(--stage-4)]" : "text-white/75 hover:text-white"
-                }`}
-              >
-                <Lock size={14} />
-                Privada
-              </button>
-            </div>
-          </div>
+          <RoomSettingsFields value={config} onChange={setConfig} />
         </div>
 
         <button
           onMouseDown={(e) => e.preventDefault()}
           disabled={!name.trim()}
-          onClick={() => onCreate({ roundsPerPlayer, turnSeconds, visibility, maxPlayers }, name.trim())}
+          onClick={() => onCreate(config, name.trim())}
           className="mt-5 w-full rounded-2xl border-2 border-emerald-600 bg-emerald-400 py-3.5 text-base font-extrabold text-emerald-950 shadow-[0_4px_0_var(--color-emerald-600)] transition active:translate-y-1 active:border-b-2 active:shadow-none disabled:opacity-50"
         >
           Iniciar sala

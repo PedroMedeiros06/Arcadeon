@@ -25,7 +25,7 @@ export const games: GameInfo[] = [
   },
   {
     slug: "drawit",
-    title: "DrawIt",
+    title: "Rabiscado",
     description: "Desenhe e adivinhe com seus amigos em tempo real.",
     icon: "🎨",
     status: "available",

@@ -1,4 +1,4 @@
-// Efeitos sonoros do DrawIt sintetizados com Web Audio API (mesma ideia da Corrida): sem arquivos,
+// Efeitos sonoros do Rabiscado (ex-DrawIt) sintetizados com Web Audio API (mesma ideia da Corrida): sem arquivos,
 // sem lib. Tudo curto e baixo. Se o navegador bloquear audio, o jogo segue mudo sem erro.
 
 export const DRAW_SOUND_MUTED_KEY = "drawSoundMuted";

@@ -1,11 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import { Palette, Star } from "lucide-react";
-import { DIFFICULTY_LABEL, type Difficulty, type WordEntry } from "@/lib/draw/types";
+import { useEffect, useState } from "react";
+import { Palette, Star, Timer } from "lucide-react";
+import { ModifierBadge } from "./ModifierBadge";
+import { DIFFICULTY_LABEL, type Difficulty, type Modifier, type WordEntry } from "@/lib/draw/types";
 
 interface WordPickerProps {
   options: WordEntry[];
+  pickEndsAt: number | null;
+  clockOffset: number;
+  modifier: Modifier | null;
   onChoose: (word: string) => void;
 }
 
@@ -13,14 +17,47 @@ export const CATEGORY_LABEL: Record<string, string> = {
   animal: "Animal",
   objeto: "Objeto",
   comida: "Comida",
-  profissao: "Profissao",
+  profissao: "Profissão",
   lugar: "Lugar",
-  acao: "Acao",
+  acao: "Ação",
   natureza: "Natureza",
-  veiculo: "Veiculo",
+  veiculo: "Veículo",
   esporte: "Esporte",
   fantasia: "Fantasia",
+  corpo: "Corpo",
+  roupa: "Roupa",
+  tecnologia: "Tecnologia",
+  musica: "Música",
+  brasil: "Brasil",
 };
+
+/** Segundos restantes ate o prazo do servidor (corrigido pelo relogio do servidor). */
+function useSecondsLeft(endsAt: number | null, clockOffset: number): number | null {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!endsAt) return;
+    const id = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(id);
+  }, [endsAt]);
+  if (!endsAt) return null;
+  return Math.max(0, Math.ceil((endsAt - (now + clockOffset)) / 1000));
+}
+
+/** Contagem da escolha de palavra: quando zera, o servidor escolhe sozinho. */
+export function PickCountdown({ pickEndsAt, clockOffset }: { pickEndsAt: number | null; clockOffset: number }) {
+  const seconds = useSecondsLeft(pickEndsAt, clockOffset);
+  if (seconds === null) return null;
+  return (
+    <span
+      className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-extrabold tabular-nums ${
+        seconds <= 5 ? "bg-[var(--danger-bg)] text-[var(--danger)]" : "bg-[var(--bg)] text-[var(--fg-muted)]"
+      }`}
+    >
+      <Timer size={12} />
+      {seconds}s
+    </span>
+  );
+}
 
 export const DIFFICULTY_STYLE: Record<Difficulty, { color: string; bg: string }> = {
   1: { color: "#16a34a", bg: "rgba(34,197,94,0.14)" },
@@ -38,7 +75,7 @@ export function DifficultyStars({ difficulty, size = 12 }: { difficulty: Difficu
   );
 }
 
-export function WordPicker({ options, onChoose }: WordPickerProps) {
+export function WordPicker({ options, pickEndsAt, clockOffset, modifier, onChoose }: WordPickerProps) {
   const [chosen, setChosen] = useState<string | null>(null);
   const sorted = [...options].sort((a, b) => a.difficulty - b.difficulty);
 
@@ -62,6 +99,8 @@ export function WordPicker({ options, onChoose }: WordPickerProps) {
           <p className="text-xs font-semibold text-[var(--fg-muted)]">
             Mais difícil = mais pontos pra quem acerta e pra você
           </p>
+          {modifier && <ModifierBadge modifier={modifier} size="lg" />}
+          <PickCountdown pickEndsAt={pickEndsAt} clockOffset={clockOffset} />
         </div>
 
         <div className="flex flex-col gap-2">
