@@ -208,6 +208,13 @@ export function TermoGame() {
     shakeRow();
   }
 
+  /** status de hoje por modo: marca o menu e escolhe os botoes do fim do Diario */
+  const refreshDailyStatus = useCallback(() => {
+    fetchDailyStatus()
+      .then((s) => setDailyStatus(s.modes))
+      .catch(() => {});
+  }, []);
+
   const startGame = useCallback(
     async (pool: string[], count: BoardCount, mode: PlayMode, challenge: Challenge | null = null) => {
       const request = ++requestRef.current;
@@ -230,6 +237,7 @@ export function TermoGame() {
             state = await setDailyHardMode(count, hardPref);
           }
           next = gameFromDaily(state, count, state.finished);
+          refreshDailyStatus();
         } catch (err) {
           console.error("Erro ao carregar o Diário:", err);
           if (request === requestRef.current) setStatus("error");
@@ -243,7 +251,7 @@ export function TermoGame() {
       setGame(next);
       setStatus("playing");
     },
-    [hardPref, resetInput],
+    [hardPref, resetInput, refreshDailyStatus],
   );
 
   useEffect(() => {
@@ -294,13 +302,6 @@ export function TermoGame() {
     const timer = setTimeout(() => startGame(targetWordPool, boardCount, "daily"), 0);
     return () => clearTimeout(timer);
   }, [userId, targetWordPool, playMode, boardCount, extraMode, startGame]);
-
-  /** status de hoje por modo: marca o menu e escolhe os botoes do fim do Diario */
-  const refreshDailyStatus = useCallback(() => {
-    fetchDailyStatus()
-      .then((s) => setDailyStatus(s.modes))
-      .catch(() => {});
-  }, []);
 
   const handleMenuOpenChange = useCallback(
     (open: boolean) => {
@@ -576,13 +577,20 @@ export function TermoGame() {
     />
   );
 
-  /** Linha do topo: menu de modos a esquerda, extras da partida (dica, selos) a direita. */
-  const toolbar = (right?: React.ReactNode) => (
-    <div className="flex w-full max-w-xl shrink-0 items-center justify-between gap-2">
-      {modeMenu}
-      {right && <div className="flex min-w-0 items-center justify-end gap-1.5">{right}</div>}
-    </div>
-  );
+  /**
+   * Linha do topo: menu de modos no centro. Extras da partida (dica, selos) ficam a direita;
+   * no celular, sem espaco pra centralizar com eles, o menu encosta a esquerda.
+   */
+  const toolbar = (right?: React.ReactNode) =>
+    right ? (
+      <div className="flex w-full max-w-xl shrink-0 items-center justify-between gap-2 sm:grid sm:grid-cols-[1fr_auto_1fr]">
+        <span aria-hidden className="hidden sm:block" />
+        {modeMenu}
+        <div className="flex min-w-0 items-center justify-end gap-1.5">{right}</div>
+      </div>
+    ) : (
+      <div className="flex w-full max-w-xl shrink-0 justify-center">{modeMenu}</div>
+    );
 
   /** Botoes do fim do Diario: os outros diarios que faltam hoje e o Infinito. */
   function nextActions(current: BoardCount): WinAction[] {
@@ -752,36 +760,39 @@ export function TermoGame() {
 
   const canHint = status === "playing" && nextHintTarget(game) !== null;
   const lastRow = game.guesses.length - 1;
+  const hasToolbarExtras = game.hard || !!game.challenge || canHint;
 
   return root(
     <div className="relative mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col items-center gap-2 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 sm:gap-3 sm:px-4 sm:pb-4 sm:pt-3">
       {toolbar(
-        <>
-          {game.hard && (
-            <span
-              title="Modo difícil"
-              className="flex h-8 items-center gap-1 rounded-full bg-[var(--danger-bg)] px-2.5 text-[11px] font-extrabold uppercase text-[var(--danger)]"
-            >
-              <Skull className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Difícil</span>
-            </span>
-          )}
-          {game.challenge && (
-            <span className="h-8 truncate rounded-full bg-[var(--bg)] px-2.5 text-[11px] font-extrabold uppercase leading-8 text-[var(--primary)]">
-              Desafio de {game.challenge.name ?? "um amigo"}
-            </span>
-          )}
-          {canHint && (
-            <button
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={handleHint}
-              disabled={hintBusy || (!!user && coins < HINT_PRICE)}
-              title={user ? `Revela uma letra por ${HINT_PRICE} moedas` : "Entre na sua conta para usar dicas"}
-              className="flex h-9 shrink-0 items-center gap-1.5 rounded-xl border-2 border-[var(--border)] bg-[var(--card)] px-2.5 text-xs font-extrabold text-[var(--fg-muted)] transition hover:bg-[var(--bg)] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Lightbulb className="h-4 w-4 text-[var(--termo-present)]" /> Dica · {HINT_PRICE}
-            </button>
-          )}
-        </>,
+        hasToolbarExtras && (
+          <>
+            {game.hard && (
+              <span
+                title="Modo difícil"
+                className="flex h-8 items-center gap-1 rounded-full bg-[var(--danger-bg)] px-2.5 text-[11px] font-extrabold uppercase text-[var(--danger)]"
+              >
+                <Skull className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Difícil</span>
+              </span>
+            )}
+            {game.challenge && (
+              <span className="h-8 truncate rounded-full bg-[var(--bg)] px-2.5 text-[11px] font-extrabold uppercase leading-8 text-[var(--primary)]">
+                Desafio de {game.challenge.name ?? "um amigo"}
+              </span>
+            )}
+            {canHint && (
+              <button
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={handleHint}
+                disabled={hintBusy || (!!user && coins < HINT_PRICE)}
+                title={user ? `Revela uma letra por ${HINT_PRICE} moedas` : "Entre na sua conta para usar dicas"}
+                className="flex h-9 shrink-0 items-center gap-1.5 rounded-xl border-2 border-[var(--border)] bg-[var(--card)] px-2.5 text-xs font-extrabold text-[var(--fg-muted)] transition hover:bg-[var(--bg)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Lightbulb className="h-4 w-4 text-[var(--termo-present)]" /> Dica · {HINT_PRICE}
+              </button>
+            )}
+          </>
+        ),
       )}
 
       {/* area medida: os tabuleiros ocupam o que sobra entre o topo e o teclado */}

@@ -30,10 +30,13 @@ export function GameHeader({
       className="sticky top-0 z-40 shrink-0 border-b-2 border-t-4 border-b-[var(--border)] bg-[var(--card)]"
       style={{ borderTopColor: game.accent }}
     >
-      <div className="flex h-14 items-center gap-2 px-3 sm:h-16 sm:px-6">
-        <Link href="/" aria-label="Voltar ao hub" className={headerButtonClass}>
-          <ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">Hub</span>
-        </Link>
+      {/* sm+: grade 1fr/auto/1fr pra o titulo ficar no centro da tela mesmo com lados de larguras diferentes */}
+      <div className="flex h-14 items-center gap-2 px-3 sm:grid sm:h-16 sm:grid-cols-[1fr_auto_1fr] sm:px-6">
+        <div className="flex shrink-0">
+          <Link href="/" aria-label="Voltar ao hub" className={headerButtonClass}>
+            <ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">Hub</span>
+          </Link>
+        </div>
 
         <h1 className="flex min-w-0 flex-1 items-center justify-center gap-2 font-display text-base font-extrabold tracking-tight text-[var(--fg)] sm:gap-2.5 sm:text-lg">
           <span
