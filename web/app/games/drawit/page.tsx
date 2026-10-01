@@ -1,5 +1,8 @@
 import { Suspense } from "react";
 import { DrawGame } from "@/components/draw/DrawGame";
+import { gameMetadata } from "@/lib/seo";
+
+export const metadata = gameMetadata("drawit");
 
 export default function DrawItPage() {
   return (

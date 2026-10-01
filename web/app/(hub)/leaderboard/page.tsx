@@ -1,7 +1,14 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { ArrowLeft, Trophy } from "lucide-react";
+import type { Metadata } from "next";
 import { LeaderboardPageContent } from "@/components/leaderboard/LeaderboardPageContent";
+
+export const metadata: Metadata = {
+  title: "Placares",
+  description: "Ranking dos melhores jogadores do Arcadeon no Letrado e na Corrida do Conhecimento.",
+  alternates: { canonical: "/leaderboard" },
+};
 
 export default function LeaderboardPage() {
   return (

@@ -1,5 +1,8 @@
 import { Suspense } from "react";
 import { BuggleGame } from "@/components/buggle/BuggleGame";
+import { gameMetadata } from "@/lib/seo";
+
+export const metadata = gameMetadata("buggle");
 
 export default function BugglePage() {
   return (

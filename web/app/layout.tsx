@@ -4,6 +4,7 @@ import Script from "next/script";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
 import { ThemeProvider } from "@/lib/theme/ThemeProvider";
 import { TransitionProvider } from "@/lib/transition/TransitionProvider";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/seo";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -24,10 +25,29 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Arcadeon",
-  description: "Central de jogos multiplayer",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: `${SITE_NAME} — jogos online grátis com amigos`,
+    template: `%s · ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  keywords: ["arcadeon", "jogos online", "jogos grátis", "jogos com amigos", "jogos de palavras", "jogos no navegador"],
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    url: "/",
+    siteName: SITE_NAME,
+    locale: "pt_BR",
+    title: `${SITE_NAME} — jogos online grátis com amigos`,
+    description: SITE_DESCRIPTION,
+  },
+  twitter: { card: "summary_large_image" },
+  // codigo da "Tag HTML" do Google Search Console (propriedade de prefixo de URL)
+  verification: { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION },
   icons: {
     icon: "/Logo@4x.png",
+    apple: "/Logo@4x.png",
   },
 };
 

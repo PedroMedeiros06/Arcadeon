@@ -1,6 +1,7 @@
 import { GameCard } from "@/components/GameCard";
 import { HomeFeature } from "@/components/home/HomeFeature";
 import { games } from "@/lib/games";
+import { siteJsonLd } from "@/lib/seo";
 
 export default function Home() {
   const multiplayer = games.filter((g) => g.multiplayer);
@@ -8,6 +9,12 @@ export default function Home() {
 
   return (
     <main className="flex w-full flex-1 flex-col gap-8 px-4 py-6 sm:px-6 sm:py-8">
+      <script
+        type="application/ld+json"
+        // conteudo vem de constantes do proprio site; o replace evita fechar a tag por acidente
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(siteJsonLd()).replace(/</g, "\\u003c") }}
+      />
+      <h1 className="sr-only">Arcadeon: jogos online grátis com amigos</h1>
       <div className="animate-fade-up">
         <HomeFeature />
       </div>

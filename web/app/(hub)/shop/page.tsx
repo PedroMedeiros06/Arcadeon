@@ -1,5 +1,12 @@
 import { ShoppingBag } from "lucide-react";
+import type { Metadata } from "next";
 import { ShopPageContent } from "@/components/shop/ShopPageContent";
+
+export const metadata: Metadata = {
+  title: "Loja",
+  description: "Troque as moedas ganhas nos jogos do Arcadeon por avatares e itens.",
+  alternates: { canonical: "/shop" },
+};
 
 export default function ShopPage() {
   return (
