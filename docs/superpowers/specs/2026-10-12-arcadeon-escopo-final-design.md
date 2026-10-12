@@ -87,7 +87,7 @@ Os 8 itens do artifact "Arcadeon de cara nova", sem mudança de escopo:
 
 - **Tabela `coin_ledger`:**
   - Colunas: `id`, `user_id`, `day`, `amount`, `source` (`match` | `mission` | `streak` | `purchase` | `refund` | `termo`), `game` nulo, `ref` text nulo, `created_at`.
-  - Toda mudança de saldo passa por ela, e `profiles.coins` continua sendo a soma.
+  - Toda mudança de saldo é registrada nela. `profiles.coins` continua sendo o saldo e precisa bater com a soma do livro.
   - A partir daqui, as RPCs que já existem (`purchase_avatar`, `termo_daily_guess` e as outras) também gravam no livro.
 
 ### 6.2 Moedas por partida em grupo
