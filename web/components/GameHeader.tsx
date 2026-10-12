@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowLeft, LogOut } from "lucide-react";
 import { getGame } from "@/lib/games";
@@ -12,11 +14,14 @@ export const headerButtonClass = `${buttonBase} border-[var(--border)] bg-[var(-
 export function GameHeader({
   slug,
   onLeaveRoom,
+  onHubClick,
   actions,
   shortTitle,
 }: {
   slug: string;
   onLeaveRoom?: () => void;
+  /** intercepta o clique em "Hub" (ex.: pedir confirmacao via useLeaveGuard); clique com ctrl/cmd segue normal */
+  onHubClick?: () => void;
   /** botoes extras a direita, antes do "Sair da sala" */
   actions?: React.ReactNode;
   /** titulo menor no celular, ex.: "Corrida" */
@@ -33,7 +38,16 @@ export function GameHeader({
       {/* sm+: grade 1fr/auto/1fr pra o titulo ficar no centro da tela mesmo com lados de larguras diferentes */}
       <div className="flex h-14 items-center gap-2 px-3 sm:grid sm:h-16 sm:grid-cols-[1fr_auto_1fr] sm:px-6">
         <div className="flex shrink-0">
-          <Link href="/" aria-label="Voltar ao hub" className={headerButtonClass}>
+          <Link
+            href="/"
+            aria-label="Voltar ao hub"
+            className={headerButtonClass}
+            onClick={(e) => {
+              if (!onHubClick || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+              e.preventDefault();
+              onHubClick();
+            }}
+          >
             <ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">Hub</span>
           </Link>
         </div>
