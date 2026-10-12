@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CaseSensitive, Globe, Lock, Users, X, KeyRound, Plus } from "lucide-react";
 import type { RoomConfig } from "@/lib/buggle/types";
 
@@ -36,6 +36,13 @@ export function Lobby({ defaultName, isNameLocked, onCreate, onJoin, joinError, 
     setModeState(next);
     onModeChange?.(next);
   }
+
+  // ao desmontar (criou/entrou numa sala), avisa o pai que voltamos ao "choose" pra o header reaparecer ao sair
+  const onModeChangeRef = useRef(onModeChange);
+  useEffect(() => {
+    onModeChangeRef.current = onModeChange;
+  }, [onModeChange]);
+  useEffect(() => () => onModeChangeRef.current?.("choose"), []);
 
   useEffect(() => {
     if (isNameLocked) setName(defaultName);

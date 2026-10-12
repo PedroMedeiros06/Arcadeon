@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { GameHeader } from "@/components/GameHeader";
+import { useLeaveGuard } from "@/lib/useLeaveGuard";
 import { useSearchParams } from "next/navigation";
 import { getBuggleSocket } from "@/lib/buggle/socket";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -210,7 +211,49 @@ export function BuggleGame() {
     if (room) socketRef.current.emit("leave-room", { code: room.code });
     setRoom(null);
     setRoundResult(null);
+    setLobbyMode("choose");
   }
+
+  // confirmacao ao sair da sala (botoes, Hub, voltar do navegador, fechar aba)
+  const leaveRole = !room
+    ? null
+    : room.ownerSocketId === socketRef.current.id
+      ? "owner"
+      : room.hostSocketId === socketRef.current.id
+        ? "host"
+        : "player";
+  const inWaiting = room?.phase === "lobby" && !roundResult;
+  const leaveText =
+    leaveRole === "owner"
+      ? {
+          title: "Fechar a sala?",
+          message: "Você é o dono da sala. Se sair, a sala será fechada para todos os jogadores.",
+          confirmLabel: "Fechar sala",
+        }
+      : leaveRole === "host" && !inWaiting
+        ? {
+            title: "Sair da rodada?",
+            message: "Você é o anfitrião. Se sair, o cargo passa para outro jogador e você perde a partida em andamento.",
+            confirmLabel: "Sair",
+          }
+        : leaveRole === "host"
+          ? {
+              title: "Sair da sala?",
+              message: "Você é o anfitrião. Se sair, o cargo passa para outro jogador.",
+              confirmLabel: "Sair",
+            }
+          : inWaiting
+            ? { title: "Sair da sala?", message: "Você volta para a tela inicial do Buggle.", confirmLabel: "Sair" }
+            : {
+                title: "Sair da rodada?",
+                message: "Você sai da partida em andamento e perde sua pontuação nesta rodada.",
+                confirmLabel: "Sair",
+              };
+  const { requestLeave, leaveDialog } = useLeaveGuard({
+    active: !!room,
+    onLeave: handleLeaveRoom,
+    ...leaveText,
+  });
 
   if (!room && joinCodeFromUrl && pendingAutoJoin) {
     if (authLoading) {
@@ -259,7 +302,12 @@ export function BuggleGame() {
     const amHost = room.hostSocketId === socketRef.current.id;
     return (
       <>
-        <GameHeader slug="buggle" actions={<SoundToggle />} onLeaveRoom={handleLeaveRoom} />
+        <GameHeader
+          slug="buggle"
+          actions={<SoundToggle />}
+          onLeaveRoom={() => requestLeave("room")}
+          onHubClick={() => requestLeave("hub")}
+        />
         {amOwner ? (
           <ResultsScreen
             result={roundResult}
@@ -281,22 +329,26 @@ export function BuggleGame() {
             onUpdateConfig={handleUpdateConfig}
           />
         )}
+        {leaveDialog}
       </>
     );
   }
 
   if (room.phase === "lobby") {
     return (
+      <>
       <RoomWaiting
         room={room}
         mySocketId={socketRef.current.id ?? ""}
         onStart={handleStart}
-        onLeaveRoom={handleLeaveRoom}
+        onLeaveRoom={() => requestLeave("room")}
         onUpdateConfig={handleUpdateConfig}
         onTransferHost={handleTransferHost}
         onRenamePlayer={handleRenamePlayer}
         onUpdateAvatar={handleUpdateAvatar}
       />
+      {leaveDialog}
+      </>
     );
   }
 
@@ -304,26 +356,40 @@ export function BuggleGame() {
   if (isOwner) {
     return (
       <>
-        <GameHeader slug="buggle" actions={<SoundToggle />} onLeaveRoom={handleLeaveRoom} />
+        <GameHeader
+          slug="buggle"
+          actions={<SoundToggle />}
+          onLeaveRoom={() => requestLeave("room")}
+          onHubClick={() => requestLeave("hub")}
+        />
         <OwnerGameScreen room={room} secondsLeft={secondsLeft} countdown={countdown} />
+        {leaveDialog}
       </>
     );
   }
 
   if (countdown !== null) {
-    return <RoundCountdown countdown={countdown} />;
+    return (
+      <>
+        <RoundCountdown countdown={countdown} />
+        {leaveDialog}
+      </>
+    );
   }
 
   return (
     room.board && (
-      <GamePlayScreen
-        board={room.board}
-        secondsLeft={secondsLeft}
-        totalSeconds={room.config.roundSeconds}
-        lastResult={lastResult}
-        onWordSubmit={handleWordSubmit}
-        onLeaveRoom={handleLeaveRoom}
-      />
+      <>
+        <GamePlayScreen
+          board={room.board}
+          secondsLeft={secondsLeft}
+          totalSeconds={room.config.roundSeconds}
+          lastResult={lastResult}
+          onWordSubmit={handleWordSubmit}
+          onLeaveRoom={() => requestLeave("room")}
+        />
+        {leaveDialog}
+      </>
     )
   );
 }
