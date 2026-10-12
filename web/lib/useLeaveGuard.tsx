@@ -64,10 +64,19 @@ export function useLeaveGuard({
       setPending("room");
     }
     window.addEventListener("popstate", onPop);
-    return () => {
-      window.removeEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [active]);
+
+  // perdeu a sala por fora (session-lost, room-closed): devolve a sentinela. Roda so quando `active`
+  // muda com o componente montado; no unmount (navegacao) nao mexe no historico.
+  const wasActiveRef = useRef(active);
+  useEffect(() => {
+    if (wasActiveRef.current && !active && sentinelRef.current) {
       sentinelRef.current = false;
-    };
+      ignorePopRef.current = true;
+      window.history.back();
+    }
+    wasActiveRef.current = active;
   }, [active]);
 
   // fechar aba / recarregar
@@ -99,10 +108,12 @@ export function useLeaveGuard({
     const target = pending;
     setPending(null);
     // devolve a sentinela pra nao sobrar uma entrada duplicada no historico (pro hub nao precisa: sai da pagina)
-    if (sentinelRef.current && target !== "hub") {
+    if (sentinelRef.current) {
       sentinelRef.current = false;
-      ignorePopRef.current = true;
-      window.history.back();
+      if (target !== "hub") {
+        ignorePopRef.current = true;
+        window.history.back();
+      }
     }
     onLeaveRef.current();
     if (target === "hub") router.push("/");
