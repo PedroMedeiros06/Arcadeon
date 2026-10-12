@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CircleHelp, Flag, KeyRound, Plus, X } from "lucide-react";
 import { RaceConfigFields } from "./RaceConfigFields";
 import type { RaceRoomConfig } from "@/lib/race/types";
@@ -27,6 +27,13 @@ export function Lobby({ defaultName, isNameLocked, connected, onCreate, onJoin, 
     visibility: "private",
     maxPlayers: 8,
   });
+
+  // ao desmontar (entrou na sala) o pai volta a "choose": senao o header some ao sair da sala
+  const onModeChangeRef = useRef(onModeChange);
+  useEffect(() => {
+    onModeChangeRef.current = onModeChange;
+  }, [onModeChange]);
+  useEffect(() => () => onModeChangeRef.current?.("choose"), []);
 
   function setMode(next: "choose" | "create" | "join") {
     setModeState(next);
