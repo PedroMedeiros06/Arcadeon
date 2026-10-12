@@ -18,6 +18,7 @@ import { JoinNameModal } from "./JoinNameModal";
 import { SoundToggle } from "./SoundToggle";
 import { DrawTutorial } from "./DrawTutorial";
 import { useLocalFlag } from "@/lib/race/useLocalFlag";
+import { useLeaveGuard } from "@/lib/useLeaveGuard";
 import type {
   CanvasHandlers,
   DrawEvent,
@@ -101,6 +102,7 @@ export function DrawGame() {
       prevRoomRef.current = null;
       pendingCanvasRef.current = [];
       setRoom(null);
+      setLobbyMode("choose");
       setGallery([]);
       setFeed([]);
       setLastTurn(null);
@@ -142,6 +144,8 @@ export function DrawGame() {
       const prev = prevRoomRef.current;
       prevRoomRef.current = state;
       setRoom(state);
+      // o Lobby desmonta ao entrar na sala; ao voltar ele remonta em "choose"
+      setLobbyMode("choose");
       setNotice(null);
       setJoinError(null);
       setClockOffset(state.serverNow - Date.now());
@@ -372,8 +376,26 @@ export function DrawGame() {
     prevRoomRef.current = null;
     pendingCanvasRef.current = [];
     setRoom(null);
+    setLobbyMode("choose");
     setGallery([]);
   }
+
+  // confirmacao antes de sair (botoes, Hub, voltar do navegador, fechar aba); vale em qualquer fase da sala
+  const inGame = !!room && room.phase !== "lobby" && room.phase !== "results";
+  const leaveIsHost = !!room && room.hostId === room.myId;
+  const { requestLeave, leaveDialog } = useLeaveGuard({
+    active: !!room,
+    onLeave: handleLeaveRoom,
+    title: "Sair da sala?",
+    message: inGame
+      ? `Se sair agora, você perde a vez e a pontuação desta partida.${leaveIsHost ? " Como anfitrião, o cargo passa para outro jogador." : ""}`
+      : room?.phase === "results"
+        ? "Você vai sair da sala e não verá mais os desenhos da partida."
+        : leaveIsHost
+          ? "Você vai sair da sala e o cargo de anfitrião passa para outro jogador."
+          : "Você vai sair da sala de espera.",
+    confirmLabel: "Sair da sala",
+  });
 
   function registerCanvasHandlers(handlers: CanvasHandlers | null) {
     canvasHandlersRef.current = handlers;
@@ -472,11 +494,12 @@ export function DrawGame() {
           onSetTeam={(playerId: string, team: Team) => emit("set-team", { playerId, team })}
           onShuffleTeams={() => emit("shuffle-teams")}
           startError={startError}
-          onLeaveRoom={handleLeaveRoom}
+          onLeaveRoom={() => requestLeave("room")}
           onUpdateConfig={(config) => emit("update-config", { config })}
           onTransferHost={(newHostId) => emit("transfer-host", { newHostId })}
           onHowToPlay={() => setTutorialOpen(true)}
         />
+        {leaveDialog}
         {tutorial}
       </>
     );
@@ -489,7 +512,12 @@ export function DrawGame() {
     return (
       <>
         {reconnectBanner}
-        <GameHeader slug="drawit" actions={<SoundToggle />} onLeaveRoom={handleLeaveRoom} />
+        <GameHeader
+          slug="drawit"
+          actions={<SoundToggle />}
+          onLeaveRoom={() => requestLeave("room")}
+          onHubClick={() => requestLeave("hub")}
+        />
         <ResultsScreen
           ranking={ranking}
           gallery={gallery}
@@ -498,6 +526,7 @@ export function DrawGame() {
           showTeams={room.config.mode === "teams"}
           onPlayAgain={() => emit("restart-game")}
         />
+        {leaveDialog}
       </>
     );
   }
@@ -512,7 +541,13 @@ export function DrawGame() {
   return (
     <div className="flex h-dvh flex-col overflow-hidden">
       {reconnectBanner}
-      <GameHeader slug="drawit" actions={<SoundToggle />} onLeaveRoom={handleLeaveRoom} />
+      {leaveDialog}
+      <GameHeader
+          slug="drawit"
+          actions={<SoundToggle />}
+          onLeaveRoom={() => requestLeave("room")}
+          onHubClick={() => requestLeave("hub")}
+        />
       {room.phase === "picking-word" && isDrawer && room.wordOptions && (
         <WordPicker
           options={room.wordOptions}
