@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { GameHeader } from "@/components/GameHeader";
+import { useLeaveGuard } from "@/lib/useLeaveGuard";
 import { useSearchParams } from "next/navigation";
 import { Hourglass, LogOut } from "lucide-react";
 import { getRaceSocket } from "@/lib/race/socket";
@@ -247,6 +248,25 @@ export function RaceGame() {
   const showTutorial = tutorialOpen || (!tutorialSeen && (!room || room.phase === "lobby"));
   const tutorial = showTutorial ? <RaceTutorial onClose={closeTutorial} /> : null;
 
+  // confirmacao antes de sair: vale em qualquer fase com sala (hook antes dos returns antecipados)
+  const amHost = !!room && room.hostSocketId === mySocketId;
+  const racing = !!room && room.phase !== "lobby" && room.phase !== "results";
+  const { requestLeave, leaveDialog } = useLeaveGuard({
+    active: !!room,
+    onLeave: handleLeaveRoom,
+    title: racing ? "Abandonar a corrida?" : "Sair da sala?",
+    message: racing
+      ? amHost
+        ? "Se sair agora, você abandona a corrida e perde a posição. O cargo de anfitrião passa para outro jogador."
+        : "Se sair agora, você abandona a corrida e perde a posição."
+      : room?.phase === "results"
+        ? "Você vai sair da sala e voltar para o início."
+        : amHost
+          ? "Você vai sair da sala. O cargo de anfitrião passa para outro jogador."
+          : "Você vai sair da sala de espera.",
+    confirmLabel: "Sair",
+  });
+
   // ---------- render ----------
 
   if (!room && joinCodeFromUrl && pendingAutoJoin) {
@@ -300,7 +320,7 @@ export function RaceGame() {
           room={room}
           mySocketId={mySocketId}
           onStart={() => socket.emit("start-game")}
-          onLeaveRoom={handleLeaveRoom}
+          onLeaveRoom={() => requestLeave("room")}
           onUpdateConfig={(config) => socket.emit("update-config", { config })}
           onTransferHost={(newHostSocketId) => socket.emit("transfer-host", { newHostSocketId })}
           onRename={handleRename}
@@ -308,6 +328,7 @@ export function RaceGame() {
           onHowToPlay={() => setTutorialOpen(true)}
         />
         {tutorial}
+        {leaveDialog}
       </>
     );
   }
@@ -315,20 +336,31 @@ export function RaceGame() {
   if (room.phase === "results") {
     return (
       <>
-        <GameHeader slug="corrida" shortTitle="Corrida" onLeaveRoom={handleLeaveRoom} />
+        <GameHeader
+          slug="corrida"
+          shortTitle="Corrida"
+          onLeaveRoom={() => requestLeave("room")}
+          onHubClick={() => requestLeave("hub")}
+        />
         <RaceResults
           room={room}
           mySocketId={mySocketId}
           onPlayAgain={() => socket.emit("restart-game")}
-          onLeave={handleLeaveRoom}
+          onLeave={() => requestLeave("room")}
         />
+        {leaveDialog}
       </>
     );
   }
 
   if (room.phase === "countdown") {
     const remaining = (room.phaseEndsAt ?? now) - GO_MS - now;
-    return <RoundCountdown countdown={Math.max(0, Math.ceil(remaining / 1000))} />;
+    return (
+      <>
+        <RoundCountdown countdown={Math.max(0, Math.ceil(remaining / 1000))} />
+        {leaveDialog}
+      </>
+    );
   }
 
   // question / question-results
@@ -379,7 +411,7 @@ export function RaceGame() {
           <div className="flex items-center gap-2">
             <button
               onMouseDown={(e) => e.preventDefault()}
-              onClick={handleLeaveRoom}
+              onClick={() => requestLeave("room")}
               aria-label="Sair da corrida"
               className="flex h-9 w-9 items-center justify-center rounded-xl border-2 border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)] transition hover:opacity-80"
             >
@@ -477,6 +509,7 @@ export function RaceGame() {
           </p>
         )}
       </div>
+      {leaveDialog}
     </div>
   );
 }
