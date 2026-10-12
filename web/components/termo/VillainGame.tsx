@@ -26,13 +26,15 @@ interface VillainGameProps {
   onShare: (text: string) => void;
   message: string | null;
   setMessage: (m: string | null) => void;
+  /** avisa o pai quando ha partida em andamento (confirmacao ao sair) */
+  onActiveChange?: (active: boolean) => void;
 }
 
 /**
  * Vilao (estilo Absurdle): nao existe palavra escolhida. A cada palpite o jogo responde com as cores
  * que deixam o maior numero de palavras possiveis, fugindo de voce. Tentativas ilimitadas.
  */
-export function VillainGame({ targets, acceptedWords, accents, onShare, message, setMessage }: VillainGameProps) {
+export function VillainGame({ targets, acceptedWords, accents, onShare, message, setMessage, onActiveChange }: VillainGameProps) {
   const [candidates, setCandidates] = useState(targets);
   const [guesses, setGuesses] = useState<string[]>([]);
   const [evals, setEvals] = useState<LetterState[][][]>([]);
@@ -59,6 +61,7 @@ export function VillainGame({ targets, acceptedWords, accents, onShare, message,
     setGuesses(nextGuesses);
     setEvals([...evals, [codeToStates(pattern)]]);
     setCandidates(remaining);
+    onActiveChange?.(!isWin);
     setRevealRow(nextGuesses.length - 1);
     input.reset();
     setMessage(
@@ -85,6 +88,7 @@ export function VillainGame({ targets, acceptedWords, accents, onShare, message,
     setRevealRow(null);
     setWon(false);
     setShowResult(false);
+    onActiveChange?.(false);
     setMessage(null);
     input.reset();
   }

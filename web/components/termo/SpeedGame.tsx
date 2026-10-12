@@ -24,10 +24,12 @@ interface SpeedGameProps {
   onShare: (text: string) => void;
   message: string | null;
   setMessage: (m: string | null) => void;
+  /** avisa o pai quando ha uma rodada em andamento (confirmacao ao sair) */
+  onActiveChange?: (active: boolean) => void;
 }
 
 /** Contra o Tempo: 3 minutos pra acertar o maximo de palavras (6 tentativas cada). Validado no servidor. */
-export function SpeedGame({ acceptedWords, accents, onShare, message, setMessage }: SpeedGameProps) {
+export function SpeedGame({ acceptedWords, accents, onShare, message, setMessage, onActiveChange }: SpeedGameProps) {
   const { user } = useAuth();
   const [phase, setPhase] = useState<"intro" | "playing" | "finished">("intro");
   const [run, setRun] = useState<SpeedState | null>(null);
@@ -54,6 +56,7 @@ export function SpeedGame({ acceptedWords, accents, onShare, message, setMessage
   const finish = useCallback(async (runId: string) => {
     if (finishingRef.current) return;
     finishingRef.current = true;
+    onActiveChange?.(false);
     try {
       setRun(await finishSpeedRun(runId));
     } catch (err) {
@@ -61,7 +64,7 @@ export function SpeedGame({ acceptedWords, accents, onShare, message, setMessage
     }
     setPhase("finished");
     loadRanking();
-  }, [loadRanking]);
+  }, [loadRanking, onActiveChange]);
 
   // relogio da rodada
   useEffect(() => {
@@ -85,6 +88,7 @@ export function SpeedGame({ acceptedWords, accents, onShare, message, setMessage
       setFlash(null);
       input.reset();
       setPhase("playing");
+      onActiveChange?.(true);
     } catch (err) {
       console.error("Erro ao iniciar Contra o Tempo:", err);
       setMessage("Não foi possível iniciar. Tente de novo.");

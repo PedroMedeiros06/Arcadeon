@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { BarChart3, CircleHelp, Lightbulb, Settings, Share2, Skull } from "lucide-react";
 import { GameHeader, headerButtonClass } from "@/components/GameHeader";
+import { useLeaveGuard } from "@/lib/useLeaveGuard";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useLocalFlag } from "@/lib/race/useLocalFlag";
 import {
@@ -181,6 +182,8 @@ export function TermoGame() {
   const [analysisOpen, setAnalysisOpen] = useState(false);
   const [hintBusy, setHintBusy] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  // Contra o Tempo / Vilao avisam aqui quando ha partida em andamento
+  const [extraActive, setExtraActive] = useState(false);
   const [dailyStatus, setDailyStatus] = useState<Record<BoardCount, DailyModeStatus> | null>(null);
   // primeira visita abre sozinho; depois so pelo botao "Como jogar"
   const showTutorial = tutorialOpen || !tutorialSeen;
@@ -219,6 +222,7 @@ export function TermoGame() {
     async (pool: string[], count: BoardCount, mode: PlayMode, challenge: Challenge | null = null) => {
       const request = ++requestRef.current;
       setExtraMode(null);
+      setExtraActive(false);
       setBoardCount(count);
       setPlayMode(mode);
       setStatus("loading");
@@ -311,15 +315,66 @@ export function TermoGame() {
     [refreshDailyStatus],
   );
 
-  function pickMode(mode: PlayMode, count: BoardCount) {
+  function doPickMode(mode: PlayMode, count: BoardCount) {
     if (targetWordPool.length > 0) startGame(targetWordPool, count, mode);
   }
 
-  function openExtra(mode: ExtraMode) {
+  function doOpenExtra(mode: ExtraMode) {
     requestRef.current++;
     setExtraMode(mode);
+    setExtraActive(false);
     setMessage(null);
     setStatus("playing");
+  }
+
+  // O que se perde ao sair:
+  // - Diario: nada (cada palpite ja foi salvo no servidor);
+  // - Infinito: a palavra atual (so existe na memoria), depois do primeiro palpite;
+  // - Contra o Tempo / Vilao: a partida em andamento.
+  const infiniteActive =
+    extraMode === null && playMode === "infinite" && !!game && !game.alreadyPlayed && status === "playing" && game.guesses.length > 0;
+  const leaveActive = extraMode ? extraActive : infiniteActive;
+  const leaveWhat =
+    extraMode === "speed"
+      ? "esta partida de Contra o Tempo"
+      : extraMode === "villain"
+        ? "esta partida contra o Vilão"
+        : boardCount > 1
+          ? "as palavras atuais do Infinito"
+          : "a palavra atual do Infinito";
+
+  // troca de modo que abandonaria a partida: guarda a acao ate o jogador confirmar
+  const pendingSwitchRef = useRef<(() => void) | null>(null);
+  const { requestLeave, leaveDialog } = useLeaveGuard({
+    active: leaveActive,
+    onLeave: () => {
+      const action = pendingSwitchRef.current;
+      pendingSwitchRef.current = null;
+      // voltar do navegador: abandona a partida e cai no Diario do Letrado
+      if (action) action();
+      else doPickMode("daily", 1);
+    },
+    title: "Sair da partida?",
+    message: `Se sair agora, você perde ${leaveWhat}.`,
+  });
+  // cancelou: descarta a troca pendente
+  const leaveDialogOpen = !!leaveDialog;
+  useEffect(() => {
+    if (!leaveDialogOpen) pendingSwitchRef.current = null;
+  }, [leaveDialogOpen]);
+
+  function guardSwitch(action: () => void) {
+    if (!leaveActive) return action();
+    pendingSwitchRef.current = action;
+    requestLeave("room");
+  }
+
+  function pickMode(mode: PlayMode, count: BoardCount) {
+    guardSwitch(() => doPickMode(mode, count));
+  }
+
+  function openExtra(mode: ExtraMode) {
+    guardSwitch(() => doOpenExtra(mode));
   }
 
   async function submitGuess(guess: string) {
@@ -465,6 +520,7 @@ export function TermoGame() {
   const header = (
     <GameHeader
       slug="termo"
+      onHubClick={leaveActive ? () => requestLeave("hub") : undefined}
       actions={
         <>
           <button
@@ -545,6 +601,7 @@ export function TermoGame() {
 
   const overlays = (
     <>
+      {leaveDialog}
       {showTutorial && <TermoTutorial onClose={closeTutorial} />}
       {statsOpen && (
         <StatsModal
@@ -645,6 +702,7 @@ export function TermoGame() {
             onShare={share}
             message={message}
             setMessage={setMessage}
+            onActiveChange={setExtraActive}
           />
         ) : (
           <VillainGame
@@ -654,6 +712,7 @@ export function TermoGame() {
             onShare={share}
             message={message}
             setMessage={setMessage}
+            onActiveChange={setExtraActive}
           />
         )}
       </div>,
