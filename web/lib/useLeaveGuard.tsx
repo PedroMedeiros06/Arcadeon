@@ -39,6 +39,9 @@ export function useLeaveGuard({
   const sentinelRef = useRef(false);
   const ignorePopRef = useRef(false);
 
+  // perdeu a sala por fora (session-lost, expulsao): fecha o dialogo pendente pra nao reaparecer na proxima sala
+  if (!active && pending) setPending(null);
+
   useEffect(() => {
     onLeaveRef.current = onLeave;
   }, [onLeave]);
