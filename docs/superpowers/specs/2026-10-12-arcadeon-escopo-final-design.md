@@ -136,7 +136,7 @@ Os 8 itens do artifact "Arcadeon de cara nova", sem mudança de escopo:
 
 - **Coluna nova `avatars.retired boolean`.**
   - Os 8 avatares atuais de emoji ficam `retired = true` e somem da loja.
-  - O Galo também sai: lembra o Heihei, de Moana (Disney). Uma versão original entra na coleção nova.
+  - O Galo fica, por decisão do usuário (2026-10-12): foi um pedido pessoal e o site é um hobby. Ele é comprimido como o Robô e mantém a raridade e o preço atuais.
   - O Robô com capacete fica e é comprimido de 1,6 MB para menos de 60 KB.
 - **Quem comprou um avatar de emoji:**
   - Recebe as moedas de volta, com `source = refund`.
@@ -275,7 +275,7 @@ A base é o "Robô com capacete", o avatar atual mais forte visualmente.
 | Comum | Pinguim detetive | chapéu e lupa |
 | Comum | Panda dorminhoco | gorro de dormir |
 | Comum | Tucano DJ | fones neon e toca-discos |
-| Comum | Galo de briga (original) | crista vermelha, olhar desafiador |
+| Comum | Tatu-bola goleiro | luvas de goleiro, encolhido em posição de defesa |
 | Raro | Lobo da noite | olhos azuis brilhando |
 | Raro | Polvo pintor | pincéis nos tentáculos (Rabiscado) |
 | Raro | Onça pintada | marcas douradas, olhar feroz |
@@ -290,6 +290,7 @@ A base é o "Robô com capacete", o avatar atual mais forte visualmente.
 | Lendário | Fênix (mesma conquista que libera a Fênix hoje) | chamas vivas |
 | Lendário | Estrela cadente (mesma conquista que libera a Estrela hoje) | rastro brilhante |
 | Lendário | Robô com capacete (atual) | mantido |
+| Raro | Galo (atual) | mantido, pedido pessoal do usuário |
 
 **Entrega:**
 - O usuário gera as imagens na ferramenta que preferir.
