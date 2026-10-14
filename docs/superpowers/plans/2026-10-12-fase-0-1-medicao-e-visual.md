@@ -62,6 +62,13 @@
 
 ---
 
+### Task 0: branch de trabalho
+
+- [ ] **Passo 1:** usar a skill `superpowers:using-git-worktrees` para criar a branch `feat/fase-0-1-visual` (worktree ou branch, conforme a skill). Nada deste plano é commitado direto na `main`.
+- [ ] **Passo 2:** `cd web && npm install` no novo diretório, se for worktree.
+
+---
+
 ### Task 1: infraestrutura de testes
 
 **Arquivos:**
@@ -447,7 +454,7 @@ git commit -m "feat: destaque da home sem autoplay, com abas por jogo"
 
 **Interfaces:**
 - Produz: `rankFor(rows: { username: string }[], username: string | null): number | null` (posição 1-based, `null` se fora da lista ou deslogado).
-- Produz: `createOnce<T>(fetcher: () => Promise<T>): (key: string) => Promise<T>` e `getDailyStatusShared(key: string): Promise<DailyStatus>`. Chave = `user?.id ?? "anon"`. A Task 10 também usa.
+- Produz: `createOnce<T>(fetcher: () => Promise<T>): (key: string) => Promise<T>` (divide só a busca em andamento) e `getDailyStatusShared(key: string): Promise<DailyStatus>`. Chave = `user?.id ?? "anon"`. A Task 10 também usa.
 
 - [ ] **Passo 1: testes.** Criar `web/lib/home/rank.test.ts`:
 
@@ -481,7 +488,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createOnce } from "./dailyCache.ts";
 
-test("mesma chave busca uma vez so", async () => {
+test("chamadas simultaneas dividem uma requisicao", async () => {
   let calls = 0;
   const get = createOnce(async () => ++calls);
   const [a, b] = await Promise.all([get("u1"), get("u1")]);
@@ -490,14 +497,22 @@ test("mesma chave busca uma vez so", async () => {
   assert.equal(calls, 1);
 });
 
-test("chave nova (login ou logout) busca de novo", async () => {
+test("depois de resolver, a proxima chamada busca de novo", async () => {
   let calls = 0;
   const get = createOnce(async () => ++calls);
-  await get("anon");
+  await get("u1");
   assert.equal(await get("u1"), 2);
 });
 
-test("falha nao fica presa no cache", async () => {
+test("chave nova (login ou logout) nao reaproveita a busca em andamento", async () => {
+  let calls = 0;
+  const get = createOnce(async () => ++calls);
+  const [a, b] = await Promise.all([get("anon"), get("u1")]);
+  assert.equal(a, 1);
+  assert.equal(b, 2);
+});
+
+test("falha nao fica presa", async () => {
   let calls = 0;
   const get = createOnce(async () => {
     calls++;
@@ -526,19 +541,24 @@ export function rankFor(rows: { username: string }[], username: string | null): 
 `web/lib/home/dailyCache.ts`:
 
 ```ts
-/** Guarda a ultima busca por chave; varios componentes da mesma tela dividem uma requisicao. */
+/**
+ * Divide so a busca em andamento: home e barra lateral montam juntas e fazem uma requisicao.
+ * Depois que resolve, a proxima montagem busca de novo (a pessoa pode ter jogado o diario).
+ */
 export function createOnce<T>(fetcher: () => Promise<T>): (key: string) => Promise<T> {
-  let lastKey: string | null = null;
+  let pendingKey: string | null = null;
   let pending: Promise<T> | null = null;
   return (key) => {
-    if (key !== lastKey || !pending) {
-      lastKey = key;
-      pending = fetcher().catch((err) => {
+    if (pending && pendingKey === key) return pending;
+    const current = fetcher().finally(() => {
+      if (pending === current) {
         pending = null;
-        throw err;
-      });
-    }
-    return pending;
+        pendingKey = null;
+      }
+    });
+    pending = current;
+    pendingKey = key;
+    return current;
   };
 }
 ```
@@ -549,11 +569,11 @@ E um arquivo separado para não puxar o Supabase nos testes, `web/lib/home/daily
 import { fetchDailyStatus, type DailyStatus } from "@/lib/termo/daily";
 import { createOnce } from "./dailyCache";
 
-/** Status do Letrado de hoje, buscado uma vez por usuario e dividido entre home e barra lateral. */
+/** Status do Letrado de hoje; home e barra lateral dividem a mesma requisicao em andamento. */
 export const getDailyStatusShared: (key: string) => Promise<DailyStatus> = createOnce(fetchDailyStatus);
 ```
 
-Observação: o cache vale até a chave mudar. Ao terminar uma partida, a pessoa volta ao hub por navegação de página inteira ou pelo layout do hub; se ficar velho, o dano é só um selo desatualizado até o F5. Aceitável na fase 1.
+Observação: não há cache depois que a busca termina. Voltar de uma partida por navegação no cliente (`useBlockTransition().navigate`) remonta os componentes e busca o status atualizado.
 
 - [ ] **Passo 4:** `npm test`. Esperado: todos passando.
 
@@ -710,7 +730,7 @@ test("exatamente na virada conta o dia inteiro, nunca zero", () => {
 test("nao depende do fuso do aparelho", () => {
   // o calculo usa so o timestamp; mesmo instante, mesma resposta em qualquer pais
   const t = Date.UTC(2026, 0, 1, 15, 30);
-  assert.equal(msUntilBrasiliaMidnight(t), 8 * H + 30 * M);
+  assert.equal(msUntilBrasiliaMidnight(t), 11 * H + 30 * M);
 });
 
 test("formato curto", () => {
