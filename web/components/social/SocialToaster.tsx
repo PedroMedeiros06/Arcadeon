@@ -47,7 +47,7 @@ export function SocialToaster() {
     <div
       role="status"
       aria-live="polite"
-      className={`fixed left-4 right-4 z-50 flex flex-col gap-3 rounded-2xl border-2 border-[var(--border)] bg-[var(--card)] p-4 shadow-xl shadow-black/10 animate-[scaleIn_0.15s_ease-out] motion-reduce:animate-none sm:right-auto sm:w-96 ${
+      className={`fixed left-4 right-4 z-50 flex flex-col gap-3 rounded-2xl border-2 border-[var(--border)] bg-[var(--card)] p-4 shadow-xl shadow-black/10 animate-[scaleIn_0.15s_ease-out] motion-reduce:animate-none sm:right-auto sm:w-96 lg:left-auto lg:right-6 ${
         inGame ? "bottom-4" : "bottom-[calc(5rem+env(safe-area-inset-bottom))] lg:bottom-6"
       }`}
     >
