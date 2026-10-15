@@ -844,7 +844,7 @@ body {
 
 /* ---------- Esqueleto de carregamento ---------- */
 .skeleton {
-  background: linear-gradient(90deg, var(--card) 0%, var(--bg) 50%, var(--card) 100%);
+  background: linear-gradient(90deg, var(--border) 0%, var(--bg) 50%, var(--border) 100%);
   background-size: 200% 100%;
   animation: skeletonShimmer 1.4s ease-in-out infinite;
 }

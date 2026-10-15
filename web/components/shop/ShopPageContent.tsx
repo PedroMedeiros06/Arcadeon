@@ -140,7 +140,22 @@ export function ShopPageContent() {
       <section className="flex flex-col gap-4">
         <h2 className="font-display text-xl font-extrabold tracking-tight text-[var(--fg)]">Avatares</h2>
         {loading ? (
-          <p className="py-10 text-center text-sm text-[var(--fg-muted)]">Carregando...</p>
+          <div
+            className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5"
+            aria-busy="true"
+            aria-label="Carregando avatares"
+          >
+            {Array.from({ length: 10 }, (_, i) => (
+              <div
+                key={i}
+                className="flex flex-col items-center gap-2 rounded-2xl border-2 border-[var(--border)] bg-[var(--card)] p-4"
+              >
+                <span className="skeleton h-16 w-16 rounded-full" />
+                <span className="skeleton h-4 w-20 rounded-md" />
+                <span className="skeleton mt-2 h-8 w-24 rounded-xl" />
+              </div>
+            ))}
+          </div>
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">
             {forSale.map((a, i) => {
@@ -166,7 +181,10 @@ export function ShopPageContent() {
                       onClick={() => setLoginOpen(true)}
                       className="mt-auto flex items-center gap-1 rounded-xl border-2 border-[var(--border)] px-3 py-1.5 text-sm font-bold text-[var(--fg-muted)] transition hover:bg-[var(--bg)]"
                     >
-                      <PriceTag value={price} />
+                      <span className="flex flex-col items-center leading-tight">
+                        <span className="text-[var(--fg)]">Entre para comprar</span>
+                        <PriceTag value={price} />
+                      </span>
                     </button>
                   ) : isOwned ? (
                     <span className="mt-auto flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold text-[var(--fg-muted)]">
