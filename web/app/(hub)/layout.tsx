@@ -1,6 +1,7 @@
 import { Header } from "@/components/Header";
 import { Sidebar } from "@/components/Sidebar";
 import { MobileNav } from "@/components/MobileNav";
+import { ActivityPing } from "@/components/ActivityPing";
 
 export default function HubLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -13,6 +14,7 @@ export default function HubLayout({ children }: { children: React.ReactNode }) {
       </div>
 
       <MobileNav />
+      <ActivityPing />
     </div>
   );
 }
