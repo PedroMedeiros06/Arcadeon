@@ -49,11 +49,13 @@ export interface BoardFit {
 
 /**
  * Maior celula quadrada que faz os tabuleiros caberem em width x height. Quádruplo testa 4 lado a
- * lado e 2x2; Duplo testa lado a lado e empilhado. Vence o que deixa a letra maior; em tela em pe,
+ * lado e 2x2; Duplo e sempre lado a lado. Vence o que deixa a letra maior; em tela em pe,
  * empate (ate 1px) fica com 2x2, como no term.ooo.
  */
 export function fitCells(boardCount: BoardCount, rows: number, width: number, height: number): BoardFit {
-  const options = boardCount === 4 ? [4, 2] : boardCount === 2 ? [2, 1] : [1];
+  // Duplo sempre lado a lado, como o Dueto do term.ooo (empilhado deixava a letra maior em tela alta,
+  // mas o jogador perde a comparacao das duas palavras na mesma linha)
+  const options = boardCount === 4 ? [4, 2] : boardCount === 2 ? [2] : [1];
   const gap = gapFor(boardCount);
   const boardGap = boardGapFor(boardCount);
   const portrait = height > width;
