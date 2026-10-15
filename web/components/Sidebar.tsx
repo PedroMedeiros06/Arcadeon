@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Joystick } from "lucide-react";
+import { SidebarDaily } from "./SidebarDaily";
 import { NAV_ITEMS, isNavActive } from "./navItems";
 
 export function Sidebar() {
@@ -40,10 +40,7 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="rounded-2xl border-2 border-[var(--border)] bg-[var(--bg)] p-4 text-center">
-        <Joystick className="animate-float-slow mx-auto mb-2 h-7 w-7 text-[var(--primary)]" />
-        <p className="text-xs font-bold text-[var(--fg-muted)]">Jogue, evolua, descubra novos mundos.</p>
-      </div>
+      <SidebarDaily />
     </aside>
   );
 }
