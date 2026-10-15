@@ -40,6 +40,7 @@ import {
 } from "@/lib/termo/daily";
 import { useWordInput } from "@/lib/termo/useWordInput";
 import { useFitBoards } from "@/lib/termo/useFitBoards";
+import { logActivity } from "@/lib/activity";
 import { Boards } from "./Board";
 import { Keyboard, KEY_ROWS, keyHeightClass } from "./Keyboard";
 import { ModeMenu, type ExtraMode } from "./ModeMenu";
@@ -254,10 +255,12 @@ export function TermoGame() {
       if (request !== requestRef.current) return;
       setGame(next);
       setStatus("playing");
+      void logActivity("termo");
     },
     [hardPref, resetInput, refreshDailyStatus],
   );
 
+  const initialSearchRef = useRef<string | null>(null);
   useEffect(() => {
     clearLegacyProgress();
     Promise.all([
@@ -273,19 +276,31 @@ export function TermoGame() {
         setAcceptedWords(new Set(parseWordList(acceptedText)));
         setAccents(accentMap);
 
-        // link de desafio: ?desafio=<codigo> abre o Infinito com as palavras do amigo
-        const params = new URLSearchParams(window.location.search);
+        // link de desafio: ?desafio=<codigo> abre o Infinito com as palavras do amigo.
+        // Links da home: ?modo=tempo|vilao|infinito e ?tabuleiros=2|4; valor desconhecido abre normal
+        // a URL e limpa logo abaixo; guarda a original pro efeito rodar duas vezes (StrictMode) igual
+        initialSearchRef.current ??= window.location.search;
+        const params = new URLSearchParams(initialSearchRef.current);
         const code = params.get("desafio");
         const challenge = code ? decodeChallenge(code, new Set(targets)) : null;
-        if (code) {
+        const modeParam = params.get("modo");
+        const boardsParam = params.get("tabuleiros");
+        const count: BoardCount = boardsParam === "2" ? 2 : boardsParam === "4" ? 4 : 1;
+        if (code || modeParam || boardsParam) {
           params.delete("desafio");
+          params.delete("modo");
+          params.delete("tabuleiros");
           const qs = params.toString();
           window.history.replaceState(null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
         }
         if (challenge) {
           startGame(targets, challenge.words.length as BoardCount, "infinite", challenge);
+        } else if (!code && modeParam === "tempo") {
+          doOpenExtra("speed");
+        } else if (!code && modeParam === "vilao") {
+          doOpenExtra("villain");
         } else {
-          startGame(targets, 1, "daily");
+          startGame(targets, code ? 1 : count, !code && modeParam === "infinito" ? "infinite" : "daily");
           if (code) setMessage("Link de desafio inválido.");
         }
       })
@@ -325,6 +340,7 @@ export function TermoGame() {
     setExtraActive(false);
     setMessage(null);
     setStatus("playing");
+    void logActivity("termo");
   }
 
   // O que se perde ao sair:
