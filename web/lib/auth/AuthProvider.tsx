@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import type { Avatar } from "@/lib/types";
@@ -64,18 +64,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
   }
 
-  async function refreshProfile() {
-    if (!session?.user) return;
+  const userId = session?.user?.id ?? null;
+  // estavel entre renders: componentes chamam dentro de efeitos sem entrar em laco
+  const refreshProfile = useCallback(async () => {
+    if (!userId) return;
     const supabase = createClient();
     const { data } = await supabase
       .from("profiles")
       .select("username, coins, equipped_avatar_id, avatars:equipped_avatar_id(*)")
-      .eq("id", session.user.id)
+      .eq("id", userId)
       .single();
     setUsername(data?.username ?? null);
     setCoins(data?.coins ?? 0);
     setEquippedAvatar((data?.avatars as unknown as Avatar) ?? null);
-  }
+  }, [userId]);
 
   return (
     <AuthContext.Provider
