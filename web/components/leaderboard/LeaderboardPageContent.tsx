@@ -217,7 +217,7 @@ function ChipRow<K extends string | number>({
       ? "border-[var(--border)] bg-[var(--card)] text-[var(--fg-muted)] hover:-translate-y-0.5 hover:bg-[var(--bg)]"
       : "border-transparent text-[var(--fg-muted)] hover:text-[var(--fg)]";
   const baseClass =
-    variant === "mode" ? "rounded-2xl border-2 px-4 py-2 text-sm" : "border-b-2 px-1 py-1.5 text-sm";
+    variant === "mode" ? "rounded-2xl border-2 px-4 py-2 text-sm" : "focus-inset border-b-2 px-2 py-1.5 text-sm";
   return (
     <div
       className={
@@ -257,7 +257,11 @@ function EmptyCta({ label, href }: { label: string; href: string }) {
 
 function TermoLeaderboard() {
   const [boardCount, setBoardCount] = useState(1);
-  const [category, setCategory] = useState<TermoCategory>("today");
+  // ?cat= abre direto num criterio (a coluna da home linka pro "Menos tentativas")
+  const initialCategory = useSearchParams().get("cat");
+  const [category, setCategory] = useState<TermoCategory>(
+    TERMO_CATEGORIES.find((c) => c.key === initialCategory)?.key ?? "today",
+  );
   const [scores, setScores] = useState<TermoRow[] | null>(null);
   const useMock = useSearchParams().get("mock") === "1";
 

@@ -75,10 +75,11 @@ export function HomeAside() {
         </span>
       </Link>
       <Link
-        href="/leaderboard"
+        // mesmo criterio da posicao abaixo, pra pagina mostrar o mesmo numero
+        href="/leaderboard?game=termo&cat=attempts"
         className={`${CARD} transition hover:border-[var(--border-hover)] active:scale-[0.98]`}
       >
-        <span className="text-xs font-medium text-[var(--fg-muted)]">Letrado</span>
+        <span className="text-xs font-medium text-[var(--fg-muted)]">Letrado, menos tentativas</span>
         <span className="flex flex-wrap items-center gap-x-3 gap-y-1 font-display text-lg font-extrabold text-[var(--fg)]">
           {streak ? (
             <span className="inline-flex items-center gap-1">

@@ -727,6 +727,11 @@ body {
   outline: 3px solid var(--primary);
   outline-offset: 2px;
 }
+/* abas dentro de trilho com rolagem: o anel vai pra dentro, senao o overflow corta */
+.focus-inset:focus-visible {
+  outline-offset: -3px;
+  border-radius: 0.5rem;
+}
 
 /* quem pede menos movimento: animacoes e transicoes viram instantaneas no site todo */
 @media (prefers-reduced-motion: reduce) {
