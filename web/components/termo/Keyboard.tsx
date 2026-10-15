@@ -24,11 +24,14 @@ const keyClasses: Record<LetterState, string> = {
 };
 
 /**
- * Altura das teclas. No Quádruplo segue a altura da tela (como o term.ooo): celular em pe ou
- * deitado ganha espaco pros 36 quadradinhos, desktop fica em 44px.
+ * Altura das teclas. No Duplo e no Quádruplo segue a altura da tela (como o term.ooo): celular em
+ * pe ou deitado ganha espaco pros tabuleiros, desktop fica fixo.
  */
 export function keyHeightClass(boardCount: BoardCount) {
-  return boardCount === 4 ? "h-[clamp(30px,5.5dvh,44px)]" : "h-12 sm:h-14 lg:h-12";
+  if (boardCount === 4) return "h-[clamp(30px,5.5dvh,44px)]";
+  // Duplo: ~1/4 da tela pro teclado, como o Dueto (51px num celular de 664px)
+  if (boardCount === 2) return "h-[clamp(36px,7.7dvh,52px)] lg:h-12";
+  return "h-12 sm:h-14 lg:h-12";
 }
 
 interface KeyboardProps {

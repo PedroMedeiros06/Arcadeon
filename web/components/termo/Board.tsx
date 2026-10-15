@@ -33,10 +33,10 @@ export function cellStyle(boardCount: BoardCount) {
   return { "--cell": `clamp(2.25rem, min(${cellVw}vw, ${cellVh}vh), 4rem)` } as React.CSSProperties;
 }
 
-// proporcoes em relacao a celula: espaco entre letras e entre tabuleiros. No Quádruplo fica
+// proporcoes em relacao a celula: espaco entre letras e entre tabuleiros. No Duplo e no Quádruplo fica
 // apertado como no term.ooo (cada pixel vira letra maior no celular)
-const gapFor = (boardCount: BoardCount) => (boardCount === 4 ? 0.07 : 0.12);
-const boardGapFor = (boardCount: BoardCount) => (boardCount === 4 ? 0.4 : 0.6);
+const gapFor = (boardCount: BoardCount) => (boardCount === 4 ? 0.07 : boardCount === 2 ? 0.06 : 0.12);
+const boardGapFor = (boardCount: BoardCount) => (boardCount === 4 ? 0.4 : boardCount === 2 ? 0.5 : 0.6);
 const MAX_CELL = 62;
 
 export interface BoardFit {
