@@ -15,6 +15,11 @@ test("le o formato do servidor", () => {
   });
 });
 
+test("retorno em lista (returns table) usa a primeira linha", () => {
+  assert.equal(parseStreak([base])?.cycleDay, 4);
+  assert.equal(parseStreak([]), null);
+});
+
 test("formato inesperado vira null", () => {
   assert.equal(parseStreak(null), null);
   assert.equal(parseStreak("x"), null);

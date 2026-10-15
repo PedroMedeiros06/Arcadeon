@@ -25,7 +25,9 @@ function count(v: unknown): number | null {
 }
 
 /** Retorno de `get_arcadeon_streak()`. null quando nao da pra confiar no formato. */
-export function parseStreak(raw: unknown): ArcadeonStreak | null {
+export function parseStreak(input: unknown): ArcadeonStreak | null {
+  // RPC escrita como `returns table` chega como lista de uma linha
+  const raw = Array.isArray(input) ? input[0] : input;
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
   const streak = count(r.streak);

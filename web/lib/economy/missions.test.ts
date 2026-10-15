@@ -24,6 +24,11 @@ test("le o formato do servidor", () => {
   });
 });
 
+test("retorno em lista (returns table) usa a primeira linha", () => {
+  assert.equal(parseMissions([raw])?.missions.length, 1);
+  assert.equal(parseMissions([]), null);
+});
+
 test("sem lista ou sem missao valida vira null", () => {
   assert.equal(parseMissions(null), null);
   assert.equal(parseMissions({ day: "2026-10-14" }), null);

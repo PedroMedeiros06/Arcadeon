@@ -7,15 +7,19 @@ import { matchCoinsLabel } from "@/lib/economy/matchCoins";
 
 /**
  * Selo ao lado do proprio nome na tela de resultado, com o retorno do evento `coins-awarded`.
- * Atualiza o saldo do header ao aparecer.
+ * Atualiza o saldo do header ao aparecer, mesmo quando nao mostra nada.
  */
 export function MatchCoins({ awarded, capped }: { awarded: number; capped: boolean }) {
   const { refreshProfile } = useAuth();
   const label = matchCoinsLabel(awarded, capped);
 
   useEffect(() => {
-    if (awarded > 0) refreshProfile();
-  }, [awarded, refreshProfile]);
+    // mesmo sem moedas da partida (limite ou poucos logados), a partida pode ter pago missao;
+    // a segunda busca pega o pagamento da missao, que o servidor grava depois
+    refreshProfile();
+    const t = setTimeout(refreshProfile, 2500);
+    return () => clearTimeout(t);
+  }, [awarded, capped, refreshProfile]);
 
   if (!label) return null;
   return (

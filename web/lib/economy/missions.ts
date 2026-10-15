@@ -39,7 +39,9 @@ function parseMission(raw: unknown): Mission | null {
 }
 
 /** Retorno de `get_daily_missions()`. null quando nao sobra nenhuma missao valida. */
-export function parseMissions(raw: unknown): DailyMissions | null {
+export function parseMissions(input: unknown): DailyMissions | null {
+  // RPC escrita como `returns table` chega como lista de uma linha
+  const raw = Array.isArray(input) ? input[0] : input;
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
   if (!Array.isArray(r.missions)) return null;

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/client";
 import { createOnce } from "@/lib/home/dailyCache";
+import { rpcErrorMessage } from "./errors";
 import { parseStreak, type ArcadeonStreak } from "./streak";
 import { parseMissions, type DailyMissions } from "./missions";
 
@@ -26,8 +27,7 @@ export async function fetchDailyMissions(): Promise<DailyMissions | null> {
 
 export async function claimStreakReward(): Promise<{ coinsAwarded: number; coins: number }> {
   const { data, error } = await createClient().rpc("claim_streak_reward");
-  // o servidor manda as mensagens em portugues, prontas pra mostrar
-  if (error) throw new Error(error.message || "Não deu pra resgatar agora. Tente de novo.");
+  if (error) throw new Error(rpcErrorMessage(error, "Não deu pra resgatar agora. Tente de novo."));
   const d = (data ?? {}) as { coins_awarded?: unknown; coins?: unknown };
   return { coinsAwarded: Number(d.coins_awarded) || 0, coins: Number(d.coins) || 0 };
 }
