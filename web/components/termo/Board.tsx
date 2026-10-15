@@ -33,13 +33,11 @@ export function cellStyle(boardCount: BoardCount) {
   return { "--cell": `clamp(2.25rem, min(${cellVw}vw, ${cellVh}vh), 4rem)` } as React.CSSProperties;
 }
 
-// proporcoes em relacao a celula: espaco entre letras e entre tabuleiros
-const GAP = 0.12;
-const BOARD_GAP = 0.6;
+// proporcoes em relacao a celula: espaco entre letras e entre tabuleiros. No Quádruplo fica
+// apertado como no term.ooo (cada pixel vira letra maior no celular)
+const gapFor = (boardCount: BoardCount) => (boardCount === 4 ? 0.07 : 0.12);
+const boardGapFor = (boardCount: BoardCount) => (boardCount === 4 ? 0.4 : 0.6);
 const MAX_CELL = 62;
-// no Quádruplo a celula pode ficar mais larga que alta (ate ~2:1) quando falta altura, como no
-// celular em pe; nos outros modos fica quase quadrada
-const minHeightRatio = (boardCount: BoardCount) => (boardCount === 4 ? 0.5 : 0.9);
 
 export interface BoardFit {
   /** largura e altura da celula em px */
@@ -50,22 +48,26 @@ export interface BoardFit {
 }
 
 /**
- * Maior celula que faz os tabuleiros caberem em width x height. Quádruplo testa 4 lado a lado
- * e 2x2; Duplo testa lado a lado e empilhado. Vence o que deixa a letra maior.
+ * Maior celula quadrada que faz os tabuleiros caberem em width x height. Quádruplo testa 4 lado a
+ * lado e 2x2; Duplo testa lado a lado e empilhado. Vence o que deixa a letra maior; em tela em pe,
+ * empate (ate 1px) fica com 2x2, como no term.ooo.
  */
 export function fitCells(boardCount: BoardCount, rows: number, width: number, height: number): BoardFit {
   const options = boardCount === 4 ? [4, 2] : boardCount === 2 ? [2, 1] : [1];
-  let best: BoardFit = { w: 0, h: 0, columns: options[0] };
+  const gap = gapFor(boardCount);
+  const boardGap = boardGapFor(boardCount);
+  const portrait = height > width;
+  let best = { size: 0, score: -1, columns: options[0] };
   for (const columns of options) {
     const boardRows = boardCount / columns;
-    const wUnits = columns * (WORD_LENGTH + (WORD_LENGTH - 1) * GAP) + (columns - 1) * BOARD_GAP;
-    const hUnits = boardRows * (rows + (rows - 1) * GAP) + (boardRows - 1) * BOARD_GAP;
-    let w = Math.min(width / wUnits, MAX_CELL);
-    const h = Math.min(height / hUnits, w);
-    w = Math.min(w, h / minHeightRatio(boardCount));
-    if (h > best.h || (h === best.h && w > best.w)) best = { w, h, columns };
+    const wUnits = columns * (WORD_LENGTH + (WORD_LENGTH - 1) * gap) + (columns - 1) * boardGap;
+    const hUnits = boardRows * (rows + (rows - 1) * gap) + (boardRows - 1) * boardGap;
+    const size = Math.min(width / wUnits, height / hUnits, MAX_CELL);
+    const score = size + (portrait && boardCount === 4 && columns === 2 ? 1 : 0);
+    if (score > best.score) best = { size, score, columns };
   }
-  return { w: Math.floor(best.w), h: Math.floor(best.h), columns: best.columns };
+  const size = Math.floor(best.size);
+  return { w: size, h: size, columns: best.columns };
 }
 
 function cellLabel(cell: Cell) {
@@ -126,14 +128,19 @@ export function Boards({
         borderWidth: small < 28 ? 1.5 : undefined,
       }
     : undefined;
-  const rowGapCss: React.CSSProperties | undefined = fit ? { gap: Math.max(2, Math.round(fit.h * GAP)) } : undefined;
-  const cellGapCss: React.CSSProperties | undefined = fit ? { gap: Math.max(2, Math.round(fit.w * GAP)) } : undefined;
+  const gap = gapFor(boardCount);
+  // Quádruplo 2x2 (celular em pe): sobra largura, entao cada tabuleiro fica no centro da sua metade
+  const spread = !!fit && boardCount === 4 && fit.columns === 2;
+  const rowGapCss: React.CSSProperties | undefined = fit ? { gap: Math.max(2, Math.round(fit.h * gap)) } : undefined;
+  const cellGapCss: React.CSSProperties | undefined = fit ? { gap: Math.max(2, Math.round(fit.w * gap)) } : undefined;
 
   return (
     <div
       className={
         fit
-          ? "grid justify-center"
+          ? spread
+            ? "grid w-full max-w-md justify-items-center"
+            : "grid justify-center"
           : boardCount === 4
             ? "grid grid-cols-2 gap-x-2 gap-y-1 sm:flex sm:justify-center sm:gap-8 lg:gap-4"
             : "flex justify-center gap-4 sm:gap-8 lg:gap-4"
@@ -141,9 +148,9 @@ export function Boards({
       style={
         fit
           ? {
-              gridTemplateColumns: `repeat(${fit.columns}, auto)`,
-              columnGap: Math.round(fit.w * BOARD_GAP),
-              rowGap: Math.round(fit.h * BOARD_GAP),
+              gridTemplateColumns: spread ? `repeat(${fit.columns}, 1fr)` : `repeat(${fit.columns}, auto)`,
+              columnGap: Math.round(fit.w * boardGapFor(boardCount)),
+              rowGap: Math.round(fit.h * boardGapFor(boardCount)),
             }
           : undefined
       }

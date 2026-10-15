@@ -17,6 +17,7 @@ export function GameHeader({
   onHubClick,
   actions,
   shortTitle,
+  center,
 }: {
   slug: string;
   onLeaveRoom?: () => void;
@@ -26,6 +27,8 @@ export function GameHeader({
   actions?: React.ReactNode;
   /** titulo menor no celular, ex.: "Corrida" */
   shortTitle?: string;
+  /** substitui o titulo visivel (ex.: seletor de modo do Letrado); o nome do jogo fica so pro leitor de tela */
+  center?: React.ReactNode;
 }) {
   const game = getGame(slug);
   const Icon = GAME_ICONS[slug];
@@ -52,22 +55,29 @@ export function GameHeader({
           </Link>
         </div>
 
-        <h1 className="flex min-w-0 flex-1 items-center justify-center gap-2 font-display text-base font-extrabold tracking-tight text-[var(--fg)] sm:gap-2.5 sm:text-lg">
-          <span
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-white sm:h-9 sm:w-9"
-            style={{ backgroundColor: game.accent }}
-          >
-            {Icon && <Icon className="h-4 w-4 sm:h-5 sm:w-5" />}
-          </span>
-          {shortTitle ? (
-            <>
-              <span className="truncate sm:hidden">{shortTitle}</span>
-              <span className="hidden truncate sm:inline">{game.title}</span>
-            </>
-          ) : (
-            <span className="truncate">{game.title}</span>
-          )}
-        </h1>
+        {center ? (
+          <div className="flex min-w-0 flex-1 justify-center">
+            <h1 className="sr-only">{game.title}</h1>
+            {center}
+          </div>
+        ) : (
+          <h1 className="flex min-w-0 flex-1 items-center justify-center gap-2 font-display text-base font-extrabold tracking-tight text-[var(--fg)] sm:gap-2.5 sm:text-lg">
+            <span
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-white sm:h-9 sm:w-9"
+              style={{ backgroundColor: game.accent }}
+            >
+              {Icon && <Icon className="h-4 w-4 sm:h-5 sm:w-5" />}
+            </span>
+            {shortTitle ? (
+              <>
+                <span className="truncate sm:hidden">{shortTitle}</span>
+                <span className="hidden truncate sm:inline">{game.title}</span>
+              </>
+            ) : (
+              <span className="truncate">{game.title}</span>
+            )}
+          </h1>
+        )}
 
         <div className="flex shrink-0 items-center justify-end gap-1.5 sm:gap-2">
           {actions}

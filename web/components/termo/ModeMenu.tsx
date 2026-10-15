@@ -115,18 +115,23 @@ export function ModeMenu({ playMode, boardCount, extraMode, dailyStatus, onOpenC
         onClick={show}
         aria-haspopup="dialog"
         aria-expanded={open}
-        className="group flex h-10 items-center gap-2.5 rounded-2xl border-2 border-[var(--border)] bg-[var(--card)] py-1 pl-2.5 pr-2 shadow-[0_3px_0_var(--border)] transition hover:border-[var(--game-termo)] active:translate-y-0.5 active:shadow-none"
+        className="group flex h-10 min-w-0 items-center gap-2 rounded-2xl border-2 border-[var(--border)] bg-[var(--card)] py-1 pl-1.5 pr-1.5 shadow-[0_3px_0_var(--border)] transition hover:border-[var(--game-termo)] active:translate-y-0.5 active:shadow-none sm:gap-2.5 sm:pl-2.5 sm:pr-2"
       >
-        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--game-termo)] text-white">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--game-termo)] text-white">
           {extra ? <extra.Icon className="h-4 w-4" /> : <ModeGlyph count={boardCount} size={14} />}
         </span>
-        <span className="font-display text-sm font-extrabold text-[var(--fg)]">{extra ? extra.label : current.label}</span>
-        {!extra && (
-          <span className="rounded-md bg-[var(--bg)] px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-[var(--fg-muted)]">
-            {playMode === "daily" ? "Diário" : "Infinito"}
+        {/* celular: modo e Diario/Infinito empilhados pra caber no header */}
+        <span className="flex min-w-0 flex-col items-start sm:flex-row sm:items-center sm:gap-2.5">
+          <span className="max-w-full truncate font-display text-sm font-extrabold leading-tight text-[var(--fg)]">
+            {extra ? extra.label : current.label}
           </span>
-        )}
-        <ChevronDown className="h-4 w-4 text-[var(--fg-muted)] transition group-hover:text-[var(--fg)]" />
+          {!extra && (
+            <span className="text-[9px] font-extrabold uppercase leading-none tracking-wide text-[var(--fg-muted)] sm:rounded-md sm:bg-[var(--bg)] sm:px-1.5 sm:py-0.5 sm:text-[10px]">
+              {playMode === "daily" ? "Diário" : "Infinito"}
+            </span>
+          )}
+        </span>
+        <ChevronDown className="h-4 w-4 shrink-0 text-[var(--fg-muted)] transition group-hover:text-[var(--fg)]" />
       </button>
 
       {open && (

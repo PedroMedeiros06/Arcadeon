@@ -41,7 +41,7 @@ import {
 import { useWordInput } from "@/lib/termo/useWordInput";
 import { useFitBoards } from "@/lib/termo/useFitBoards";
 import { Boards } from "./Board";
-import { Keyboard, KEY_ROWS } from "./Keyboard";
+import { Keyboard, KEY_ROWS, keyHeightClass } from "./Keyboard";
 import { ModeMenu, type ExtraMode } from "./ModeMenu";
 import { NextActions, WinModal, type WinAction } from "./WinModal";
 import { TermoTutorial } from "./TermoTutorial";
@@ -517,18 +517,48 @@ export function TermoGame() {
     if (result === "failed") setMessage("Não deu para compartilhar.");
   }
 
+  const modeMenu = (
+    <ModeMenu
+      playMode={playMode}
+      boardCount={boardCount}
+      extraMode={extraMode}
+      dailyStatus={dailyStatus}
+      onOpenChange={handleMenuOpenChange}
+      onPick={pickMode}
+      onPickExtra={openExtra}
+    />
+  );
+
+  // dica no header no celular e em tela baixa (celular deitado); no desktop fica na linha de cima
+  // do tabuleiro
+  const canHint = !extraMode && status === "playing" && !!game && !game.alreadyPlayed && nextHintTarget(game) !== null;
+  const hintButton = (className: string, compact: boolean) => (
+    <button
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={handleHint}
+      disabled={hintBusy || (!!user && coins < HINT_PRICE)}
+      aria-label={`Dica, ${HINT_PRICE} moedas`}
+      title={user ? `Revela uma letra por ${HINT_PRICE} moedas` : "Entre na sua conta para usar dicas"}
+      className={`${className} disabled:cursor-not-allowed disabled:opacity-50`}
+    >
+      <Lightbulb className="h-4 w-4 text-[var(--termo-present)]" /> {compact ? <span className="text-xs">{HINT_PRICE}</span> : `Dica · ${HINT_PRICE}`}
+    </button>
+  );
+
   const header = (
     <GameHeader
       slug="termo"
+      center={modeMenu}
       onHubClick={leaveActive ? () => requestLeave("hub") : undefined}
       actions={
         <>
+          {canHint && hintButton(`${headerButtonClass} sm:hidden [@media(max-height:500px)]:flex`, true)}
           <button
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => setTutorialOpen(true)}
             aria-label="Como jogar"
             title="Como jogar"
-            className={headerButtonClass}
+            className={`${headerButtonClass} max-sm:hidden`}
           >
             <CircleHelp className="h-4 w-4" /> <span className="hidden lg:inline">Como jogar</span>
           </button>
@@ -556,6 +586,16 @@ export function TermoGame() {
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setSettingsOpen(false)} />
                 <div className="absolute right-0 top-11 z-50 flex w-64 flex-col gap-1 rounded-2xl border-2 border-[var(--border)] bg-[var(--card)] p-2 shadow-xl animate-[scaleIn_0.15s_ease-out]">
+                  {/* no celular o botao "Como jogar" sai do header pra caber o seletor de modo */}
+                  <button
+                    onClick={() => {
+                      setSettingsOpen(false);
+                      setTutorialOpen(true);
+                    }}
+                    className="flex items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-extrabold text-[var(--fg)] transition hover:bg-[var(--bg)] sm:hidden"
+                  >
+                    <CircleHelp className="h-4 w-4 text-[var(--fg-muted)]" /> Como jogar
+                  </button>
                   {[
                     {
                       label: "Modo difícil",
@@ -622,32 +662,13 @@ export function TermoGame() {
     </>
   );
 
-  const modeMenu = (
-    <ModeMenu
-      playMode={playMode}
-      boardCount={boardCount}
-      extraMode={extraMode}
-      dailyStatus={dailyStatus}
-      onOpenChange={handleMenuOpenChange}
-      onPick={pickMode}
-      onPickExtra={openExtra}
-    />
-  );
-
   /**
-   * Linha do topo: menu de modos no centro. Extras da partida (dica, selos) ficam a direita;
-   * no celular, sem espaco pra centralizar com eles, o menu encosta a esquerda.
+   * Linha de extras da partida (dica, selos), alinhada a direita acima dos tabuleiros. O seletor de
+   * modo fica no header, como o nome do modo no term.ooo, pra sobrar altura pros tabuleiros.
    */
-  const toolbar = (right?: React.ReactNode) =>
-    right ? (
-      <div className="flex w-full max-w-xl shrink-0 items-center justify-between gap-2 sm:grid sm:grid-cols-[1fr_auto_1fr]">
-        <span aria-hidden className="hidden sm:block" />
-        {modeMenu}
-        <div className="flex min-w-0 items-center justify-end gap-1.5">{right}</div>
-      </div>
-    ) : (
-      <div className="flex w-full max-w-xl shrink-0 justify-center">{modeMenu}</div>
-    );
+  const toolbar = (right: React.ReactNode, className = "") => (
+    <div className={`w-full max-w-xl shrink-0 items-center justify-end gap-1.5 ${className || "flex"}`}>{right}</div>
+  );
 
   /** Botoes do fim do Diario: os outros diarios que faltam hoje e o Infinito. */
   function nextActions(current: BoardCount): WinAction[] {
@@ -694,7 +715,6 @@ export function TermoGame() {
   if (extraMode) {
     return root(
       <div className="relative mx-auto flex w-full max-w-6xl flex-1 flex-col items-center gap-4 px-3 pb-6 pt-3 sm:px-4">
-        {toolbar()}
         {extraMode === "speed" ? (
           <SpeedGame
             acceptedWords={acceptedWords}
@@ -722,7 +742,6 @@ export function TermoGame() {
   if (status === "loading" || status === "error" || !game) {
     return root(
       <div className="relative mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col items-center gap-3 px-3 pb-3 pt-3 sm:px-4 sm:pb-6">
-        {toolbar()}
 
         {status === "error" ? (
           <div className="mt-6 flex max-w-sm flex-col items-center gap-4 rounded-3xl border-2 border-[var(--border)] bg-[var(--card)] p-8 text-center">
@@ -743,13 +762,13 @@ export function TermoGame() {
             <div className="flex min-h-0 w-full flex-1 items-center justify-center">
               <div className="h-40 w-40 animate-pulse rounded-3xl bg-[var(--border)]/40" />
             </div>
-            <div className="flex w-full max-w-xl flex-col gap-1.5">
+            <div className={`flex w-full max-w-xl flex-col ${boardCount === 4 ? "gap-1" : "gap-1.5 sm:gap-2 lg:gap-1.5"}`}>
               {KEY_ROWS.map((row, i) => (
                 <div key={i} className={`flex gap-1 ${i === 1 ? "px-[4.5%]" : ""}`}>
                   {row.map((key) => (
                     <div
                       key={key}
-                      className={`h-12 animate-pulse rounded-lg bg-[var(--border)]/40 sm:h-14 lg:h-12 ${
+                      className={`animate-pulse rounded-lg bg-[var(--border)]/40 ${keyHeightClass(boardCount)} ${
                         key === "Enter" || key === "Back" ? "flex-[1.6]" : "flex-1"
                       }`}
                     />
@@ -767,7 +786,6 @@ export function TermoGame() {
   if (game.alreadyPlayed) {
     return root(
       <div className="flex flex-1 flex-col items-center gap-6 px-4 pb-8 pt-3">
-        {toolbar()}
         <div className="flex w-full max-w-sm flex-col items-center gap-4 rounded-3xl border-2 border-[var(--border)] bg-[var(--card)] p-8 text-center">
           <div className="text-5xl">{game.won ? "🎉" : "😔"}</div>
           <h2 className="text-xl font-extrabold text-[var(--fg)]">Você já jogou o diário de hoje!</h2>
@@ -817,14 +835,14 @@ export function TermoGame() {
     );
   }
 
-  const canHint = status === "playing" && nextHintTarget(game) !== null;
   const lastRow = game.guesses.length - 1;
-  const hasToolbarExtras = game.hard || !!game.challenge || canHint;
+  // no celular a dica mora no header; a linha so aparece se tiver selo
+  const hasBadges = game.hard || !!game.challenge;
 
   return root(
     <div className="relative mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col items-center gap-2 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 sm:gap-3 sm:px-4 sm:pb-4 sm:pt-3">
-      {toolbar(
-        hasToolbarExtras && (
+      {(hasBadges || canHint) &&
+        toolbar(
           <>
             {game.hard && (
               <span
@@ -839,20 +857,14 @@ export function TermoGame() {
                 Desafio de {game.challenge.name ?? "um amigo"}
               </span>
             )}
-            {canHint && (
-              <button
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={handleHint}
-                disabled={hintBusy || (!!user && coins < HINT_PRICE)}
-                title={user ? `Revela uma letra por ${HINT_PRICE} moedas` : "Entre na sua conta para usar dicas"}
-                className="flex h-9 shrink-0 items-center gap-1.5 rounded-xl border-2 border-[var(--border)] bg-[var(--card)] px-2.5 text-xs font-extrabold text-[var(--fg-muted)] transition hover:bg-[var(--bg)] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Lightbulb className="h-4 w-4 text-[var(--termo-present)]" /> Dica · {HINT_PRICE}
-              </button>
-            )}
-          </>
-        ),
-      )}
+            {canHint &&
+              hintButton(
+                "hidden h-9 shrink-0 items-center gap-1.5 rounded-xl border-2 border-[var(--border)] bg-[var(--card)] px-2.5 text-xs font-extrabold text-[var(--fg-muted)] transition hover:bg-[var(--bg)] sm:flex [@media(max-height:500px)]:hidden",
+                false,
+              )}
+          </>,
+          hasBadges ? "flex" : "hidden sm:flex [@media(max-height:500px)]:hidden",
+        )}
 
       {/* area medida: os tabuleiros ocupam o que sobra entre o topo e o teclado */}
       <div ref={boardsAreaRef} className="relative flex min-h-0 w-full flex-1 items-center justify-center">
