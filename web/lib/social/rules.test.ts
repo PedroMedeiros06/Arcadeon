@@ -1,6 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  applyStatusRow,
+  friendshipEventRelevant,
+  inviteNavigation,
+  liveInvites,
   inviteHref,
   inviteText,
   isOnline,
@@ -76,9 +80,76 @@ test("online so com batida recente e data valida", () => {
   assert.equal(isOnline(null, NOW), false);
 });
 
-test("relogio do amigo adiantado conta como agora", () => {
+test("relogio um pouco atrasado conta como agora", () => {
   assert.equal(isOnline(presence({ updatedAt: ago(-30_000) }), NOW), true);
   assert.equal(timeAgo(-30_000), "agora");
+});
+
+test("batida muito no futuro (relogio de quem ve atrasado) nao vira online pra sempre", () => {
+  assert.equal(isOnline(presence({ updatedAt: ago(-5 * 60_000) }), NOW), false);
+  assert.equal(presenceText(presence({ updatedAt: ago(-5 * 60_000) }), NOW).label, "Offline");
+});
+
+test("convites vencem enquanto a lista esta aberta", () => {
+  const list = parseInvites([invite(), invite({ id: "i2", expires_at: new Date(NOW + 60_000).toISOString() })], NOW)!;
+  assert.deepEqual(liveInvites(list, NOW + 120_000).map((i) => i.id), ["i1"]);
+  assert.deepEqual(liveInvites(list, NOW + 400_000), []);
+});
+
+test("link colado com rastreio, ancora, pontuacao ou @ com espaco", () => {
+  assert.equal(normalizeUsername("https://arcadeon.com.br/amigo/raposa?utm_source=whatsapp"), "raposa");
+  assert.equal(normalizeUsername("arcadeon.com.br/amigo/raposa#x"), "raposa");
+  assert.equal(normalizeUsername("arcadeon.com.br/amigo/raposa."), "raposa");
+  assert.equal(normalizeUsername("@ raposa"), "raposa");
+  assert.equal(normalizeUsername("raposa,"), "raposa");
+});
+
+test("aceitar convite do jogo em que a pessoa ja esta recarrega a pagina", () => {
+  assert.equal(inviteNavigation("/games/corrida", "/games/corrida?join=AB2CD"), "reload");
+  assert.equal(inviteNavigation("/games/corrida/sala", "/games/corrida?join=AB2CD"), "reload");
+  assert.equal(inviteNavigation("/", "/games/corrida?join=AB2CD"), "push");
+  assert.equal(inviteNavigation("/games/drawit", "/games/corrida?join=AB2CD"), "push");
+});
+
+const statusRow = (over: Record<string, unknown> = {}) => ({
+  user_id: "u1",
+  state: "online",
+  place: "shop",
+  game: null,
+  room_code: null,
+  players: null,
+  max_players: null,
+  appear_offline: false,
+  updated_at: ago(0),
+  ...over,
+});
+
+test("batida de amigo atualiza so a linha dele, sem buscar a lista de novo", () => {
+  const list = parseFriends([row(), row({ friendship_id: "f2", user_id: "u2", username: "bia" })])!;
+  const next = applyStatusRow(list, statusRow())!;
+  assert.equal(next[0].presence?.place, "shop");
+  assert.equal(next[1], list[1]);
+});
+
+test("batida de quem nao e amigo aceito e ignorada", () => {
+  const list = parseFriends([row(), row({ friendship_id: "f2", user_id: "u2", status: "pending", direction: "outgoing" })])!;
+  assert.equal(applyStatusRow(list, statusRow({ user_id: "u9" })), null);
+  assert.equal(applyStatusRow(list, statusRow({ user_id: "u2" })), null);
+  assert.equal(applyStatusRow(list, null), null);
+});
+
+test("amigo que passou a aparecer offline perde o status", () => {
+  const list = parseFriends([row({ presence: { state: "online", place: "hub", updated_at: ago(0) } })])!;
+  assert.equal(applyStatusRow(list, statusRow({ appear_offline: true }))![0].presence, null);
+});
+
+test("evento de amizade so recarrega quando envolve a pessoa", () => {
+  const list = parseFriends([row()])!;
+  assert.equal(friendshipEventRelevant({ new: { requester_id: "me", addressee_id: "x" }, old: {} }, "me", list), true);
+  assert.equal(friendshipEventRelevant({ new: { requester_id: "x", addressee_id: "me" }, old: {} }, "me", list), true);
+  assert.equal(friendshipEventRelevant({ new: {}, old: { id: "f1" } }, "me", list), true);
+  assert.equal(friendshipEventRelevant({ new: {}, old: { id: "zz" } }, "me", list), false);
+  assert.equal(friendshipEventRelevant({ new: { requester_id: "a", addressee_id: "b" }, old: {} }, "me", list), false);
 });
 
 test("tempo desde a ultima batida", () => {

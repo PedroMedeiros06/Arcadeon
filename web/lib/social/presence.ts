@@ -1,10 +1,11 @@
 import { pushStatus } from "./api";
 import type { StatusInput } from "./rules";
+import { createStatusStore } from "./statusStore";
 
 export type { StatusInput };
 
 const HEARTBEAT_MS = 30_000;
-let current: StatusInput | null = null;
+const store = createStatusStore();
 let enabled = false;
 
 function visible(): boolean {
@@ -16,18 +17,23 @@ function visible(): boolean {
  * Nunca lanca, nao precisa de await e nao faz nada sem login.
  */
 export function setStatus(s: Pick<StatusInput, "state" | "place"> & Partial<StatusInput>): void {
-  current = { game: null, roomCode: null, players: null, maxPlayers: null, ...s };
-  if (enabled && visible()) void pushStatus(current);
+  const next = { game: null, roomCode: null, players: null, maxPlayers: null, ...s };
+  store.set(next);
+  if (enabled && visible()) void pushStatus(next);
 }
 
 export function getStatus(): StatusInput | null {
-  return current;
+  return store.get();
 }
+
+/** Pra `useSyncExternalStore`: quem precisa reagir quando o status muda (ex.: comecou a partida). */
+export const subscribeStatus = store.subscribe;
 
 /** Liga o envio do status pro usuario logado: agora, a cada 30 s com a aba visivel e ao voltar pra aba. */
 export function startPresence(): () => void {
   enabled = true;
   const beat = () => {
+    const current = store.get();
     if (current && visible()) void pushStatus(current);
   };
   beat();
@@ -40,5 +46,7 @@ export function startPresence(): () => void {
     enabled = false;
     clearInterval(timer);
     document.removeEventListener("visibilitychange", onVisibility);
+    // saiu da conta: a proxima conta nesta aba nao pode publicar a sala da anterior
+    store.clear();
   };
 }

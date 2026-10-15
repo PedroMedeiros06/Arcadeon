@@ -1,21 +1,30 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { useFriends } from "@/lib/social/FriendsProvider";
 import { respondGameInvite } from "@/lib/social/api";
-import { getStatus } from "@/lib/social/presence";
-import { inviteHref, inviteText } from "@/lib/social/rules";
+import { getStatus, subscribeStatus } from "@/lib/social/presence";
+import { inviteHref, inviteNavigation, inviteText, type GameInvite } from "@/lib/social/rules";
+
+const getPlace = () => getStatus()?.place ?? null;
+
+/** Abre a sala do convite; ja estando no mesmo jogo, recarrega (o jogo le o codigo so ao montar). */
+export function goToInvite(invite: GameInvite, pathname: string, push: (href: string) => void) {
+  const href = inviteHref(invite);
+  if (inviteNavigation(pathname, href) === "reload") window.location.assign(href);
+  else push(href);
+}
 
 /** Aviso no canto: convite que acabou de chegar ou resultado do pedido feito pelo link pessoal. */
 export function SocialToaster() {
   const { toast, dismissToast, notice, clearNotice, refresh } = useFriends();
   const router = useRouter();
   const pathname = usePathname();
+  const place = useSyncExternalStore(subscribeStatus, getPlace, () => null);
   const inGame = pathname.startsWith("/games/");
-  // no meio da partida o convite fica so no sino
-  const invite = toast && getStatus()?.place !== "match" ? toast : null;
+  const onLinkPage = pathname.startsWith("/amigo");
 
   useEffect(() => {
     if (!toast) return;
@@ -23,13 +32,19 @@ export function SocialToaster() {
     return () => clearTimeout(t);
   }, [toast, dismissToast]);
 
+  // comecou a partida: o convite sai da tela e fica so no sino
   useEffect(() => {
-    if (!notice || pathname.startsWith("/amigo")) return;
+    if (toast && place === "match") dismissToast();
+  }, [toast, place, dismissToast]);
+
+  useEffect(() => {
+    if (!notice || onLinkPage) return;
     const t = setTimeout(clearNotice, 6000);
     return () => clearTimeout(t);
-  }, [notice, clearNotice, pathname]);
+  }, [notice, clearNotice, onLinkPage]);
 
-  if (!invite && (!notice || pathname.startsWith("/amigo"))) return null;
+  const invite = toast && place !== "match" ? toast : null;
+  if (!invite && (!notice || onLinkPage)) return null;
 
   async function answer(accept: boolean) {
     if (!invite) return;
@@ -40,7 +55,7 @@ export function SocialToaster() {
       // convite vencido ou ja respondido: ainda da pra tentar entrar pela sala
     }
     refresh();
-    if (accept) router.push(inviteHref(invite));
+    if (accept) goToInvite(invite, pathname, router.push);
   }
 
   return (
@@ -53,7 +68,18 @@ export function SocialToaster() {
     >
       {invite ? (
         <>
-          <p className="text-sm font-bold text-[var(--fg)]">{inviteText(invite)}</p>
+          <p className="flex items-start justify-between gap-3 text-sm font-bold text-[var(--fg)]">
+            {inviteText(invite)}
+            {/* fechar so esconde; o convite continua no sino ate vencer */}
+            <button
+              type="button"
+              onClick={dismissToast}
+              aria-label="Fechar aviso"
+              className="-m-1 rounded-lg p-1 text-[var(--fg-muted)] hover:bg-[var(--bg)]"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </p>
           <div className="flex gap-2">
             <button
               type="button"

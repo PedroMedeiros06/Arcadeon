@@ -70,9 +70,13 @@ export function nextStatus(current: StatusInput | null, pathname: string): Statu
   return { state: "online", place: "hub", ...EMPTY, game: route.game };
 }
 
+// relogio de quem ve pode estar um pouco atrasado; batida mais no futuro que isso nao vale
+const FUTURE_TOLERANCE_MS = 60_000;
+
 function sinceMs(p: Presence, now: number): number | null {
   const at = Date.parse(p.updatedAt);
-  return Number.isNaN(at) ? null : Math.max(0, now - at);
+  if (Number.isNaN(at) || at - now > FUTURE_TOLERANCE_MS) return null;
+  return Math.max(0, now - at);
 }
 
 export function isOnline(p: Presence | null, now: number): boolean {
@@ -188,9 +192,10 @@ export function splitFriends(list: Friend[]) {
 /** Aceita "@raposa", " raposa " ou o link pessoal colado. null quando nao pode ser um nome. */
 export function normalizeUsername(input: string): string | null {
   let s = input.trim();
-  const link = s.match(/\/amigo\/([^/?#\s]+)\/?$/);
+  // link colado do WhatsApp vem com ?utm, #ancora ou pontuacao da frase
+  const link = s.match(/\/amigo\/([^/?#\s]+)/);
   if (link) s = link[1];
-  s = s.replace(/^@/, "");
+  s = s.replace(/^@/, "").trim().replace(/[.,;:!?]+$/, "");
   return /^[A-Za-z0-9_.-]{3,20}$/.test(s) ? s : null;
 }
 
@@ -223,4 +228,45 @@ export function inviteText(i: GameInvite): string {
 
 export function inviteHref(i: GameInvite): string {
   return `/games/${i.game}?join=${i.roomCode}`;
+}
+
+/** Convites que ainda valem agora (a lista fica aberta e eles vencem). */
+export function liveInvites(list: GameInvite[], now: number): GameInvite[] {
+  return list.filter((i) => Date.parse(i.expiresAt) > now);
+}
+
+/**
+ * Ja estando na rota do jogo, trocar so o `?join=` nao faz o jogo entrar na sala nova
+ * (ele le o codigo ao montar); nesse caso a pagina recarrega.
+ */
+export function inviteNavigation(pathname: string, href: string): "push" | "reload" {
+  const target = href.split("?")[0];
+  return pathname === target || pathname.startsWith(`${target}/`) ? "reload" : "push";
+}
+
+/**
+ * Aplica uma batida recebida pelo Realtime na lista em memoria.
+ * null quando a linha nao e de um amigo aceito (ai nao ha o que mudar).
+ */
+export function applyStatusRow(list: Friend[], row: unknown): Friend[] | null {
+  if (!row || typeof row !== "object") return null;
+  const r = row as Record<string, unknown>;
+  const index = list.findIndex((f) => f.userId === r.user_id && f.status === "accepted");
+  if (index < 0) return null;
+  const presence = r.appear_offline === true ? null : parsePresence(r);
+  const next = [...list];
+  next[index] = { ...list[index], presence };
+  return next;
+}
+
+/** Evento de `friendships` que mexe na lista desta pessoa (o Realtime nao filtra DELETE por RLS). */
+export function friendshipEventRelevant(
+  payload: { new?: unknown; old?: unknown },
+  myId: string,
+  list: Friend[],
+): boolean {
+  const n = (payload.new && typeof payload.new === "object" ? payload.new : {}) as Record<string, unknown>;
+  const o = (payload.old && typeof payload.old === "object" ? payload.old : {}) as Record<string, unknown>;
+  if (n.requester_id === myId || n.addressee_id === myId) return true;
+  return typeof o.id === "string" && list.some((f) => f.friendshipId === o.id);
 }

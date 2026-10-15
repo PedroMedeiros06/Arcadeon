@@ -2,11 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Bell } from "lucide-react";
 import { useFriends } from "@/lib/social/FriendsProvider";
 import { respondFriendRequest, respondGameInvite } from "@/lib/social/api";
-import { inviteHref, inviteText } from "@/lib/social/rules";
+import { inviteText, liveInvites } from "@/lib/social/rules";
+import { goToInvite } from "./SocialToaster";
+import { useNow } from "./useNow";
 
 const YES = "flex-1 rounded-xl bg-[var(--primary)] px-3 py-1.5 text-xs font-extrabold text-white transition hover:brightness-110";
 const NO =
@@ -14,8 +16,11 @@ const NO =
 
 /** Pedidos de amizade e convites que chegaram, inclusive com a aba fechada. */
 export function NotificationBell() {
-  const { available, incoming, invites, refresh } = useFriends();
+  const { available, incoming, invites: fetched, refresh } = useFriends();
   const router = useRouter();
+  const pathname = usePathname();
+  // a lista fica aberta e o convite vence: some do sino na hora certa
+  const invites = liveInvites(fetched, useNow(15_000));
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -81,7 +86,7 @@ export function NotificationBell() {
                       onClick={() => {
                         setOpen(false);
                         run(() => respondGameInvite(i.id, true));
-                        router.push(inviteHref(i));
+                        goToInvite(i, pathname, router.push);
                       }}
                       className={YES}
                     >

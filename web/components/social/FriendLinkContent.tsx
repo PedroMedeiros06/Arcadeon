@@ -14,7 +14,7 @@ const PRIMARY =
 
 export function FriendLinkContent({ rawUsername }: { rawUsername: string }) {
   const { user, username: me, loading } = useAuth();
-  const { available, friends, outgoing, refresh, notice } = useFriends();
+  const { available, loading: friendsLoading, friends, outgoing, refresh, notice } = useFriends();
   const [loginOpen, setLoginOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ text: string; error: boolean } | null>(null);
@@ -91,7 +91,7 @@ export function FriendLinkContent({ rawUsername }: { rawUsername: string }) {
           {message.text}
         </p>
       )}
-      {!available && <p className="text-sm text-[var(--fg-muted)]">Amizades ainda não estão disponíveis. Volte daqui a pouco.</p>}
+      {!available && !friendsLoading && <p className="text-sm text-[var(--fg-muted)]">Amizades ainda não estão disponíveis. Volte daqui a pouco.</p>}
       <Link href="/amigos" className="text-sm font-bold text-[var(--primary)] hover:underline">
         Ver meus amigos
       </Link>

@@ -1,17 +1,22 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { createClient } from "@/lib/supabase/client";
 import { fetchFriends, fetchInvites, sendFriendRequest } from "./api";
-import { splitFriends, type Friend, type GameInvite } from "./rules";
+import { getStatus } from "./presence";
+import { applyStatusRow, friendshipEventRelevant, splitFriends, type Friend, type GameInvite } from "./rules";
 
 const PENDING_KEY = "arcadeon_pending_friend";
 const PENDING_TTL_MS = 3_600_000;
+// rede do Realtime cai (celular dormindo, troca de rede) e eventos se perdem; uma busca lenta cobre
+const SAFETY_POLL_MS = 60_000;
 
 interface FriendsValue {
   /** false sem login ou enquanto o banco nao tem `my_friends` */
   available: boolean;
+  /** primeira busca desta conta ainda nao voltou */
+  loading: boolean;
   friends: Friend[];
   incoming: Friend[];
   outgoing: Friend[];
@@ -54,24 +59,35 @@ interface Loaded {
   invites: GameInvite[];
 }
 
+interface Note<T> {
+  userId: string;
+  value: T;
+}
+
 export function FriendsProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const userId = user?.id ?? null;
   const [loaded, setLoaded] = useState<Loaded | null>(null);
-  const [toast, setToast] = useState<GameInvite | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  // aviso e convite ficam presos a conta que recebeu; trocar de conta nao mostra o da anterior
+  const [toast, setToast] = useState<Note<GameInvite> | null>(null);
+  const [notice, setNotice] = useState<Note<string> | null>(null);
+  const listRef = useRef<Friend[]>([]);
 
   const refresh = useCallback(async () => {
     if (!userId) return;
     const [list, invites] = await Promise.all([fetchFriends(), fetchInvites()]);
-    setLoaded({ userId, list, invites: invites ?? [] });
+    setLoaded((prev) => {
+      // uma falha passageira nao apaga a lista boa que ja estava na tela
+      if (!list && prev?.userId === userId && prev.list) return prev;
+      return { userId, list, invites: invites ?? [] };
+    });
   }, [userId]);
 
   useEffect(() => {
     if (!userId) return;
     let alive = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    // varias mudancas juntas (amigo trocando de pagina) viram uma busca so
+    // varias mudancas juntas viram uma busca so
     const soon = () => {
       clearTimeout(timer);
       timer = setTimeout(() => alive && refresh(), 400);
@@ -80,19 +96,29 @@ export function FriendsProvider({ children }: { children: React.ReactNode }) {
     const pending = takePendingFriend();
     (pending
       ? sendFriendRequest(pending)
-          .then((s) => alive && setNotice(s === "accepted" ? `Agora você e ${pending} são amigos` : `Pedido enviado pra ${pending}`))
-          .catch((err: Error) => alive && setNotice(err.message))
+          .then(
+            (s) =>
+              alive &&
+              setNotice({ userId, value: s === "accepted" ? `Agora você e ${pending} são amigos` : `Pedido enviado pra ${pending}` }),
+          )
+          .catch((err: Error) => alive && setNotice({ userId, value: err.message }))
       : Promise.resolve()
     ).finally(() => alive && refresh());
 
     const supabase = createClient();
     const channel = supabase
-      .channel(`social:${userId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "friendships" }, soon)
+      // topico unico por montagem: um canal antigo ainda saindo nao engole a assinatura nova
+      .channel(`social:${userId}:${Math.random().toString(36).slice(2)}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "friendships" }, (payload) => {
+        if (friendshipEventRelevant(payload, userId, listRef.current)) soon();
+      })
       .on("postgres_changes", { event: "*", schema: "public", table: "user_status" }, (payload) => {
-        // o proprio batimento a cada 30 s nao precisa recarregar a lista
-        if ((payload.new as { user_id?: string } | null)?.user_id === userId) return;
-        soon();
+        // batida de amigo muda so a linha dele; nada de buscar a lista inteira a cada 30 s
+        setLoaded((l) => {
+          if (!l || l.userId !== userId || !l.list) return l;
+          const next = applyStatusRow(l.list, payload.new);
+          return next ? { ...l, list: next } : l;
+        });
       })
       .on(
         "postgres_changes",
@@ -101,33 +127,56 @@ export function FriendsProvider({ children }: { children: React.ReactNode }) {
           const invites = await fetchInvites();
           if (!alive || !invites) return;
           setLoaded((l) => (l && l.userId === userId ? { ...l, invites } : l));
+          // no meio da partida o convite fica so no sino
+          if (getStatus()?.place === "match") return;
           const newest = [...invites].sort((a, b) => Date.parse(b.expiresAt) - Date.parse(a.expiresAt))[0];
-          if (newest) setToast(newest);
+          if (newest) setToast({ userId, value: newest });
         },
       )
-      .subscribe();
+      // reconectou: o que mudou enquanto a conexao estava fora nao chega por evento
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") soon();
+      });
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") soon();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    const poll = setInterval(() => {
+      if (document.visibilityState === "visible") refresh();
+    }, SAFETY_POLL_MS);
 
     return () => {
       alive = false;
       clearTimeout(timer);
+      clearInterval(poll);
+      document.removeEventListener("visibilitychange", onVisibility);
       supabase.removeChannel(channel);
     };
   }, [userId, refresh]);
 
+  const mine = loaded && loaded.userId === userId ? loaded : null;
+  useEffect(() => {
+    listRef.current = mine?.list ?? [];
+  }, [mine]);
+
+  const dismissToast = useCallback(() => setToast(null), []);
+  const clearNotice = useCallback(() => setNotice(null), []);
+
   const value = useMemo<FriendsValue>(() => {
-    const mine = loaded && loaded.userId === userId ? loaded : null;
     const split = splitFriends(mine?.list ?? []);
     return {
       available: !!mine?.list,
+      loading: !!userId && !mine,
       ...split,
       invites: mine?.invites ?? [],
       refresh,
-      toast: userId ? toast : null,
-      dismissToast: () => setToast(null),
-      notice: userId ? notice : null,
-      clearNotice: () => setNotice(null),
+      toast: toast && toast.userId === userId ? toast.value : null,
+      dismissToast,
+      notice: notice && notice.userId === userId ? notice.value : null,
+      clearNotice,
     };
-  }, [loaded, userId, refresh, toast, notice]);
+  }, [mine, userId, refresh, toast, notice, dismissToast, clearNotice]);
 
   return <FriendsContext.Provider value={value}>{children}</FriendsContext.Provider>;
 }

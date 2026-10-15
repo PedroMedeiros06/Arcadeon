@@ -17,10 +17,11 @@ export function PresenceSync() {
     return startPresence();
   }, [userId]);
 
+  // depende da conta tambem: ao trocar de conta o status anterior e apagado e a pagina atual vale de novo
   useEffect(() => {
     const next = nextStatus(getStatus(), pathname);
     if (next) setStatus(next);
-  }, [pathname]);
+  }, [pathname, userId]);
 
   return null;
 }

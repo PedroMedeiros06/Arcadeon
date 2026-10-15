@@ -23,7 +23,7 @@ const SMALL_BTN =
 
 export function FriendsPageContent() {
   const { user, username, loading } = useAuth();
-  const { available, friends, incoming, outgoing, refresh, notice, clearNotice } = useFriends();
+  const { available, loading: friendsLoading, friends, incoming, outgoing, refresh, notice, clearNotice } = useFriends();
   const now = useNow();
   const [name, setName] = useState("");
   const [sending, setSending] = useState(false);
@@ -50,6 +50,7 @@ export function FriendsPageContent() {
       />
     );
   }
+  if (friendsLoading) return <div className="skeleton h-64 rounded-3xl" aria-hidden />;
   if (!available) {
     return (
       <p className="rounded-3xl border-2 border-dashed border-[var(--border)] p-8 text-center text-sm text-[var(--fg-muted)]">
