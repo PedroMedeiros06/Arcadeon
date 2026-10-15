@@ -1,15 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { Check, Coins, Flame, Play, Skull, Timer, Trophy, Users, X } from "lucide-react";
+import { Check, Flame, Play, Skull, Timer, Users, X } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useBlockTransition } from "@/lib/transition/TransitionProvider";
-import { fetchDailyStatus, type DailyModeStatus, type DailyStatus } from "@/lib/termo/daily";
+import { type DailyModeStatus, type DailyStatus } from "@/lib/termo/daily";
+import { getDailyStatusShared } from "@/lib/home/dailyStatus";
 import { modeLabel, type BoardCount } from "@/lib/termo/logic";
 import { getGame } from "@/lib/games";
 import { GAME_ICONS } from "@/components/gameIcons";
 import { FeatureCarousel, type FeatureSlide } from "./FeatureCarousel";
+import { HomeAside } from "./HomeAside";
 
 /* ---------- moldura comum dos slides ---------- */
 
@@ -124,7 +125,7 @@ function LetradoDailySlide() {
   useEffect(() => {
     if (loading) return;
     let alive = true;
-    fetchDailyStatus()
+    getDailyStatusShared(user?.id ?? "anon")
       .then((s) => alive && setStatus(s))
       .catch(() => alive && setStatus(null));
     return () => {
@@ -362,30 +363,12 @@ export function homeSlides(): FeatureSlide[] {
 }
 
 export function HomeFeature() {
-  const { user, coins } = useAuth();
   const slides = homeSlides();
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
       <FeatureCarousel label="Destaques" slides={slides} />
-
-      <div className="grid grid-cols-2 gap-4 self-start lg:grid-cols-1">
-        <div className="flex flex-col justify-center gap-1 rounded-3xl border-2 border-[var(--border)] bg-[var(--card)] p-4">
-          <span className="text-xs font-medium text-[var(--fg-muted)]">Suas moedas</span>
-          <span className="flex items-center gap-2 font-display text-2xl font-extrabold tabular-nums text-[var(--fg)]">
-            <Coins className="h-5 w-5 text-[var(--primary)]" /> {user ? coins : "—"}
-          </span>
-        </div>
-        <Link
-          href="/leaderboard"
-          className="flex flex-col justify-center gap-1 rounded-3xl border-2 border-[var(--border)] bg-[var(--card)] p-4 transition hover:border-[var(--border-hover)] active:scale-[0.98]"
-        >
-          <span className="text-xs font-medium text-[var(--fg-muted)]">Placares</span>
-          <span className="flex items-center gap-2 font-display text-lg font-extrabold text-[var(--fg)]">
-            <Trophy className="h-5 w-5 text-[var(--primary)]" /> Ver ranking
-          </span>
-        </Link>
-      </div>
+      <HomeAside />
     </div>
   );
 }
