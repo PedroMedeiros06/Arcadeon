@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Coins, Flame, LogIn, Trophy } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { createClient } from "@/lib/supabase/client";
+import { getArcadeonStreakShared } from "@/lib/economy/api";
 import { getDailyStatusShared } from "@/lib/home/dailyStatus";
 import { rankFor } from "@/lib/home/rank";
 import { LoginModal } from "@/components/LoginModal";
@@ -21,9 +22,13 @@ export function HomeAside() {
   useEffect(() => {
     if (loading || !user) return;
     let alive = true;
-    getDailyStatusShared(user.id)
-      .then((s) => alive && setStreak(s.currentStreak))
-      .catch(() => alive && setStreak(null));
+    // a chama e da sequencia do Letrado so enquanto o Arcadeon nao tem a dele (fase 2)
+    getArcadeonStreakShared(user.id).then((arcadeon) => {
+      if (!alive || arcadeon) return;
+      getDailyStatusShared(user.id)
+        .then((s) => alive && setStreak(s.currentStreak))
+        .catch(() => alive && setStreak(null));
+    });
     // ranking do Letrado (1 palavra) por menos tentativas, o mesmo padrao da pagina de placares
     createClient()
       .from("termo_leaderboard")

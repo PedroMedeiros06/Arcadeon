@@ -1,4 +1,5 @@
 import { GameCard } from "@/components/GameCard";
+import { HomeDaily } from "@/components/home/HomeDaily";
 import { HomeFeature } from "@/components/home/HomeFeature";
 import { games } from "@/lib/games";
 import { siteJsonLd } from "@/lib/seo";
@@ -18,6 +19,7 @@ export default function Home() {
       <div className="animate-fade-up">
         <HomeFeature />
       </div>
+      <HomeDaily />
 
       <section className="flex flex-col gap-4">
         <h2
