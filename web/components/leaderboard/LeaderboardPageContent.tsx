@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Medal, Flame, Trophy, Target, CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { useBlockTransition } from "@/lib/transition/TransitionProvider";
 import { Avatar } from "@/components/Avatar";
 import { GAME_ICONS } from "@/components/gameIcons";
 import { games } from "@/lib/games";
@@ -166,7 +167,7 @@ export function LeaderboardPageContent() {
               {g.title}
               {!GAMES_WITH_RANKING.has(g.slug) && (
                 <span
-                  className={`rounded-full px-2 py-0.5 text-xs font-bold tracking-wide ${
+                  className={`rounded-full px-2 py-0.5 text-xs font-bold ${
                     active ? "bg-white/20 text-white" : "bg-[var(--bg)] text-[var(--fg-muted)]"
                   }`}
                 >
@@ -206,30 +207,51 @@ function ChipRow<K extends string | number>({
   onChange: (key: K) => void;
   variant: "mode" | "category";
 }) {
+  // nivel 2 (modo) sao botoes cheios; nivel 3 (criterio) e uma linha de abas sublinhadas
   const activeClass =
     variant === "mode"
       ? "border-[var(--primary-dark)] bg-[var(--primary)] text-white"
-      : "border-[var(--accent-dark)] bg-[var(--accent)] text-white";
-  const baseClass =
+      : "border-[var(--fg)] text-[var(--fg)]";
+  const inactiveClass =
     variant === "mode"
-      ? "rounded-2xl px-4 py-2 text-sm"
-      : "rounded-xl px-3 py-1.5 text-xs uppercase";
+      ? "border-[var(--border)] bg-[var(--card)] text-[var(--fg-muted)] hover:-translate-y-0.5 hover:bg-[var(--bg)]"
+      : "border-transparent text-[var(--fg-muted)] hover:text-[var(--fg)]";
+  const baseClass =
+    variant === "mode" ? "rounded-2xl border-2 px-4 py-2 text-sm" : "border-b-2 px-1 py-1.5 text-sm";
   return (
-    <div className="flex flex-wrap gap-2">
+    <div
+      className={
+        variant === "mode"
+          ? "flex flex-wrap gap-2"
+          : "no-scrollbar flex gap-4 overflow-x-auto shadow-[inset_0_-2px_0_var(--border)]"
+      }
+    >
       {items.map((item) => (
         <button
           key={item.key}
           onClick={() => onChange(item.key)}
-          className={`border-2 font-extrabold transition-all duration-200 active:scale-95 ${baseClass} ${
-            value === item.key
-              ? activeClass
-              : "border-[var(--border)] bg-[var(--card)] text-[var(--fg-muted)] hover:-translate-y-0.5 hover:bg-[var(--bg)]"
+          aria-pressed={value === item.key}
+          className={`shrink-0 font-extrabold transition-all duration-200 active:scale-95 ${baseClass} ${
+            value === item.key ? activeClass : inactiveClass
           }`}
         >
           {item.label}
         </button>
       ))}
     </div>
+  );
+}
+
+function EmptyCta({ label, href }: { label: string; href: string }) {
+  const { navigate } = useBlockTransition();
+  return (
+    <button
+      type="button"
+      onClick={() => navigate(href)}
+      className="rounded-2xl bg-[var(--primary)] px-5 py-2.5 text-sm font-extrabold text-white transition hover:brightness-110 active:scale-[0.98]"
+    >
+      {label}
+    </button>
   );
 }
 
@@ -309,6 +331,7 @@ function TermoLeaderboard() {
         valueLabel={TERMO_VALUE_LABEL[category]}
         showFlame={category === "streak"}
         emptyStatsText="Você ainda não pontuou neste modo."
+        emptyCta={{ label: "Jogar Letrado", href: "/games/termo" }}
         howToScore="Jogue o Letrado diário para subir no ranking. A categoria Hoje zera todo dia; as outras avaliam tentativas, tempo, vitórias, sequência e o recorde no Contra o Tempo."
         myDetails={(row) => (
           <p className="flex items-center gap-1.5 text-sm font-bold text-[var(--primary)]">
@@ -358,6 +381,7 @@ function RaceLeaderboard() {
         valueLabel={RACE_VALUE_LABEL[category]}
         showFlame={category === "streak"}
         emptyStatsText="Você ainda não pontuou nesta categoria."
+        emptyCta={{ label: "Criar sala na Corrida", href: "/games/corrida" }}
         howToScore="Termine corridas logado para subir no ranking. Conta sua maior sequência de acertos numa partida, o total de respostas certas e as vitórias."
         myDetails={(row) => (
           <p className="flex items-center gap-1.5 text-sm font-bold text-[var(--primary)]">
@@ -377,6 +401,7 @@ function RankingBoard<T extends BaseRow>({
   emptyStatsText,
   howToScore,
   myDetails,
+  emptyCta,
 }: {
   rows: T[] | null;
   valueLabel: (row: T) => string;
@@ -384,6 +409,8 @@ function RankingBoard<T extends BaseRow>({
   emptyStatsText: string;
   howToScore: string;
   myDetails: (row: T) => ReactNode;
+  /** botao do placar vazio, leva direto pro jogo */
+  emptyCta: { label: string; href: string };
 }) {
   const { username } = useAuth();
   const top3 = rows?.slice(0, 3) ?? [];
@@ -403,8 +430,11 @@ function RankingBoard<T extends BaseRow>({
             Carregando ranking...
           </div>
         ) : rows.length === 0 ? (
-          <div className="rounded-3xl border-2 border-[var(--border)] bg-[var(--card)] py-10 text-center text-sm font-medium text-[var(--fg-muted)]">
-            Ninguém jogou ainda. Seja o primeiro!
+          <div className="flex flex-col items-center gap-3 rounded-3xl border-2 border-[var(--border)] bg-[var(--card)] px-6 py-10 text-center">
+            <span className="pattern-brand h-14 w-14 rounded-2xl" aria-hidden />
+            <p className="font-display text-lg font-extrabold text-[var(--fg)]">Ninguém pontuou aqui ainda</p>
+            <p className="max-w-sm text-sm text-[var(--fg-muted)]">Jogue uma partida e seu nome aparece neste placar.</p>
+            <EmptyCta {...emptyCta} />
           </div>
         ) : (
           <>
@@ -485,7 +515,7 @@ function RankingBoard<T extends BaseRow>({
 
       <aside className="flex w-full flex-col gap-4 xl:w-80 xl:shrink-0">
         <div className="rounded-3xl border-2 border-[var(--border)] bg-gradient-to-br from-[var(--primary)] to-[var(--primary-2)] p-6 text-white">
-          <p className="mb-4 text-xs font-bold uppercase tracking-wide text-white/70">Suas estatísticas</p>
+          <p className="mb-4 text-sm font-bold text-white/80">Suas estatísticas</p>
 
           {myRank ? (
             <>
@@ -504,7 +534,7 @@ function RankingBoard<T extends BaseRow>({
               </div>
 
               <div className="rounded-2xl bg-[var(--card)] p-4 text-[var(--fg)]">
-                <p className="mb-2 flex items-center gap-1.5 text-xs font-extrabold uppercase text-[var(--fg-muted)]">
+                <p className="mb-2 flex items-center gap-1.5 text-sm font-extrabold text-[var(--fg-muted)]">
                   <Target className="h-3.5 w-3.5" /> Resultado atual
                 </p>
                 <p className="mb-1 text-lg font-extrabold text-[var(--fg)]">{valueLabel(myRank.row)}</p>
@@ -519,7 +549,7 @@ function RankingBoard<T extends BaseRow>({
         </div>
 
         <div className="rounded-3xl border-2 border-[var(--border)] bg-[var(--card)] p-6">
-          <p className="mb-3 flex items-center gap-1.5 text-xs font-extrabold uppercase text-[var(--fg-muted)]">
+          <p className="mb-3 flex items-center gap-1.5 text-sm font-extrabold text-[var(--fg-muted)]">
             <Medal className="h-3.5 w-3.5" /> Como pontuar
           </p>
           <p className="text-sm font-medium text-[var(--fg-muted)]">{howToScore}</p>

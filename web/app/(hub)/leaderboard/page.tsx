@@ -1,6 +1,5 @@
 import { Suspense } from "react";
-import Link from "next/link";
-import { ArrowLeft, Trophy } from "lucide-react";
+import { Trophy } from "lucide-react";
 import type { Metadata } from "next";
 import { LeaderboardPageContent } from "@/components/leaderboard/LeaderboardPageContent";
 
@@ -12,28 +11,22 @@ export const metadata: Metadata = {
 
 export default function LeaderboardPage() {
   return (
-    <main className="w-full flex-1 px-6 py-8">
-      <div className="mb-8 flex items-center justify-between">
-        <div className="flex items-center gap-3">
+    <main className="w-full flex-1 px-4 py-6 sm:px-6 sm:py-8">
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-8 flex items-center gap-3">
           <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--primary-tint)] text-[var(--primary)]">
             <Trophy className="h-6 w-6" />
           </span>
           <div>
-            <h2 className="font-display text-2xl font-extrabold tracking-tight text-[var(--fg)]">Placares</h2>
+            <h1 className="font-display text-2xl font-extrabold tracking-tight text-[var(--fg)]">Placares</h1>
             <p className="text-sm font-medium text-[var(--fg-muted)]">Os melhores jogadores do Arcadeon</p>
           </div>
         </div>
-        <Link
-          href="/"
-          className="flex items-center gap-1.5 rounded-2xl border-2 border-[var(--border)] bg-[var(--card)] px-4 py-2 text-sm font-extrabold text-[var(--fg-muted)] transition hover:bg-[var(--bg)]"
-        >
-          <ArrowLeft className="h-4 w-4" /> Hub
-        </Link>
-      </div>
 
-      <Suspense fallback={null}>
-        <LeaderboardPageContent />
-      </Suspense>
+        <Suspense fallback={null}>
+          <LeaderboardPageContent />
+        </Suspense>
+      </div>
     </main>
   );
 }
