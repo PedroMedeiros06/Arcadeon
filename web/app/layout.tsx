@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Bricolage_Grotesque, Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
+import { FriendsProvider } from "@/lib/social/FriendsProvider";
 import { PresenceSync } from "@/components/social/PresenceSync";
 import { ThemeProvider } from "@/lib/theme/ThemeProvider";
 import { TransitionProvider } from "@/lib/transition/TransitionProvider";
@@ -70,8 +71,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </Script>
         <ThemeProvider>
           <AuthProvider>
-            <TransitionProvider>{children}</TransitionProvider>
-            <PresenceSync />
+            <FriendsProvider>
+              <TransitionProvider>{children}</TransitionProvider>
+              <PresenceSync />
+            </FriendsProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>
