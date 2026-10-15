@@ -45,10 +45,7 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image" },
   // codigo da "Tag HTML" do Google Search Console (propriedade de prefixo de URL)
   verification: { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION },
-  icons: {
-    icon: "/Logo@4x.png",
-    apple: "/Logo@4x.png",
-  },
+  // icones vem de app/icon.tsx e app/apple-icon.tsx
 };
 
 const noFlashScript = `

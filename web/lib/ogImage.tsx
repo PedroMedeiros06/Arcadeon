@@ -8,6 +8,33 @@ import { GAME_SEO } from "./seo";
 export const OG_SIZE = { width: 1200, height: 630 };
 export const OG_CONTENT_TYPE = "image/png";
 
+export type OgPattern = "termo" | "buggle" | "drawit" | "corrida";
+
+// Mesmas texturas das classes .pattern-* do globals.css (a marca usa a do vazio), em escala de 1200px
+const PATTERNS: Record<OgPattern | "brand", { backgroundImage: string; backgroundSize?: string }> = {
+  termo: {
+    backgroundImage:
+      "linear-gradient(rgba(255,255,255,0.35) 3px, transparent 3px), linear-gradient(90deg, rgba(255,255,255,0.35) 3px, transparent 3px)",
+    backgroundSize: "44px 44px",
+  },
+  buggle: {
+    backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.5) 5px, transparent 6px)",
+    backgroundSize: "32px 32px",
+  },
+  drawit: {
+    backgroundImage:
+      "repeating-radial-gradient(circle at 15% 120%, rgba(255,255,255,0.35) 0px, rgba(255,255,255,0.35) 6px, transparent 6px, transparent 32px)",
+  },
+  corrida: {
+    backgroundImage:
+      "repeating-linear-gradient(45deg, rgba(0,0,0,0.25) 0px, rgba(0,0,0,0.25) 20px, transparent 20px, transparent 40px)",
+  },
+  brand: {
+    backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.4) 4px, transparent 5px)",
+    backgroundSize: "36px 36px",
+  },
+};
+
 const logo = readFile(join(process.cwd(), "public/Logo@4x.png")).then(
   (buf) => `data:image/png;base64,${buf.toString("base64")}`,
 );
@@ -17,13 +44,17 @@ export async function renderOgImage({
   text,
   accent,
   chips = ["Grátis", "No navegador", "Com amigos"],
+  pattern,
 }: {
   title: string;
   text: string;
   accent: string;
   chips?: string[];
+  /** textura da faixa da direita; sem jogo, usa a da marca */
+  pattern?: OgPattern;
 }) {
   const logoSrc = await logo;
+  const texture = PATTERNS[pattern ?? "brand"] ?? PATTERNS.brand;
   return new ImageResponse(
     (
       <div
@@ -38,8 +69,21 @@ export async function renderOgImage({
           borderTop: `14px solid ${accent}`,
           color: "#f3f2fb",
           fontFamily: "sans-serif",
+          position: "relative",
         }}
       >
+        <div
+          style={{
+            position: "absolute",
+            right: 0,
+            top: 0,
+            bottom: 0,
+            width: 360,
+            opacity: 0.5,
+            backgroundColor: accent,
+            ...texture,
+          }}
+        />
         <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={logoSrc} width={116} height={80} alt="" />
@@ -77,5 +121,5 @@ export function renderGameOgImage(slug: string) {
   const game = getGame(slug);
   const seo = GAME_SEO[slug];
   const chips = game.multiplayer ? ["Grátis", "No navegador", `${game.players} jogadores`] : ["Grátis", "No navegador", "Palavra do dia"];
-  return renderOgImage({ title: game.title, text: seo.tagline, accent: seo.color, chips });
+  return renderOgImage({ title: game.title, text: seo.tagline, accent: seo.color, chips, pattern: slug as OgPattern });
 }
