@@ -16,11 +16,13 @@ import { MobileResultsScreen } from "./MobileResultsScreen";
 import { JoinNameModal } from "./JoinNameModal";
 import { SoundToggle } from "./SoundToggle";
 import { initBuggleSound, playBuggleSfx } from "@/lib/buggle/sound";
-import type { BoggleCell, RoomConfig, RoomState, RoundEndedPayload, WordResult } from "@/lib/buggle/types";
+import { logActivity } from "@/lib/activity";
+import { setStatus } from "@/lib/social/presence";
+import type { BoggleCell, CoinsAwarded, RoomConfig, RoomState, RoundEndedPayload, WordResult } from "@/lib/buggle/types";
 
 
 export function BuggleGame() {
-  const { username, loading: authLoading, equippedAvatar } = useAuth();
+  const { username, loading: authLoading, equippedAvatar, session } = useAuth();
   const searchParams = useSearchParams();
   const joinCodeFromUrl = searchParams.get("join");
   const [room, setRoom] = useState<RoomState | null>(null);
@@ -34,6 +36,7 @@ export function BuggleGame() {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [resultsFast, setResultsFast] = useState(false);
   const [resultsRevealDone, setResultsRevealDone] = useState(false);
+  const [coins, setCoins] = useState<CoinsAwarded | null>(null);
   const prevPhase = useRef<RoomState["phase"] | null>(null);
   const prevWordsFound = useRef(0);
   const lastTickSecond = useRef<number | null>(null);
@@ -58,7 +61,10 @@ export function BuggleGame() {
       }
       prevWordsFound.current = totalFound;
       setRoom(state);
-      if (state.phase === "playing") setRoundResult(null);
+      if (state.phase === "playing") {
+        setRoundResult(null);
+        setCoins(null);
+      }
     }
     function handleJoinError(data: { message: string }) {
       setJoinError(data.message);
@@ -81,6 +87,9 @@ export function BuggleGame() {
     function handleResultsRevealDone() {
       setResultsRevealDone(true);
     }
+    function handleCoinsAwarded(data: CoinsAwarded) {
+      setCoins(data);
+    }
     function handleRoomClosed() {
       setRoom(null);
       setRoundResult(null);
@@ -94,6 +103,7 @@ export function BuggleGame() {
     socket.on("room-closed", handleRoomClosed);
     socket.on("results-speed-changed", handleResultsSpeedChanged);
     socket.on("results-reveal-done", handleResultsRevealDone);
+    socket.on("coins-awarded", handleCoinsAwarded);
 
     return () => {
       socket.off("room-updated", handleRoomUpdated);
@@ -103,8 +113,50 @@ export function BuggleGame() {
       socket.off("room-closed", handleRoomClosed);
       socket.off("results-speed-changed", handleResultsSpeedChanged);
       socket.off("results-reveal-done", handleResultsRevealDone);
+      socket.off("coins-awarded", handleCoinsAwarded);
     };
   }, []);
+
+  // identifica a conta pro servidor (moedas e "Adicionar"); ele valida o token, nunca confia no cliente
+  const accessToken = session?.access_token ?? null;
+  useEffect(() => {
+    if (authLoading) return;
+    const socket = socketRef.current;
+    const identify = () => socket.emit("identify", { accessToken });
+    if (socket.connected) identify();
+    socket.on("connect", identify);
+    return () => {
+      socket.off("connect", identify);
+    };
+  }, [authLoading, accessToken]);
+
+  // status pros amigos (sala de espera / partida) e medicao de retencao
+  const roomCode = room?.code ?? null;
+  const phase = room?.phase ?? null;
+  const playerCount = room?.players.length ?? 0;
+  const maxPlayers = room?.config.maxPlayers ?? 0;
+  const ownerSocketId = room?.ownerSocketId ?? null;
+  useEffect(() => {
+    if (!roomCode) {
+      // saiu da sala ou ela fechou: o "Entrar" dos amigos nao pode apontar pra sala morta
+      setStatus({ state: "online", place: "hub", game: "buggle" });
+      return;
+    }
+    const playing = phase === "playing";
+    setStatus({
+      state: playing ? "playing" : "online",
+      place: playing ? "match" : "lobby",
+      game: "buggle",
+      roomCode,
+      players: playerCount,
+      maxPlayers,
+    });
+  }, [roomCode, phase, playerCount, maxPlayers]);
+
+  useEffect(() => {
+    // a TV nao joga: so conta quem esta no celular
+    if (phase === "playing" && ownerSocketId !== socketRef.current.id) void logActivity("buggle");
+  }, [phase, ownerSocketId]);
 
   useEffect(() => {
     if (!room || room.phase !== "playing" || !room.roundEndsAt) return;
@@ -327,6 +379,8 @@ export function BuggleGame() {
             config={room.config}
             playerCount={room.players.length}
             onUpdateConfig={handleUpdateConfig}
+            coins={coins}
+            players={room.players}
           />
         )}
         {leaveDialog}

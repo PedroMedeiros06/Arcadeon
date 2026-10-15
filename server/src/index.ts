@@ -14,6 +14,7 @@ import {
   transferHost,
   renamePlayer,
   updatePlayerAvatar,
+  setPlayerUser,
   RoomConfig,
   PlayerAvatar,
 } from "./rooms";
@@ -21,6 +22,8 @@ import { registerDrawNamespace } from "./drawSocket";
 import { registerRaceNamespace } from "./raceSocket";
 import { getDrawRoom } from "./drawRooms";
 import { hasRaceRoom } from "./raceRooms";
+import { verifyAccessToken } from "./raceStats";
+import { recordBuggleRound } from "./buggleStats";
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3001;
 const CLIENT_ORIGIN = (process.env.CLIENT_ORIGIN ?? "http://localhost:3000").replace(/\/$/, "");
@@ -83,12 +86,30 @@ function publicRoomState(room: ReturnType<typeof getRoom>) {
       score: p.score,
       wordsFound: p.foundWords.size,
       avatar: p.avatar,
+      userId: p.userId,
     })),
   };
 }
 
+// socket -> conta Supabase verificada (via evento "identify")
+const buggleIdentities = new Map<string, string>();
+// descarta verificacao antiga se um identify mais novo chegou no meio
+const buggleIdentifySeq = new Map<string, number>();
+
 io.on("connection", (socket) => {
   console.log(`socket connected: ${socket.id}`);
+
+  socket.on("identify", async (raw: unknown) => {
+    const seq = (buggleIdentifySeq.get(socket.id) ?? 0) + 1;
+    buggleIdentifySeq.set(socket.id, seq);
+    const token = typeof raw === "object" && raw !== null ? (raw as { accessToken?: unknown }).accessToken : null;
+    const userId = await verifyAccessToken(token);
+    if (buggleIdentifySeq.get(socket.id) !== seq || !socket.connected) return;
+    if (userId) buggleIdentities.set(socket.id, userId);
+    else buggleIdentities.delete(socket.id);
+    const room = setPlayerUser(socket.id, userId);
+    if (room) io.to(room.code).emit("room-updated", publicRoomState(room));
+  });
 
   socket.on("create-room", (data: { config: RoomConfig }) => {
     const room = createRoom(socket.id, data.config);
@@ -102,7 +123,13 @@ io.on("connection", (socket) => {
       socket.emit("join-error", { message: "Sala cheia." });
       return;
     }
-    const room = joinRoom(data.code.toUpperCase(), socket.id, data.name, data.avatar);
+    const room = joinRoom(
+      data.code.toUpperCase(),
+      socket.id,
+      data.name,
+      data.avatar ?? null,
+      buggleIdentities.get(socket.id) ?? null
+    );
     if (!room) {
       socket.emit("join-error", { message: "Sala não encontrada ou já iniciada." });
       return;
@@ -158,13 +185,15 @@ io.on("connection", (socket) => {
 
   socket.on("start-round", (data: { code: string }) => {
     const room = getRoom(data.code);
-    if (!room || room.hostSocketId !== socket.id) return;
+    // clique duplo nao reinicia a rodada em andamento
+    if (!room || room.hostSocketId !== socket.id || room.phase === "playing") return;
     startRound(room);
     io.to(room.code).emit("room-updated", publicRoomState(room));
 
+    const roundId = room.roundId!;
     const remainingMs = room.roundEndsAt! - Date.now();
     setTimeout(() => {
-      if (room.phase !== "playing") return;
+      if (room.phase !== "playing" || room.roundId !== roundId) return;
       endRound(room);
       const foundByAnyone = new Set<string>();
       for (const player of room.players.values()) {
@@ -181,6 +210,12 @@ io.on("connection", (socket) => {
           name: p.name,
           foundWords: Array.from(p.foundWords),
         })),
+      });
+
+      // sala fechada durante a rodada: nao paga
+      if (getRoom(room.code) !== room) return;
+      recordBuggleRound(room, roundId, (socketIds, result) => {
+        for (const id of socketIds) io.to(id).emit("coins-awarded", result);
       });
     }, remainingMs);
   });
@@ -207,6 +242,8 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     console.log(`socket disconnected: ${socket.id}`);
+    buggleIdentities.delete(socket.id);
+    buggleIdentifySeq.delete(socket.id);
     const { room, closedCode } = leaveRoom(socket.id);
     if (room) {
       io.to(room.code).emit("room-updated", publicRoomState(room));

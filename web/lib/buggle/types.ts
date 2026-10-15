@@ -26,6 +26,7 @@ export interface PlayerPublic {
   score: number;
   wordsFound: number;
   avatar: PlayerAvatar | null;
+  userId: string | null; // conta verificada pelo servidor; null = anonimo
 }
 
 export type RoomPhase = "lobby" | "playing" | "results";
@@ -47,6 +48,13 @@ export interface WordResult {
   points: number;
   isSecret: boolean;
   alreadyFound: boolean;
+}
+
+/** Retorno de `award_match_coins`, mandado so pro socket do proprio jogador. */
+export interface CoinsAwarded {
+  awarded: number;
+  capped: boolean;
+  coins: number;
 }
 
 export interface RoundEndedPayload {

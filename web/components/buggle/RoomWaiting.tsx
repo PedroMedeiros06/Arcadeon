@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { EditRoomModal } from "./EditRoomModal";
 import { AvatarEditModal } from "./AvatarEditModal";
 import { TransferHostModal } from "./TransferHostModal";
+import { InviteFriendsButton } from "@/components/social/InviteFriendsButton";
 import type { RoomConfig, RoomState } from "@/lib/buggle/types";
 
 interface RoomWaitingProps {
@@ -248,6 +249,8 @@ export function RoomWaiting({
             )}
           </div>
         )}
+
+        <InviteFriendsButton game="buggle" roomCode={room.code} />
       </div>
 
       {showEditModal && (

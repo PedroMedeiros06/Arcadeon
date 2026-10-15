@@ -22,6 +22,7 @@ export interface Player {
   foundWords: Set<string>;
   foundPaths: Map<string, BoggleCell[]>;
   avatar: PlayerAvatar | null;
+  userId: string | null; // conta Supabase verificada (evento "identify"); null = anonimo
 }
 
 export type RoomPhase = "lobby" | "playing" | "results";
@@ -37,6 +38,7 @@ export interface Room {
   secretWord: { word: string; path: BoggleCell[] } | null;
   allWordsOnBoard: { word: string; path: BoggleCell[] }[];
   roundEndsAt: number | null;
+  roundId: string | null; // unico por rodada: guarda do timeout e match_id das moedas
 }
 
 const rooms = new Map<string, Room>();
@@ -63,6 +65,7 @@ export function createRoom(ownerSocketId: string, config: RoomConfig): Room {
     secretWord: null,
     allWordsOnBoard: [],
     roundEndsAt: null,
+    roundId: null,
   };
   rooms.set(code, room);
   return room;
@@ -72,7 +75,13 @@ export function getRoom(code: string): Room | undefined {
   return rooms.get(code);
 }
 
-export function joinRoom(code: string, socketId: string, name: string, avatar?: PlayerAvatar | null): Room | null {
+export function joinRoom(
+  code: string,
+  socketId: string,
+  name: string,
+  avatar: PlayerAvatar | null,
+  userId: string | null
+): Room | null {
   const room = rooms.get(code);
   if (!room || room.phase !== "lobby") return null;
   if (socketId === room.ownerSocketId) return null;
@@ -84,6 +93,7 @@ export function joinRoom(code: string, socketId: string, name: string, avatar?: 
     foundWords: new Set(),
     foundPaths: new Map(),
     avatar: avatar ?? null,
+    userId,
   });
   if (!room.hostSocketId) room.hostSocketId = socketId;
   return room;
@@ -102,6 +112,18 @@ export function updatePlayerAvatar(room: Room, socketId: string, avatar: PlayerA
   if (!player) return false;
   player.avatar = avatar;
   return true;
+}
+
+/** Conta verificada chegou (ou saiu) depois do join. Devolve a sala se mudou algo. */
+export function setPlayerUser(socketId: string, userId: string | null): Room | null {
+  for (const room of rooms.values()) {
+    const player = room.players.get(socketId);
+    if (!player) continue;
+    if (player.userId === userId) return null;
+    player.userId = userId;
+    return room;
+  }
+  return null;
 }
 
 export function updateConfig(room: Room, config: RoomConfig): boolean {
@@ -148,6 +170,7 @@ export function startRound(room: Room): void {
   console.log("[buggle] palavra secreta:", room.secretWord?.word ?? "(nenhuma)");
   console.log("[buggle] palavras possiveis no tabuleiro:", room.allWordsOnBoard.length);
   room.phase = "playing";
+  room.roundId = `${room.code}-${Date.now()}`;
   room.roundEndsAt = Date.now() + room.config.roundSeconds * 1000;
   for (const player of room.players.values()) {
     player.score = 0;

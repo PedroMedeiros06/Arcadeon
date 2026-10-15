@@ -34,6 +34,7 @@ function makePlayers(count: number): PlayerPublic[] {
       bgColor: AVATAR_COLORS[i % AVATAR_COLORS.length],
       imageUrl: null,
     },
+    userId: null,
   }));
 }
 

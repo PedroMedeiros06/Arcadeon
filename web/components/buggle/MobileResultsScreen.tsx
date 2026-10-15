@@ -3,7 +3,11 @@
 import { useState } from "react";
 import { Settings, Tv } from "lucide-react";
 import { EditRoomModal } from "./EditRoomModal";
-import type { RoomConfig } from "@/lib/buggle/types";
+import { MatchCoins } from "@/components/economy/MatchCoins";
+import { AddFriendButton } from "@/components/social/AddFriendButton";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import { getBuggleSocket } from "@/lib/buggle/socket";
+import type { CoinsAwarded, PlayerPublic, RoomConfig } from "@/lib/buggle/types";
 
 interface MobileResultsScreenProps {
   isHost: boolean;
@@ -14,6 +18,8 @@ interface MobileResultsScreenProps {
   config: RoomConfig;
   playerCount: number;
   onUpdateConfig: (config: RoomConfig) => void;
+  coins: CoinsAwarded | null;
+  players: PlayerPublic[];
 }
 
 export function MobileResultsScreen({
@@ -25,8 +31,16 @@ export function MobileResultsScreen({
   config,
   playerCount,
   onUpdateConfig,
+  coins,
+  players,
 }: MobileResultsScreenProps) {
+  const { user } = useAuth();
   const [editing, setEditing] = useState(false);
+  // so depois da revelacao na TV, sem pontuacao, pra nao estragar o podio
+  const mySocketId = getBuggleSocket().id;
+  const others = players.filter(
+    (p): p is PlayerPublic & { userId: string } => p.socketId !== mySocketId && !!p.userId && p.userId !== user?.id
+  );
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-8 p-6 text-center">
@@ -37,6 +51,19 @@ export function MobileResultsScreen({
       <p className="max-w-xs rounded-2xl bg-[var(--bg)] px-6 py-4 text-lg font-extrabold text-[var(--fg-muted)]">
         Confira a tela principal
       </p>
+
+      {coins && <MatchCoins awarded={coins.awarded} capped={coins.capped} />}
+
+      {user && revealDone && others.length > 0 && (
+        <ul className="flex w-full max-w-xs flex-col gap-2 rounded-2xl border-2 border-[var(--border)] bg-[var(--card)] p-3 text-left">
+          {others.map((p) => (
+            <li key={p.socketId} className="flex items-center justify-between gap-3">
+              <span className="min-w-0 truncate font-bold text-[var(--fg)]">{p.name}</span>
+              <AddFriendButton userId={p.userId} username={p.name} />
+            </li>
+          ))}
+        </ul>
+      )}
 
       {isHost && !revealDone && (
         <div className="flex overflow-hidden rounded-2xl border-2 border-[var(--border)] shadow-[0_4px_0_var(--border)]">

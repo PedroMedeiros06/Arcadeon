@@ -80,6 +80,7 @@ function makeResult(
     score: 0,
     wordsFound: 0,
     avatar: null,
+    userId: null,
   }));
 
   const allWords = Array.from({ length: wordCount }, (_, i) => {
@@ -256,6 +257,8 @@ export default function BuggleMockResultsPage() {
           config={result.room.config}
           playerCount={result.room.players.length}
           onUpdateConfig={(c) => alert(`Salvar config (mock): ${JSON.stringify(c)}`)}
+          coins={{ awarded: 15, capped: false, coins: 245 }}
+          players={result.room.players}
         />
       )}
     </div>
