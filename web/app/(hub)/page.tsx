@@ -42,9 +42,9 @@ export default function Home() {
 
       <section className="flex flex-col gap-4">
         <h2 className="font-display text-xl font-extrabold tracking-tight text-[var(--fg)]">Jogar sozinho</h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className={`grid grid-cols-1 gap-4 ${solo.length > 1 ? "sm:grid-cols-2 lg:grid-cols-3" : ""}`}>
           {solo.map((game) => (
-            <GameCard key={game.slug} game={game} />
+            <GameCard key={game.slug} game={game} layout={solo.length === 1 ? "wide" : "default"} />
           ))}
         </div>
       </section>
