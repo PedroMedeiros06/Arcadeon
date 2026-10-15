@@ -9,7 +9,7 @@ import { fetchDailyStatus, type DailyModeStatus, type DailyStatus } from "@/lib/
 import { modeLabel, type BoardCount } from "@/lib/termo/logic";
 import { getGame } from "@/lib/games";
 import { GAME_ICONS } from "@/components/gameIcons";
-import { FeatureCarousel } from "./FeatureCarousel";
+import { FeatureCarousel, type FeatureSlide } from "./FeatureCarousel";
 
 /* ---------- moldura comum dos slides ---------- */
 
@@ -42,7 +42,7 @@ function SlideShell({
       }}
     >
       <div className="relative z-10 flex min-w-0 flex-1 flex-col gap-1.5">
-        <p className="text-xs font-bold uppercase tracking-wider" style={{ color: accent }}>
+        <p className="text-sm font-bold" style={{ color: accent }}>
           {eyebrow}
         </p>
         <h2 className="font-display text-2xl font-extrabold tracking-tight text-[var(--fg)] sm:text-3xl">{title}</h2>
@@ -191,7 +191,7 @@ function LetradoModesSlide() {
   return (
     <SlideShell
       accent="var(--game-termo)"
-      eyebrow="Letrado · outros modos"
+      eyebrow="Outros modos do Letrado"
       title="Já jogou o diário?"
       text="O Letrado tem mais desafios pra quando a palavra do dia acabar."
       visual={
@@ -312,12 +312,14 @@ function RaceVisual() {
 
 /* ---------- composicao da home ---------- */
 
-export function homeSlides() {
+export function homeSlides(): FeatureSlide[] {
   return [
-    { id: "letrado-diario", content: <LetradoDailySlide /> },
-    { id: "letrado-modos", content: <LetradoModesSlide /> },
+    { id: "letrado-diario", label: "Letrado do dia", slug: "termo", content: <LetradoDailySlide /> },
+    { id: "letrado-modos", label: "Outros modos", slug: "termo", content: <LetradoModesSlide /> },
     {
       id: "corrida",
+      label: "Corrida",
+      slug: "corrida",
       content: (
         <OnlineGameSlide
           slug="corrida"
@@ -330,6 +332,8 @@ export function homeSlides() {
     },
     {
       id: "buggle",
+      label: "Buggle",
+      slug: "buggle",
       content: (
         <OnlineGameSlide
           slug="buggle"
@@ -342,6 +346,8 @@ export function homeSlides() {
     },
     {
       id: "drawit",
+      label: "Rabiscado",
+      slug: "drawit",
       content: (
         <OnlineGameSlide
           slug="drawit"
