@@ -19,6 +19,8 @@ import {
 } from "./rooms";
 import { registerDrawNamespace } from "./drawSocket";
 import { registerRaceNamespace } from "./raceSocket";
+import { getDrawRoom } from "./drawRooms";
+import { hasRaceRoom } from "./raceRooms";
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3001;
 const CLIENT_ORIGIN = (process.env.CLIENT_ORIGIN ?? "http://localhost:3000").replace(/\/$/, "");
@@ -32,6 +34,18 @@ app.use(express.json());
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", boot: BOOT_ID, uptime_s: Math.round(process.uptime()) });
+});
+
+app.get("/rooms/:code", (req, res) => {
+  const code = String(req.params.code).toUpperCase();
+  const games: string[] = [];
+  if (/^[A-HJ-NP-Z2-9]{5}$/.test(code)) {
+    if (getRoom(code)) games.push("buggle");
+    if (getDrawRoom(code)) games.push("drawit");
+    if (hasRaceRoom(code)) games.push("corrida");
+  }
+  res.set("Cache-Control", "no-store");
+  res.json({ games });
 });
 
 const httpServer = createServer(app);

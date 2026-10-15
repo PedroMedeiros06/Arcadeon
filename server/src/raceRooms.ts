@@ -194,6 +194,10 @@ function newPlayer(
   };
 }
 
+export function hasRaceRoom(code: string): boolean {
+  return rooms.has(code);
+}
+
 export function getRoomForSocket(socketId: string): RaceRoom | undefined {
   const code = socketToRoom.get(socketId);
   return code ? rooms.get(code) : undefined;
