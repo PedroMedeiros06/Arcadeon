@@ -20,9 +20,9 @@ export function GameCard({ game }: { game: GameInfo }) {
       }`}
     >
       <div
-        className="game-thumb relative flex h-24 items-end justify-between p-3"
-        data-slug={game.slug}
-        style={{ ["--thumb-color" as string]: game.accent }}
+        className={`pattern-${game.slug} relative flex h-24 items-end justify-between p-3`}
+        // cor inline cobre jogo novo que ainda nao tem classe pattern-* propria
+        style={{ backgroundColor: game.accent }}
       >
         <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/20 text-white backdrop-blur-sm transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-110">
           {Icon && <Icon className="h-6 w-6" />}

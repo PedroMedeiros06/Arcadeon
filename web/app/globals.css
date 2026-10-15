@@ -741,24 +741,39 @@ body {
   }
 }
 
-/* ---------- Miniaturas dos jogos (cards da home) ---------- */
-.game-thumb {
-  background-color: var(--thumb-color);
+/* ---------- Padroes dos jogos (assinatura visual: cards, abas, vazios, OG) ---------- */
+.pattern-termo,
+.pattern-buggle,
+.pattern-drawit,
+.pattern-corrida,
+.pattern-brand {
+  background-color: var(--pattern-color);
 }
-.game-thumb[data-slug="termo"] {
+.pattern-termo {
+  --pattern-color: var(--game-termo);
   background-image: linear-gradient(rgb(255 255 255 / 0.18) 2px, transparent 2px),
     linear-gradient(90deg, rgb(255 255 255 / 0.18) 2px, transparent 2px);
   background-size: 22px 22px;
 }
-.game-thumb[data-slug="buggle"] {
+.pattern-buggle {
+  --pattern-color: var(--game-buggle);
   background-image: radial-gradient(rgb(255 255 255 / 0.35) 2.5px, transparent 3px);
   background-size: 16px 16px;
 }
-.game-thumb[data-slug="drawit"] {
+.pattern-drawit {
+  --pattern-color: var(--game-drawit);
   background-image: repeating-radial-gradient(circle at 15% 120%, rgb(255 255 255 / 0.2) 0 3px, transparent 3px 16px);
 }
-.game-thumb[data-slug="corrida"] {
+.pattern-corrida {
+  --pattern-color: var(--game-corrida);
   background-image: repeating-linear-gradient(45deg, rgb(0 0 0 / 0.12) 0 10px, transparent 10px 20px);
+}
+/* marca: as quatro texturas juntas, pra vazios que nao sao de um jogo so */
+.pattern-brand {
+  --pattern-color: var(--primary);
+  background-image: radial-gradient(rgb(255 255 255 / 0.22) 2px, transparent 2.5px),
+    repeating-linear-gradient(45deg, rgb(0 0 0 / 0.08) 0 8px, transparent 8px 16px);
+  background-size: 18px 18px, auto;
 }
 
 /* ---------- Letrado (Termo) ---------- */
