@@ -7,6 +7,8 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { equipAvatar, getInventory, getShopCatalog, updateUsername } from "@/lib/inventory";
 import { Avatar } from "@/components/Avatar";
 import { LoginPrompt } from "@/components/LoginPrompt";
+import { StreakCalendar } from "@/components/economy/StreakCalendar";
+import { useArcadeonStreak } from "@/components/economy/useArcadeonStreak";
 import type { Avatar as AvatarType } from "@/lib/types";
 
 type InventoryTab = "avatars" | "items";
@@ -115,6 +117,7 @@ function UsernameEditor({ current }: { current: string }) {
 
 export function ProfilePageContent() {
   const { user, username, coins, equippedAvatar, refreshProfile, loading: authLoading } = useAuth();
+  const { streak, claiming, error: streakError, claim } = useArcadeonStreak();
   const [tab, setTab] = useState<InventoryTab>("avatars");
   const [owned, setOwned] = useState<AvatarType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -197,6 +200,13 @@ export function ProfilePageContent() {
           </div>
         </div>
       </section>
+
+      {streak && (
+        <section className="flex flex-col gap-3 sm:max-w-md">
+          <h2 className="font-display text-xl font-extrabold tracking-tight text-[var(--fg)]">Sequência do Arcadeon</h2>
+          <StreakCalendar streak={streak} claiming={claiming} error={streakError} onClaim={claim} />
+        </section>
+      )}
 
       <section className="flex flex-col gap-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
