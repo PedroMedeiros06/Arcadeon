@@ -44,15 +44,21 @@ export function FriendRow({
       <div className="flex min-w-0 flex-1 flex-col">
         <span className={`truncate font-bold text-[var(--fg)] ${compact ? "text-xs" : "text-sm"}`}>{friend.username}</span>
         {status && (
-          <span className={`truncate text-[var(--fg-muted)] ${compact ? "text-[0.7rem]" : "text-xs"}`}>{status.label}</span>
+          <span title={status.label} className={`truncate text-[var(--fg-muted)] ${compact ? "text-[0.7rem]" : "text-xs"}`}>
+            {status.label}
+          </span>
         )}
       </div>
       {join && (
         <Link
           href={join}
-          className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-[var(--primary)] px-3 py-1.5 text-xs font-extrabold text-white transition hover:brightness-110 active:scale-[0.98]"
+          // na barra lateral o texto do botao comeria o status; fica so o icone
+          aria-label={compact ? `Entrar na sala de ${friend.username}` : undefined}
+          className={`inline-flex shrink-0 items-center gap-1 rounded-xl bg-[var(--primary)] text-xs font-extrabold text-white transition hover:brightness-110 active:scale-[0.98] ${
+            compact ? "p-1.5" : "px-3 py-1.5"
+          }`}
         >
-          <LogIn className="h-3.5 w-3.5" aria-hidden /> Entrar
+          <LogIn className="h-3.5 w-3.5" aria-hidden /> {!compact && "Entrar"}
         </Link>
       )}
       {actions}

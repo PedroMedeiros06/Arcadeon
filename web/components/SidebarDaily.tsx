@@ -8,7 +8,7 @@ import { formatCountdown, msUntilBrasiliaMidnight } from "@/lib/time";
 
 const MODES = [1, 2, 4] as const;
 
-/** Progresso do Letrado de hoje e quanto falta pra palavra nova. Na fase 4 ganha os amigos online. */
+/** Progresso do Letrado de hoje e quanto falta pra palavra nova. */
 export function SidebarDaily() {
   const { user, loading } = useAuth();
   const [done, setDone] = useState<number | null>(null);
