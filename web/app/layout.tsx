@@ -4,6 +4,7 @@ import Script from "next/script";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
 import { FriendsProvider } from "@/lib/social/FriendsProvider";
 import { PresenceSync } from "@/components/social/PresenceSync";
+import { SocialToaster } from "@/components/social/SocialToaster";
 import { ThemeProvider } from "@/lib/theme/ThemeProvider";
 import { TransitionProvider } from "@/lib/transition/TransitionProvider";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/seo";
@@ -74,6 +75,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <FriendsProvider>
               <TransitionProvider>{children}</TransitionProvider>
               <PresenceSync />
+              <SocialToaster />
             </FriendsProvider>
           </AuthProvider>
         </ThemeProvider>

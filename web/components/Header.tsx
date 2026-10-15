@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { LoginModal } from "./LoginModal";
 import { ThemeToggle } from "./ThemeToggle";
 import { Avatar } from "./Avatar";
+import { NotificationBell } from "./social/NotificationBell";
 
 function AccountMenu() {
   const { user, username, coins, equippedAvatar, signOut } = useAuth();
@@ -104,11 +105,14 @@ export function Header() {
     <header className="sticky top-0 z-40 border-b-2 border-[var(--border)] bg-[var(--card)]">
       <div className="flex h-16 items-center gap-3 px-4 sm:px-6">
         {/* no PC a marca fica na sidebar */}
-        <Link href="/" className="flex items-center gap-2 lg:hidden">
+        <Link href="/" aria-label="Arcadeon, início" className="flex items-center gap-2 lg:hidden">
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#0c0b16]">
             <Image src="/Logo@4x.png" alt="" width={40} height={40} className="h-5 w-5 object-contain" priority />
           </span>
-          <span className="font-display text-lg font-extrabold tracking-tight text-[var(--fg)]">Arcadeon</span>
+          {/* em tela estreita o header logado nao cabe com o nome; o icone continua levando pro inicio */}
+          <span className="hidden font-display text-lg font-extrabold tracking-tight text-[var(--fg)] min-[420px]:inline">
+            Arcadeon
+          </span>
         </Link>
 
         <div className="flex-1" />
@@ -118,6 +122,7 @@ export function Header() {
 
           {loading ? null : user ? (
             <>
+              <NotificationBell />
               <span
                 className="flex items-center gap-1.5 rounded-full bg-[var(--primary-tint)] px-3 py-1.5 text-sm font-bold tabular-nums text-[var(--primary)]"
                 title="Moedas"
