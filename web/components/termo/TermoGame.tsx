@@ -59,6 +59,8 @@ const COLORBLIND_KEY = "termoColorblind";
 const HARD_KEY = "termoHardMode";
 const REVEAL_MS = WORD_LENGTH * 200 + 500;
 const HINT_PRICE = 5;
+// Infinito: cada intervalo entre jogadas conta no maximo isso (aba fechada/parada nao vira horas)
+const MAX_MOVE_GAP_S = 180;
 
 type Status = "loading" | "error" | "playing" | "revealing" | "won" | "lost";
 
@@ -70,6 +72,7 @@ interface Game {
   /** Infinito: conhecidas desde o inicio. Diario: so chegam do servidor no fim. */
   answers: string[] | null;
   playDate: string | null;
+  /** Infinito: hora da ultima jogada (o tempo soma os intervalos, cada um limitado) */
   startedAt: number;
   /** Diario ja terminado quando a tela abriu: mostra o resumo em vez do tabuleiro. */
   alreadyPlayed: boolean;
@@ -430,7 +433,8 @@ export function TermoGame() {
       const evals = [...game.evals, answers.map((target) => evaluateGuess(guess, target))];
       const won = answers.every((target) => guesses.includes(target));
       finished = won || guesses.length >= maxAttemptsFor(game.boardCount);
-      next = { ...game, guesses, evals, won, timeSeconds: Math.floor((Date.now() - game.startedAt) / 1000) };
+      const gap = Math.min(MAX_MOVE_GAP_S, Math.round((Date.now() - game.startedAt) / 1000));
+      next = { ...game, guesses, evals, won, timeSeconds: game.timeSeconds + gap, startedAt: Date.now() };
     } else {
       submittingRef.current = true;
       const request = requestRef.current;
