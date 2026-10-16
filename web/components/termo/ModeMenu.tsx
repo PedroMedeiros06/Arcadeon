@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CalendarDays, Check, ChevronDown, Infinity as InfinityIcon, Skull, Timer, X } from "lucide-react";
+import { CalendarDays, Check, ChevronDown, Infinity as InfinityIcon, Skull, Swords, Timer, X } from "lucide-react";
 import { MODES, maxAttemptsFor, type BoardCount, type PlayMode } from "@/lib/termo/logic";
 import type { DailyModeStatus } from "@/lib/termo/daily";
 
-export type ExtraMode = "speed" | "villain";
+export type ExtraMode = "speed" | "villain" | "duel";
 
 const MODE_INFO: Record<BoardCount, string> = {
   1: "1 palavra",
@@ -14,6 +14,7 @@ const MODE_INFO: Record<BoardCount, string> = {
 };
 
 const EXTRAS: { mode: ExtraMode; label: string; description: string; Icon: typeof Timer }[] = [
+  { mode: "duel", label: "Duelo", description: "Desafie um amigo ao vivo: quem acertar primeiro vence", Icon: Swords },
   { mode: "speed", label: "Contra o Tempo", description: "3 minutos para acertar o máximo de palavras", Icon: Timer },
   { mode: "villain", label: "Vilão", description: "A palavra muda para fugir dos seus palpites", Icon: Skull },
 ];
@@ -221,7 +222,7 @@ export function ModeMenu({ playMode, boardCount, extraMode, dailyStatus, onOpenC
                       setOpen(false);
                       onPickExtra(mode);
                     }}
-                    className={`flex flex-col gap-1.5 rounded-2xl border-2 p-3 text-left transition active:translate-y-0.5 ${
+                    className={`flex flex-col gap-1.5 rounded-2xl border-2 p-3 text-left transition active:translate-y-0.5 ${mode === "duel" ? "col-span-2" : ""} ${
                       extraMode === mode
                         ? "border-[var(--accent)] bg-[var(--bg)] shadow-[0_3px_0_var(--accent)]"
                         : "border-[var(--border)] shadow-[0_3px_0_var(--border)] hover:border-[var(--border-hover)]"

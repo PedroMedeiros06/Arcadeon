@@ -11,7 +11,7 @@ import { FriendRow } from "./FriendRow";
 import { useNow } from "./useNow";
 
 /** Botao da sala de espera: abre a lista de amigos (online primeiro) com "Convidar". */
-export function InviteFriendsButton({ game, roomCode }: { game: "buggle" | "drawit" | "corrida"; roomCode: string }) {
+export function InviteFriendsButton({ game, roomCode }: { game: "buggle" | "drawit" | "corrida" | "termo"; roomCode: string }) {
   const { user } = useAuth();
   const { available, friends } = useFriends();
   const now = useNow();

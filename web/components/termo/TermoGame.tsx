@@ -40,6 +40,7 @@ import {
 } from "@/lib/termo/daily";
 import { useWordInput } from "@/lib/termo/useWordInput";
 import { useFitBoards } from "@/lib/termo/useFitBoards";
+import { normalizeDuelCode } from "@/lib/termo/duelRules";
 import { logActivity } from "@/lib/activity";
 import { Boards } from "./Board";
 import { Keyboard, KEY_ROWS, keyHeightClass } from "./Keyboard";
@@ -50,6 +51,7 @@ import { StatsModal } from "./StatsModal";
 import { AnalysisModal } from "./AnalysisModal";
 import { SpeedGame } from "./SpeedGame";
 import { VillainGame } from "./VillainGame";
+import { DuelScreen, forfeitCurrentDuel } from "./duel/DuelScreen";
 import { Confetti, NextWordCountdown } from "./Extras";
 
 const TUTORIAL_KEY = "termoTutorialSeen";
@@ -165,6 +167,8 @@ export function TermoGame() {
   const userId = user?.id ?? null;
   const [playMode, setPlayMode] = useState<PlayMode>("daily");
   const [extraMode, setExtraMode] = useState<ExtraMode | null>(null);
+  // codigo do link de duelo (?join=); some depois de usado
+  const [duelJoinCode, setDuelJoinCode] = useState<string | null>(null);
   const [boardCount, setBoardCount] = useState<BoardCount>(1);
   const [targetWordPool, setTargetWordPool] = useState<string[]>([]);
   const [acceptedWords, setAcceptedWords] = useState<Set<string>>(new Set());
@@ -282,18 +286,23 @@ export function TermoGame() {
         initialSearchRef.current ??= window.location.search;
         const params = new URLSearchParams(initialSearchRef.current);
         const code = params.get("desafio");
+        const join = normalizeDuelCode(params.get("join") ?? "");
         const challenge = code ? decodeChallenge(code, new Set(targets)) : null;
         const modeParam = params.get("modo");
         const boardsParam = params.get("tabuleiros");
         const count: BoardCount = boardsParam === "2" ? 2 : boardsParam === "4" ? 4 : 1;
-        if (code || modeParam || boardsParam) {
+        if (code || modeParam || boardsParam || params.has("join")) {
           params.delete("desafio");
+          params.delete("join");
           params.delete("modo");
           params.delete("tabuleiros");
           const qs = params.toString();
           window.history.replaceState(null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
         }
-        if (challenge) {
+        if (join) {
+          setDuelJoinCode(join);
+          doOpenExtra("duel");
+        } else if (challenge) {
           startGame(targets, challenge.words.length as BoardCount, "infinite", challenge);
         } else if (!code && modeParam === "tempo") {
           doOpenExtra("speed");
@@ -336,6 +345,7 @@ export function TermoGame() {
 
   function doOpenExtra(mode: ExtraMode) {
     requestRef.current++;
+    if (extraMode === "duel" && mode !== "duel") setDuelJoinCode(null);
     setExtraMode(mode);
     setExtraActive(false);
     setMessage(null);
@@ -351,7 +361,9 @@ export function TermoGame() {
     extraMode === null && playMode === "infinite" && !!game && !game.alreadyPlayed && status === "playing" && game.guesses.length > 0;
   const leaveActive = extraMode ? extraActive : infiniteActive;
   const leaveWhat =
-    extraMode === "speed"
+    extraMode === "duel"
+      ? "o duelo (conta como desistência)"
+      : extraMode === "speed"
       ? "esta partida de Contra o Tempo"
       : extraMode === "villain"
         ? "esta partida contra o Vilão"
@@ -366,6 +378,7 @@ export function TermoGame() {
     onLeave: () => {
       const action = pendingSwitchRef.current;
       pendingSwitchRef.current = null;
+      if (extraMode === "duel") forfeitCurrentDuel();
       // voltar do navegador: abandona a partida e cai no Diario do Letrado
       if (action) action();
       else doPickMode("daily", 1);
@@ -727,6 +740,26 @@ export function TermoGame() {
       {children}
     </div>
   );
+
+  if (extraMode === "duel") {
+    return root(
+      <div className="relative mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col items-center gap-2 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 sm:px-4 sm:pb-4">
+        <DuelScreen
+          initialCode={duelJoinCode}
+          acceptedWords={acceptedWords}
+          accents={accents}
+          message={message}
+          setMessage={setMessage}
+          onActiveChange={setExtraActive}
+          onExit={() => {
+            setDuelJoinCode(null);
+            doPickMode(playMode, boardCount);
+          }}
+        />
+      </div>,
+      true,
+    );
+  }
 
   if (extraMode) {
     return root(
