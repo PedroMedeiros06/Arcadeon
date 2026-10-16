@@ -7,6 +7,9 @@ import { InviteFriendsButton } from "@/components/social/InviteFriendsButton";
 import { MODES } from "@/lib/termo/logic";
 import type { DuelPlayer, DuelState } from "@/lib/termo/duelRules";
 
+// send_game_invite ainda recusa "termo"; ate o Servidor liberar, so o link/codigo
+const INVITES_READY = false;
+
 function Seat({ player, label }: { player: DuelPlayer | null; label: string }) {
   return (
     <div className="flex min-w-0 flex-1 basis-0 flex-col items-center gap-1.5 rounded-2xl border-2 border-[var(--border)] bg-[var(--bg)] p-3">
@@ -74,7 +77,8 @@ export function DuelLobby({ duel, busy, onStart, onLeave }: DuelLobbyProps) {
           {copied ? <Check className="h-4 w-4 text-[var(--termo-correct)]" /> : <Copy className="h-4 w-4" />}
           {copied ? "Link copiado" : "Copiar link"}
         </button>
-        {isHost && !duel.opponent && <InviteFriendsButton game="termo" roomCode={duel.code} />}
+        {/* convite pela lista de amigos: liga quando o banco aceitar game = "termo" (pedido no vault) */}
+        {INVITES_READY && isHost && !duel.opponent && <InviteFriendsButton game="termo" roomCode={duel.code} />}
       </div>
 
       <div className="flex w-full items-center gap-2">

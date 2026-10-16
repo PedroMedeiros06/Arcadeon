@@ -340,12 +340,17 @@ export function TermoGame() {
   );
 
   function doPickMode(mode: PlayMode, count: BoardCount) {
+    // saindo do duelo pela sala de espera: cancela a sala (na partida o aviso de saida ja desistiu)
+    if (extraMode === "duel") forfeitCurrentDuel();
     if (targetWordPool.length > 0) startGame(targetWordPool, count, mode);
   }
 
   function doOpenExtra(mode: ExtraMode) {
     requestRef.current++;
-    if (extraMode === "duel" && mode !== "duel") setDuelJoinCode(null);
+    if (extraMode === "duel" && mode !== "duel") {
+      forfeitCurrentDuel();
+      setDuelJoinCode(null);
+    }
     setExtraMode(mode);
     setExtraActive(false);
     setMessage(null);
