@@ -152,7 +152,7 @@ export function VillainGame({ targets, acceptedWords, accents, onShare, message,
             <p className="text-sm font-semibold text-[var(--fg-muted)]">
               A palavra acabou sendo <b className="uppercase text-[var(--fg)]">{withAccents(answer, accents)}</b>
             </p>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap justify-center gap-2">
               <button
                 onClick={() => onShare(shareText)}
                 className="flex items-center gap-2 rounded-2xl border-2 border-[var(--border)] bg-[var(--card)] px-4 py-2 text-sm font-extrabold text-[var(--fg)] transition hover:bg-[var(--bg)]"

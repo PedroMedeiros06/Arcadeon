@@ -208,7 +208,7 @@ export function SpeedGame({ acceptedWords, accents, onShare, message, setMessage
       .map((h) => (h.solved ? "🟩" : "🟥"))
       .join("")}\n\n${window.location.origin}/games/termo`;
     return (
-      <div className="flex w-full max-w-sm flex-col items-center gap-4 rounded-3xl border-2 border-[var(--border)] bg-[var(--card)] p-7 text-center">
+      <div className="flex w-full max-w-sm flex-col items-center gap-4 rounded-3xl border-2 border-[var(--border)] bg-[var(--card)] p-5 text-center sm:p-7">
         <div className="text-5xl">⏱</div>
         <h2 className="text-2xl font-extrabold text-[var(--fg)]">Tempo esgotado!</h2>
         <p className="text-4xl font-black text-[var(--primary)]">

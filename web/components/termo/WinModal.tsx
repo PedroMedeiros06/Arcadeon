@@ -35,8 +35,13 @@ export function NextActions({ actions }: { actions: WinAction[] }) {
       {daily.length > 0 && (
         <div className="flex gap-2">
           {daily.map((a) => (
-            <button key={a.label} onMouseDown={(e) => e.preventDefault()} onClick={a.onClick} className={primaryClass}>
-              <ModeGlyph count={a.count!} size={14} /> {a.label}
+            <button
+              key={a.label}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={a.onClick}
+              className={`${primaryClass} min-w-0 px-2`}
+            >
+              <ModeGlyph count={a.count!} size={14} /> <span className="truncate">{a.label}</span>
             </button>
           ))}
         </div>
@@ -129,11 +134,11 @@ export function WinModal({
       role="dialog"
       aria-modal="true"
       aria-label={won ? "Você acertou" : "Fim de jogo"}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out] sm:p-4"
     >
-      <div className="relative flex max-h-[92dvh] w-full max-w-sm flex-col overflow-hidden rounded-3xl border-2 border-[var(--border)] bg-[var(--card)] shadow-[0_16px_40px_-8px_rgba(0,0,0,0.4)] animate-[scaleIn_0.25s_ease-out]">
+      <div className="relative flex max-h-[94dvh] w-full max-w-sm flex-col overflow-y-auto overflow-x-hidden rounded-3xl border-2 border-[var(--border)] bg-[var(--card)] shadow-[0_16px_40px_-8px_rgba(0,0,0,0.4)] animate-[scaleIn_0.25s_ease-out]">
         <div
-          className={`relative shrink-0 overflow-hidden px-8 pb-8 pt-9 text-center ${
+          className={`relative shrink-0 overflow-hidden px-5 pb-6 pt-7 text-center sm:px-8 sm:pb-8 sm:pt-9 [@media(max-height:720px)]:pb-4 [@media(max-height:720px)]:pt-5 ${
             won
               ? "bg-gradient-to-br from-[var(--primary-dark)] via-[var(--primary)] to-[var(--primary-2)]"
               : "bg-gradient-to-br from-[var(--fg-muted)] to-[var(--border-hover)]"
@@ -142,11 +147,11 @@ export function WinModal({
           <div className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
           <div className="pointer-events-none absolute -bottom-10 -left-6 h-28 w-28 rounded-full bg-white/10 blur-2xl" />
 
-          <div className="animate-pop-in mb-3 text-6xl drop-shadow-[0_4px_12px_rgba(0,0,0,0.25)]">
+          <div className="animate-pop-in mb-3 text-5xl sm:text-6xl [@media(max-height:720px)]:mb-1 [@media(max-height:720px)]:text-4xl drop-shadow-[0_4px_12px_rgba(0,0,0,0.25)]">
             {won ? "🎉" : "😔"}
           </div>
 
-          <h2 className="mb-1 text-2xl font-extrabold tracking-tight text-white">
+          <h2 className="mb-1 text-xl font-extrabold sm:text-2xl tracking-tight text-white">
             {won ? "Você acertou!" : "Fim de jogo"}
           </h2>
           <p className="text-sm font-semibold text-white/85">
@@ -175,29 +180,29 @@ export function WinModal({
           </div>
         </div>
 
-        <div className="shrink-0 px-8 pt-5">
-          <div className="flex justify-center gap-3">
-            <div className="flex flex-1 flex-col items-center gap-1 rounded-2xl border-2 border-[var(--border)] bg-[var(--bg)] px-3 py-3">
-              <span className="flex items-center gap-1 text-xl font-extrabold text-[var(--primary)]">
+        <div className="shrink-0 px-5 pt-4 sm:px-8 sm:pt-5 [@media(max-height:720px)]:pt-3">
+          <div className="flex justify-center gap-2 sm:gap-3">
+            <div className="flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl border-2 border-[var(--border)] bg-[var(--bg)] px-2 py-2.5 sm:px-3 sm:py-3 [@media(max-height:720px)]:py-2">
+              <span className="flex items-center gap-1 whitespace-nowrap text-lg font-extrabold sm:text-xl text-[var(--primary)]">
                 <Target className="h-4 w-4" />
                 {attempts}
               </span>
-              <span className="text-xs font-bold uppercase text-[var(--fg-muted)]">Tentativas</span>
+              <span className="text-[10px] font-bold uppercase text-[var(--fg-muted)] sm:text-xs">Tentativas</span>
             </div>
-            <div className="flex flex-1 flex-col items-center gap-1 rounded-2xl border-2 border-[var(--border)] bg-[var(--bg)] px-3 py-3">
-              <span className="flex items-center gap-1 text-xl font-extrabold text-[var(--accent)]">
+            <div className="flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl border-2 border-[var(--border)] bg-[var(--bg)] px-2 py-2.5 sm:px-3 sm:py-3 [@media(max-height:720px)]:py-2">
+              <span className="flex items-center gap-1 whitespace-nowrap text-lg font-extrabold sm:text-xl text-[var(--accent)]">
                 <Clock className="h-4 w-4" />
                 {timeString}
               </span>
-              <span className="text-xs font-bold uppercase text-[var(--fg-muted)]">Tempo</span>
+              <span className="text-[10px] font-bold uppercase text-[var(--fg-muted)] sm:text-xs">Tempo</span>
             </div>
             {currentStreak !== undefined && (
-              <div className="flex flex-1 flex-col items-center gap-1 rounded-2xl border-2 border-[var(--border)] bg-[var(--bg)] px-3 py-3">
-                <span className="flex items-center gap-1 text-xl font-extrabold text-[var(--primary)]">
+              <div className="flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl border-2 border-[var(--border)] bg-[var(--bg)] px-2 py-2.5 sm:px-3 sm:py-3 [@media(max-height:720px)]:py-2">
+                <span className="flex items-center gap-1 whitespace-nowrap text-lg font-extrabold sm:text-xl text-[var(--primary)]">
                   <Flame className="h-4 w-4 fill-current" />
                   {currentStreak}
                 </span>
-                <span className="text-xs font-bold uppercase text-[var(--fg-muted)]">Sequência</span>
+                <span className="text-[10px] font-bold uppercase text-[var(--fg-muted)] sm:text-xs">Sequência</span>
               </div>
             )}
           </div>
@@ -234,12 +239,12 @@ export function WinModal({
         </div>
 
         {showLeaderboard && (
-          <div className="mt-5 flex-1 overflow-y-auto border-t-2 border-[var(--border)] px-8">
+          <div className="mt-4 min-h-[8rem] flex-1 overflow-y-auto border-t-2 border-[var(--border)] px-5 sm:mt-5 sm:px-8 [@media(max-height:720px)]:mt-3">
             <Leaderboard refreshKey={leaderboardRefresh} boardCount={boardCount} />
           </div>
         )}
 
-        <div className="flex shrink-0 flex-col gap-2 p-8 pt-4">
+        <div className="flex shrink-0 flex-col gap-2 px-5 pb-5 pt-4 sm:px-8 sm:pb-8 [@media(max-height:720px)]:pb-4 [@media(max-height:720px)]:pt-3">
           {showCountdown && <NextWordCountdown className="mb-1" />}
           {(onAnalyze || onChallenge) && (
             <div className="flex gap-2">
