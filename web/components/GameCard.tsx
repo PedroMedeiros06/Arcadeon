@@ -1,11 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { Play, User, Users } from "lucide-react";
 import { useBlockTransition } from "@/lib/transition/TransitionProvider";
 import { formatCountdown, msUntilBrasiliaMidnight } from "@/lib/time";
 import type { GameInfo } from "@/lib/types";
 import { GAME_ICONS } from "./gameIcons";
+
+const GAME_ART: Record<string, string> = {
+  termo: "/games/letrado.png",
+  buggle: "/games/buggle.png",
+  drawit: "/games/rabiscado.png",
+  corrida: "/games/corrida.png",
+};
 
 /** Contagem ate a proxima palavra do dia. So aparece depois de montar, pra hidratacao bater. */
 function useNextWordCountdown(enabled: boolean): string | null {
@@ -39,14 +47,24 @@ export function GameCard({ game, layout = "default" }: { game: GameInfo; layout?
       }`}
     >
       <div
-        className={`pattern-${game.slug} relative flex items-end justify-between p-3 ${
-          wide ? "h-28 shrink-0 sm:h-auto sm:w-56" : "h-24"
+        className={`pattern-${game.slug} relative flex items-end justify-between overflow-hidden p-3 ${
+          wide ? "h-36 shrink-0 sm:h-auto sm:w-64" : "h-36"
         }`}
         // cor inline cobre jogo novo que ainda nao tem classe pattern-* propria
         style={{ backgroundColor: game.accent }}
       >
+        {GAME_ART[game.slug] && (
+          <Image
+            src={GAME_ART[game.slug]}
+            alt=""
+            fill
+            unoptimized
+            sizes={wide ? "(min-width: 640px) 256px, 100vw" : "(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 78vw"}
+            className="object-contain p-2 drop-shadow-[0_10px_16px_rgb(0_0_0/0.2)] transition-transform duration-300 group-hover:scale-105"
+          />
+        )}
         <span
-          className={`flex items-center justify-center rounded-2xl bg-white/20 text-white backdrop-blur-sm transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-110 ${
+          className={`relative z-10 flex items-center justify-center rounded-2xl bg-black/20 text-white shadow-sm backdrop-blur-md transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-110 ${
             wide ? "h-14 w-14" : "h-11 w-11"
           }`}
         >
