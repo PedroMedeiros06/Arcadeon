@@ -41,6 +41,14 @@ export interface DuelState {
   me: DuelPlayer;
   opponent: DuelPlayer | null;
   words: string[] | null;
+  /** revanche pedida depois do fim (sala nova); null se ninguem pediu */
+  rematch: DuelRematch | null;
+}
+
+export interface DuelRematch {
+  code: string;
+  hostId: string;
+  status: DuelStatus;
 }
 
 export const DUEL_CODE = /^[A-HJ-NP-Z2-9]{5}$/;
@@ -124,7 +132,17 @@ export function parseDuelState(raw: unknown, localNow: number): DuelState | null
     me,
     opponent,
     words: d.words == null ? null : words(d.words),
+    rematch: rematch(d.rematch),
   };
+}
+
+function rematch(v: unknown): DuelRematch | null {
+  if (!v || typeof v !== "object") return null;
+  const r = v as Record<string, unknown>;
+  const code = str(r.code);
+  const hostId = str(r.host_id);
+  const status = STATUSES.find((s) => s === r.status);
+  return code && DUEL_CODE.test(code) && hostId && status ? { code, hostId, status } : null;
 }
 
 /** Pontos por tabuleiro: 10 se resolvido; senao a melhor linha (verde 2, amarelo 1). Igual ao banco. */

@@ -98,6 +98,9 @@ export function DuelResult({ duel, accents, busy, onRematch, onExit }: DuelResul
     };
   }, [rivalId]);
 
+  // o rival pediu revanche e ainda esta esperando
+  const invited = duel.rematch?.status === "waiting" && duel.rematch.hostId !== duel.me.userId;
+
   const myScores = boardScores(duel.me.patterns, duel.boardCount);
   const rivalScores = rival ? boardScores(rival.patterns, duel.boardCount) : [];
   const sum = (s: number[]) => s.reduce((a, b) => a + b, 0);
@@ -146,6 +149,12 @@ export function DuelResult({ duel, accents, busy, onRematch, onExit }: DuelResul
         </div>
       )}
 
+      {invited && (
+        <p className="w-full animate-pulse rounded-2xl border-2 border-[var(--primary)] bg-[var(--bg)] px-4 py-2 text-sm font-extrabold text-[var(--fg)]">
+          {rival?.username ?? "Seu rival"} quer revanche!
+        </p>
+      )}
+
       <div className="flex w-full gap-2">
         <button
           onClick={onExit}
@@ -158,7 +167,7 @@ export function DuelResult({ duel, accents, busy, onRematch, onExit }: DuelResul
           disabled={busy}
           className="flex-1 rounded-2xl border-b-4 border-[var(--primary-dark)] bg-[var(--primary)] px-4 py-2.5 text-sm font-extrabold text-white transition hover:brightness-110 active:translate-y-1 active:border-b-2 disabled:opacity-50"
         >
-          Novo duelo
+          {invited ? "Aceitar revanche" : "Revanche"}
         </button>
       </div>
     </div>

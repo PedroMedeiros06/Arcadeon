@@ -35,12 +35,14 @@ function Seat({ player, label }: { player: DuelPlayer | null; label: string }) {
 interface DuelLobbyProps {
   duel: DuelState;
   busy: boolean;
+  /** revanche pedida por mim: nome de quem falta aceitar */
+  waitingFor?: string | null;
   onStart: () => void;
   onLeave: () => void;
 }
 
 /** Sala de espera: codigo e link pra mandar, convite pela lista de amigos e o botao Comecar do dono. */
-export function DuelLobby({ duel, busy, onStart, onLeave }: DuelLobbyProps) {
+export function DuelLobby({ duel, busy, waitingFor, onStart, onLeave }: DuelLobbyProps) {
   const [copied, setCopied] = useState(false);
   const isHost = duel.me.userId === duel.hostId;
   const host = isHost ? duel.me : duel.opponent;
@@ -93,7 +95,7 @@ export function DuelLobby({ duel, busy, onStart, onLeave }: DuelLobbyProps) {
           disabled={busy || !duel.opponent}
           className="w-full rounded-2xl border-b-4 border-[var(--primary-dark)] bg-[var(--primary)] px-5 py-3 text-base font-extrabold text-white transition hover:brightness-110 active:translate-y-1 active:border-b-2 disabled:opacity-50"
         >
-          {duel.opponent ? "Começar" : "Esperando o rival entrar"}
+          {duel.opponent ? "Começar" : waitingFor ? `Esperando ${waitingFor} aceitar a revanche` : "Esperando o rival entrar"}
         </button>
       ) : (
         <p className="text-sm font-bold text-[var(--fg-muted)]">Esperando {host?.username ?? "o dono"} começar…</p>

@@ -17,6 +17,8 @@ export const joinDuel = (code: string) => call("termo_duel_join", { p_code: code
 export const startDuel = (code: string) => call("termo_duel_start", { p_code: code });
 export const fetchDuel = (code: string) => call("termo_duel_state", { p_code: code });
 export const guessDuel = (code: string, guess: string) => call("termo_duel_guess", { p_code: code, p_guess: guess });
+/** Pede a revanche ou aceita a do rival (ai o duelo novo ja comeca). */
+export const rematchDuel = (code: string) => call("termo_duel_rematch", { p_code: code });
 export const claimDuel = (code: string) => call("termo_duel_claim", { p_code: code });
 
 /** Desistir. Convidado saindo da sala de espera recebe null (a sala continua do dono). */

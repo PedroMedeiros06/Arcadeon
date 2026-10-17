@@ -5,7 +5,7 @@ import { Swords } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { LoginModal } from "@/components/LoginModal";
 import { logActivity } from "@/lib/activity";
-import { createDuel, fetchDuel, forfeitDuel, joinDuel, pingDuel, startDuel, subscribeDuel } from "@/lib/termo/duel";
+import { createDuel, fetchDuel, forfeitDuel, joinDuel, pingDuel, rematchDuel, startDuel, subscribeDuel } from "@/lib/termo/duel";
 import type { DuelState } from "@/lib/termo/duelRules";
 import type { BoardCount } from "@/lib/termo/logic";
 import { DuelPick } from "./DuelPick";
@@ -68,6 +68,8 @@ export function DuelScreen({ initialCode, acceptedWords, accents, message, setMe
   const [loginOpen, setLoginOpen] = useState(false);
   // duelo cujo resultado ja pode aparecer (depois da ultima linha virar, ou aberto ja terminado)
   const [resultFor, setResultFor] = useState<string | null>(null);
+  // pedi revanche: a sala de espera nova mostra quem falta aceitar
+  const [rematchWith, setRematchWith] = useState<string | null>(null);
   // respostas fora de ordem: so vale a da busca mais recente
   const seqRef = useRef(0);
 
@@ -115,24 +117,26 @@ export function DuelScreen({ initialCode, acceptedWords, accents, message, setMe
   const duelId = duel?.id ?? null;
   const code = duel?.code ?? null;
   const live = duel?.status === "waiting" || duel?.status === "playing";
+  // terminado continua ouvindo: e' por ai que chega o pedido de revanche do rival
+  const watching = live || duel?.status === "finished";
 
   useEffect(() => {
     writeStored(live && code ? code : null);
     onActiveChange(duel?.status === "playing" && !duel.me.finishedAt);
   }, [live, code, duel?.status, duel?.me.finishedAt, onActiveChange]);
 
-  // Realtime + busca de seguranca + sinal de vida, enquanto a sala esta valendo
+  // Realtime + busca de seguranca enquanto a sala esta valendo ou na tela final; sinal de vida so valendo
   useEffect(() => {
-    if (!duelId || !code || !live) return;
+    if (!duelId || !code || !watching) return;
     const unsubscribe = subscribeDuel(duelId, () => void refresh(code));
     const poll = setInterval(() => {
       if (document.visibilityState === "visible") void refresh(code);
     }, SAFETY_POLL_MS);
-    void pingDuel(code);
-    const ping = setInterval(() => void pingDuel(code), PING_MS);
+    if (live) void pingDuel(code);
+    const ping = live ? setInterval(() => void pingDuel(code), PING_MS) : undefined;
     const onVisible = () => {
       if (document.visibilityState !== "visible") return;
-      void pingDuel(code);
+      if (live) void pingDuel(code);
       void refresh(code);
     };
     document.addEventListener("visibilitychange", onVisible);
@@ -142,7 +146,7 @@ export function DuelScreen({ initialCode, acceptedWords, accents, message, setMe
       clearInterval(ping);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [duelId, code, live, refresh]);
+  }, [duelId, code, live, watching, refresh]);
 
   async function run(action: () => Promise<DuelState | null>) {
     if (busy) return;
@@ -168,6 +172,7 @@ export function DuelScreen({ initialCode, acceptedWords, accents, message, setMe
   async function leave() {
     if (code && live) await forfeitDuel(code).catch(() => null);
     apply(null);
+    setRematchWith(null);
     writeStored(null);
     onExit();
   }
@@ -215,7 +220,7 @@ export function DuelScreen({ initialCode, acceptedWords, accents, message, setMe
   }
 
   if (duel.status === "waiting") {
-    return shell(<DuelLobby duel={duel} busy={busy} onStart={() => run(() => startDuel(duel.code))} onLeave={leave} />);
+    return shell(<DuelLobby duel={duel} busy={busy} waitingFor={rematchWith} onStart={() => run(() => startDuel(duel.code))} onLeave={leave} />);
   }
 
   if (duel.status === "finished" && resultFor === duel.id) {
@@ -224,9 +229,13 @@ export function DuelScreen({ initialCode, acceptedWords, accents, message, setMe
         duel={duel}
         accents={accents}
         busy={busy}
-        onRematch={() => create(duel.boardCount)}
+        onRematch={() => {
+          setRematchWith(duel.opponent?.username ?? null);
+          void run(() => rematchDuel(duel.code));
+        }}
         onExit={() => {
           apply(null);
+          setRematchWith(null);
           onExit();
         }}
       />,
