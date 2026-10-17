@@ -9,6 +9,8 @@ import { Board, type BoardCell } from "./Board";
 const SIZES = Object.keys(BOARD_SIZES) as BoardSize[];
 /** tempo que as duas cartas erradas ficam a mostra */
 const MISS_REVEAL_MS = 900;
+/** espera a virada (300 ms no CSS) acabar antes de trocar, senao parece que a carta errada ficou no lugar */
+const FLIP_BACK_MS = 320;
 
 function formatTime(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
@@ -27,6 +29,7 @@ export function PracticeScreen({ onExit }: { onExit: () => void }) {
   const [movingBoard, setMovingBoard] = useLocalFlag("cofreTreinoMovel", false);
   const [game, setGame] = useState<GameState | null>(null);
   const [swap, setSwap] = useState<{ a: number; b: number; key: number } | null>(null);
+  const [swapping, setSwapping] = useState(false);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [endedAt, setEndedAt] = useState<number | null>(null);
   const [now, setNow] = useState(0);
@@ -59,12 +62,14 @@ export function PracticeScreen({ onExit }: { onExit: () => void }) {
     rngRef.current = mulberry32(Date.now() >>> 0);
     setGame(createGame({ size, movingBoard, coringa: false }, 1, rngRef.current));
     setSwap(null);
+    setSwapping(false);
     setStartedAt(null);
     setEndedAt(null);
   };
 
   const backToSetup = () => {
     clearMissTimer();
+    setSwapping(false);
     setGame(null);
   };
 
@@ -84,11 +89,21 @@ export function PracticeScreen({ onExit }: { onExit: () => void }) {
       missTimer.current = window.setTimeout(() => {
         missTimer.current = null;
         const resolved = resolveMiss(missed, rngRef.current);
-        setGame(resolved.state);
-        if (resolved.swap) {
-          swapKey.current += 1;
-          setSwap({ a: resolved.swap[0], b: resolved.swap[1], key: swapKey.current });
+        const swapped = resolved.swap;
+        if (!swapped) {
+          setGame(resolved.state);
+          return;
         }
+        // 1o vira as erradas pra baixo sem trocar; so depois da virada aplica a troca
+        setGame({ ...resolved.state, cells: missed.cells.map((c, i) => (missed.flipped.includes(i) ? { ...c, state: "hidden" } : c)) });
+        setSwapping(true);
+        missTimer.current = window.setTimeout(() => {
+          missTimer.current = null;
+          setGame(resolved.state);
+          setSwapping(false);
+          swapKey.current += 1;
+          setSwap({ a: swapped[0], b: swapped[1], key: swapKey.current });
+        }, FLIP_BACK_MS);
       }, MISS_REVEAL_MS);
     }
   };
@@ -166,7 +181,7 @@ export function PracticeScreen({ onExit }: { onExit: () => void }) {
         </div>
       </div>
 
-      <Board cols={game.cols} cells={cells} disabled={game.pendingMiss || game.finished} swap={swap} onFlip={handleFlip} />
+      <Board cols={game.cols} cells={cells} disabled={game.pendingMiss || swapping || game.finished} swap={swap} onFlip={handleFlip} />
 
       {game.finished && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">

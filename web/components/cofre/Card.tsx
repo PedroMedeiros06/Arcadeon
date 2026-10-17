@@ -23,17 +23,21 @@ export function Card({
   const up = state !== "hidden";
   const art = face ? cardArt(face) : null;
   const coringa = face === CORINGA;
-  const artFailed = art !== null && failedSrc === art.src;
+  // sem `disabled` nativo: botao desabilitado perde o foco e quem joga no teclado volta pro topo
+  const blocked = disabled || state !== "hidden";
+  const artFailed = art !== null && (art.src === null || failedSrc === art.src);
 
   return (
     <button
       type="button"
       onMouseDown={(e) => e.preventDefault()}
-      onClick={onFlip}
-      disabled={disabled || state !== "hidden"}
+      onClick={() => {
+        if (!blocked) onFlip();
+      }}
+      aria-disabled={blocked}
       aria-label={up && art ? art.label : "Carta escondida"}
       className={`cofre-card relative block aspect-[3/4] w-full rounded-xl outline-none focus-visible:ring-4 focus-visible:ring-[var(--game-accent)] ${
-        state === "hidden" && !disabled ? "cursor-pointer transition-transform hover:-translate-y-0.5" : "cursor-default"
+        !blocked ? "cursor-pointer transition-transform hover:-translate-y-0.5" : "cursor-default"
       } ${state === "taken" ? "cofre-taken" : ""} ${highlight === "swap" ? "cofre-swap-glow" : ""}`}
     >
       <span data-up={up} className="cofre-card-inner absolute inset-0 block">
@@ -59,7 +63,7 @@ export function Card({
           {art &&
             (!artFailed ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={art.src} alt="" draggable={false} onError={() => setFailedSrc(art.src)} className="h-full w-full object-contain p-[12%]" />
+              <img src={art.src ?? undefined} alt="" draggable={false} onError={() => setFailedSrc(art.src)} className="h-full w-full object-contain p-[12%]" />
             ) : (
               <>
                 <span className="text-[min(9vw,2.6rem)] leading-none">{art.emoji}</span>
