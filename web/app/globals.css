@@ -860,3 +860,74 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .skeleton { animation: none; }
 }
+
+/* ---------- Cofre ---------- */
+
+/* carta: virada 3D em rotateY; o conteudo das faces fica no componente */
+.cofre-card {
+  perspective: 800px;
+}
+.cofre-card-inner {
+  transform-style: preserve-3d;
+  transition: transform 300ms ease-out;
+}
+.cofre-card-inner[data-up="true"] {
+  transform: rotateY(180deg);
+}
+.cofre-card-face {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.cofre-card-front {
+  transform: rotateY(180deg);
+}
+.cofre-taken {
+  animation: cofre-taken 400ms ease-out forwards;
+}
+@keyframes cofre-taken {
+  from {
+    transform: scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: scale(0.9);
+    opacity: 0.25;
+  }
+}
+/* tabuleiro movel: a celula sai da posicao da outra (--dx/--dy) ate a sua */
+.cofre-swap {
+  animation: cofre-swap 600ms ease-in-out;
+  z-index: 2;
+}
+@keyframes cofre-swap {
+  from {
+    transform: translate(var(--dx, 0), var(--dy, 0));
+  }
+  to {
+    transform: translate(0, 0);
+  }
+}
+.cofre-swap-glow {
+  animation: cofre-swap-glow 600ms ease-in-out;
+}
+@keyframes cofre-swap-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  40% {
+    box-shadow: 0 0 0 4px var(--game-accent), 0 0 22px var(--game-accent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cofre-motion .cofre-card-inner {
+    transition-duration: 1ms !important;
+  }
+  .cofre-motion .cofre-taken {
+    animation-duration: 1ms !important;
+  }
+  /* sem deslize: so o brilho mostra quem trocou */
+  .cofre-motion .cofre-swap {
+    animation: none;
+  }
+}
