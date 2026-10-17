@@ -13,6 +13,7 @@ const GAME_ART: Record<string, string> = {
   buggle: "/games/buggle.png",
   drawit: "/games/rabiscado.png",
   corrida: "/games/corrida.png",
+  cofre: "/games/cofre.png",
 };
 
 /** Contagem ate a proxima palavra do dia. So aparece depois de montar, pra hidratacao bater. */
