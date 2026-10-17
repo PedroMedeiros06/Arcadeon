@@ -20,9 +20,13 @@ export function Card({
 }) {
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
   const [backFailed, setBackFailed] = useState(false);
+  // guarda a ultima face vista: a carta errada ainda mostra a arte enquanto vira de volta (300 ms)
+  const [lastFace, setLastFace] = useState(face);
+  if (face !== null && face !== lastFace) setLastFace(face);
+  const shownFace = face ?? lastFace;
   const up = state !== "hidden";
-  const art = face ? cardArt(face) : null;
-  const coringa = face === CORINGA;
+  const art = shownFace ? cardArt(shownFace) : null;
+  const coringa = shownFace === CORINGA;
   // sem `disabled` nativo: botao desabilitado perde o foco e quem joga no teclado volta pro topo
   const blocked = disabled || state !== "hidden";
   const artFailed = art !== null && (art.src === null || failedSrc === art.src);
@@ -63,7 +67,7 @@ export function Card({
           {art &&
             (!artFailed ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={art.src ?? undefined} alt="" draggable={false} onError={() => setFailedSrc(art.src)} className="h-full w-full object-contain p-[12%]" />
+              <img src={art.src ?? undefined} alt="" draggable={false} onError={() => setFailedSrc(art.src)} className="h-full w-full object-contain p-[7%]" />
             ) : (
               <>
                 <span className="text-[min(9vw,2.6rem)] leading-none">{art.emoji}</span>

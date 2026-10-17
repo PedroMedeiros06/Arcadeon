@@ -4,7 +4,8 @@ export interface CardArt {
   id: string;
   label: string;
   emoji: string;
-  src: string;
+  /** null enquanto a arte nao existe: a carta mostra emoji + nome */
+  src: string | null;
 }
 
 // nome pro jogador e emoji de reserva enquanto a arte nao existe
@@ -30,9 +31,25 @@ const ART: Record<string, { label: string; emoji: string }> = {
   [CORINGA]: { label: "Coringa", emoji: "🃏" },
 };
 
-export const CARD_BACK_SRC = "/games/cofre/cards/back.png";
+/** faces com arquivo em public/games/cofre/cards/<id>.webp (o teste confere com o disco) */
+const WITH_ART = new Set([
+  "diamante",
+  "barra-ouro",
+  "relogio",
+  "coroa",
+  "perolas",
+  "chave",
+  "rubi",
+  "dobrao",
+  "calice",
+  "anel",
+  "dragao-jade",
+  CORINGA,
+]);
+
+export const CARD_BACK_SRC = "/games/cofre/cards/back.webp";
 
 export function cardArt(face: string): CardArt {
   const art = ART[face] ?? { label: face, emoji: "❔" };
-  return { id: face, ...art, src: `/games/cofre/cards/${face}.png` };
+  return { id: face, ...art, src: WITH_ART.has(face) ? `/games/cofre/cards/${face}.webp` : null };
 }
