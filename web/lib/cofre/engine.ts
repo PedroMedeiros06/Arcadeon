@@ -156,3 +156,39 @@ export function flip(state: GameState, index: number): { state: GameState; event
     event: { kind: "miss", a, b: index },
   };
 }
+
+export function resolveMiss(state: GameState, rng: Rng): { state: GameState; swap: [number, number] | null } {
+  if (!state.pendingMiss) return { state, swap: null };
+  const cells = state.cells.map((c, i) => (state.flipped.includes(i) ? { ...c, state: "hidden" as const } : c));
+  let swap: [number, number] | null = null;
+  if (state.options.movingBoard) {
+    const hidden = cells.flatMap((c, i) => (c.state === "hidden" ? [i] : []));
+    if (hidden.length >= 2) {
+      const ia = Math.floor(rng() * hidden.length);
+      let ib = Math.floor(rng() * (hidden.length - 1));
+      if (ib >= ia) ib += 1;
+      const a = hidden[ia];
+      const b = hidden[ib];
+      [cells[a], cells[b]] = [cells[b], cells[a]];
+      swap = [a, b];
+    }
+  }
+  const turn = (state.turn + 1) % state.players.length;
+  return { state: { ...state, cells, flipped: [], pendingMiss: false, turn }, swap };
+}
+
+function better(x: PlayerScore, y: PlayerScore): boolean {
+  if (x.points !== y.points) return x.points > y.points;
+  if (x.pairs !== y.pairs) return x.pairs > y.pairs;
+  return x.misses < y.misses;
+}
+
+/** Colocacao de cada jogador (1 = primeiro). Empate total divide a colocacao. */
+export function placements(players: PlayerScore[]): number[] {
+  return players.map((p) => 1 + players.filter((o) => better(o, p)).length);
+}
+
+/** Nota do solo: menor e melhor. */
+export function soloScore(moves: number, seconds: number): number {
+  return moves * 10 + seconds;
+}

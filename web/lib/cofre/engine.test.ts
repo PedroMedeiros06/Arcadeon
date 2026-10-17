@@ -7,6 +7,9 @@ import {
   createGame,
   flip,
   mulberry32,
+  placements,
+  resolveMiss,
+  soloScore,
   type BoardSize,
   type CofreOptions,
   type GameState,
@@ -140,4 +143,68 @@ test("flip nao muta o estado de entrada", () => {
   const snap = JSON.stringify(s);
   flip(flip(s, 0).state, 1);
   assert.equal(JSON.stringify(s), snap);
+});
+
+function missed(faces: string[], players = 2, extra: Partial<CofreOptions> = {}) {
+  const s = stateWith(faces, players, extra);
+  return flip(flip(s, 0).state, 1).state;
+}
+
+test("resolveMiss esconde e passa a vez", () => {
+  const faces = ["diamante", "rubi", "diamante", "rubi"];
+  const r = resolveMiss(missed(faces), mulberry32(3));
+  assert.equal(r.swap, null);
+  assert.ok(r.state.cells.every((c) => c.state === "hidden"));
+  assert.deepEqual(r.state.flipped, []);
+  assert.equal(r.state.pendingMiss, false);
+  assert.equal(r.state.turn, 1);
+  assert.deepEqual(r.state.cells.map((c) => c.face), faces);
+  // turno 1 erra e volta pro 0
+  const back = resolveMiss(flip(flip(r.state, 0).state, 1).state, mulberry32(3));
+  assert.equal(back.state.turn, 0);
+});
+
+test("resolveMiss com tabuleiro movel troca duas escondidas", () => {
+  const faces = ["diamante", "rubi", "diamante", "rubi", "coroa", "coroa", "anel", "anel"];
+  const before = missed(faces, 2, { movingBoard: true });
+  before.cells[4].state = "taken";
+  before.cells[5].state = "taken";
+  const r = resolveMiss(before, mulberry32(9));
+  assert.ok(r.swap);
+  const [a, b] = r.swap!;
+  assert.notEqual(a, b);
+  assert.ok(![4, 5].includes(a) && ![4, 5].includes(b));
+  assert.equal(r.state.cells[a].face, faces[b]);
+  assert.equal(r.state.cells[b].face, faces[a]);
+  r.state.cells.forEach((c, i) => {
+    if (i !== a && i !== b) assert.equal(c.face, faces[i]);
+  });
+  assert.equal(r.state.cells[4].state, "taken");
+});
+
+test("resolveMiss no fim do jogo troca as duas que erraram", () => {
+  const before = missed(["diamante", "rubi", "diamante", "rubi"], 1, { movingBoard: true });
+  before.cells[2].state = "taken";
+  before.cells[3].state = "taken";
+  const r = resolveMiss(before, mulberry32(5));
+  assert.deepEqual([...r.swap!].sort(), [0, 1]);
+});
+
+test("resolveMiss sem erro pendente nao faz nada", () => {
+  const s = stateWith(["diamante", "diamante", "rubi", "rubi"], 1, { movingBoard: true });
+  const r = resolveMiss(s, mulberry32(1));
+  assert.equal(r.state, s);
+  assert.equal(r.swap, null);
+});
+
+test("placements desempata por pares e erros", () => {
+  const p = (points: number, pairs: number, misses: number) => ({ points, pairs, misses });
+  assert.deepEqual(placements([p(3, 1, 0), p(3, 3, 5)]), [2, 1]);
+  assert.deepEqual(placements([p(3, 3, 2), p(3, 3, 1)]), [2, 1]);
+  assert.deepEqual(placements([p(3, 3, 1), p(3, 3, 1), p(1, 1, 0)]), [1, 1, 3]);
+  assert.deepEqual(placements([p(5, 3, 9), p(4, 4, 0)]), [1, 2]);
+});
+
+test("soloScore soma jogadas x10 e segundos", () => {
+  assert.equal(soloScore(14, 63), 203);
 });
