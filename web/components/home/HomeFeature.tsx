@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { Check, Flame, Play, Skull, Timer, Users, X } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useBlockTransition } from "@/lib/transition/TransitionProvider";
@@ -78,21 +79,29 @@ function PlayButton({ accent, label, href }: { accent: string; label: string; hr
 
 /* ---------- Letrado diario ---------- */
 
-const SAMPLE: { letter: string; state: "correct" | "present" | "absent" }[] = [
-  { letter: "J", state: "absent" },
-  { letter: "O", state: "correct" },
-  { letter: "G", state: "absent" },
-  { letter: "A", state: "present" },
-  { letter: "R", state: "correct" },
-];
+const BOARD_COUNTS: BoardCount[] = [1, 2, 4];
 
-const TILE = {
-  correct: "bg-[#8bbf6f] text-white",
-  present: "bg-[#e0c26e] text-white",
-  absent: "bg-[var(--key-absent)] text-[var(--key-absent-fg)]",
+const GAME_ART = {
+  termo: "/games/letrado.png",
+  buggle: "/games/buggle.png",
+  drawit: "/games/rabiscado.png",
+  corrida: "/games/corrida.png",
 } as const;
 
-const BOARD_COUNTS: BoardCount[] = [1, 2, 4];
+function GameArtwork({ slug, compact = false }: { slug: keyof typeof GAME_ART; compact?: boolean }) {
+  return (
+    <div className={`relative ${compact ? "h-20 w-full" : "h-44 w-full"}`}>
+      <Image
+        src={GAME_ART[slug]}
+        alt=""
+        fill
+        unoptimized
+        sizes={compact ? "320px" : "240px"}
+        className="object-contain drop-shadow-[0_12px_18px_rgb(0_0_0/0.18)]"
+      />
+    </div>
+  );
+}
 
 const MODE_CHIP: Record<DailyModeStatus, { label: string; className: string }> = {
   not_started: { label: "a jogar", className: "border-[var(--border)] text-[var(--fg-muted)]" },
@@ -100,22 +109,6 @@ const MODE_CHIP: Record<DailyModeStatus, { label: string; className: string }> =
   won: { label: "venceu", className: "border-transparent bg-[var(--game-termo)] text-white" },
   lost: { label: "não foi hoje", className: "border-[var(--border)] bg-[var(--bg)] text-[var(--fg-muted)]" },
 };
-
-function SampleTiles({ size }: { size: "sm" | "lg" }) {
-  const box = size === "lg" ? "h-10 w-10 text-lg lg:h-11 lg:w-11" : "h-8 w-8 text-sm";
-  return (
-    <div className="flex gap-1.5">
-      {SAMPLE.map((t, i) => (
-        <span
-          key={i}
-          className={`flex items-center justify-center rounded-lg font-display font-extrabold ${box} ${TILE[t.state]}`}
-        >
-          {t.letter}
-        </span>
-      ))}
-    </div>
-  );
-}
 
 function LetradoDailySlide() {
   const { user, loading } = useAuth();
@@ -149,8 +142,8 @@ function LetradoDailySlide() {
             ? "Acerte e ganhe 10 moedas por modo (15 no difícil): Letrado, Duplo e Quádruplo."
             : "Entre com sua conta pra ganhar moedas e aparecer nos placares."
       }
-      visual={<SampleTiles size="lg" />}
-      mobileVisual={<SampleTiles size="sm" />}
+      visual={<GameArtwork slug="termo" />}
+      mobileVisual={<GameArtwork slug="termo" compact />}
     >
       {modes.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
@@ -259,58 +252,6 @@ function OnlineGameSlide({
   );
 }
 
-const BUGGLE_LETTERS = "ARCADEONPALAVRAS";
-
-function BuggleVisual() {
-  const path = new Set([0, 1, 5, 6]);
-  return (
-    <div className="grid grid-cols-4 gap-1.5 rotate-[-4deg]">
-      {BUGGLE_LETTERS.split("").map((l, i) => (
-        <span
-          key={i}
-          className={`flex h-10 w-10 items-center justify-center rounded-lg font-display text-lg font-extrabold ${
-            path.has(i) ? "bg-[var(--game-buggle)] text-white" : "bg-[var(--bg)] text-[var(--fg-muted)]"
-          }`}
-        >
-          {l}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function DrawVisual() {
-  return (
-    <svg viewBox="0 0 200 160" className="h-40 w-52" fill="none" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="6" y="6" width="188" height="148" rx="18" fill="var(--card)" stroke="var(--border)" strokeWidth="3" />
-      <path d="M40 118 C 60 60, 90 60, 100 96 S 140 130, 160 70" stroke="var(--game-drawit)" strokeWidth="7" />
-      <circle cx="150" cy="44" r="16" stroke="var(--game-drawit)" strokeWidth="6" opacity="0.6" />
-      <path d="M36 44 l 14 14 M50 44 l -14 14" stroke="var(--fg-muted)" strokeWidth="5" opacity="0.5" />
-    </svg>
-  );
-}
-
-function RaceVisual() {
-  const lanes = [
-    { left: "72%", color: "var(--game-corrida)" },
-    { left: "48%", color: "var(--primary)" },
-    { left: "60%", color: "var(--game-buggle)" },
-  ];
-  return (
-    <div className="flex w-full flex-col gap-2.5">
-      {lanes.map((lane, i) => (
-        <div key={i} className="relative h-9 rounded-xl bg-[var(--bg)]">
-          <span className="absolute inset-y-0 right-2 my-auto h-5 w-1.5 rounded bg-[repeating-linear-gradient(var(--fg-muted)_0_4px,transparent_4px_8px)] opacity-60" />
-          <span
-            className="absolute top-1/2 h-6 w-6 -translate-y-1/2 rounded-full border-4 border-[var(--card)]"
-            style={{ left: lane.left, backgroundColor: lane.color }}
-          />
-        </div>
-      ))}
-    </div>
-  );
-}
-
 /* ---------- composicao da home ---------- */
 
 export function homeSlides(): FeatureSlide[] {
@@ -327,7 +268,7 @@ export function homeSlides(): FeatureSlide[] {
           eyebrow="Jogue com amigos"
           title="Quem sabe mais chega primeiro"
           text="Responda rápido, acerte em sequência e ultrapasse todo mundo na pista."
-          visual={<RaceVisual />}
+          visual={<GameArtwork slug="corrida" />}
         />
       ),
     },
@@ -341,7 +282,7 @@ export function homeSlides(): FeatureSlide[] {
           eyebrow="Jogue com amigos"
           title="Caça-palavras em tempo real"
           text="Uma tela vira a TV da sala; cada um acha palavras no celular antes do tempo acabar."
-          visual={<BuggleVisual />}
+          visual={<GameArtwork slug="buggle" />}
         />
       ),
     },
@@ -355,7 +296,7 @@ export function homeSlides(): FeatureSlide[] {
           eyebrow="Jogue com amigos"
           title="Desenhe mal, ria bastante"
           text="Um desenha, o resto chuta. Quanto mais rápido acertar, mais pontos."
-          visual={<DrawVisual />}
+          visual={<GameArtwork slug="drawit" />}
         />
       ),
     },
