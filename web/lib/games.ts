@@ -45,6 +45,17 @@ export const games: GameInfo[] = [
     players: "Até 16",
     tags: ["Online", "Ranking"],
   },
+  {
+    slug: "cofre",
+    title: "Cofre",
+    description: "Jogo da memória de assalto: decore, combine e leve o espólio.",
+    icon: "🔐",
+    status: "coming-soon",
+    multiplayer: true,
+    accent: "var(--game-cofre)",
+    players: "Até 8",
+    tags: ["Online", "Diário"],
+  },
 ];
 
 export function getGame(slug: string): GameInfo {

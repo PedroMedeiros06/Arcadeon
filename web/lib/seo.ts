@@ -49,6 +49,14 @@ export const GAME_SEO: Record<string, { title: string; description: string; keyw
       "Corrida do Conhecimento é um quiz de perguntas e respostas em tempo real: responda rápido, acelere seu carro e chegue primeiro. Jogue online com até 16 amigos.",
     keywords: ["corrida do conhecimento", "quiz online", "perguntas e respostas", "quiz multiplayer", "jogo de conhecimentos gerais"],
   },
+  cofre: {
+    color: "#2cc4b0",
+    tagline: "Jogo da memória com cara de assalto.",
+    title: "Cofre — jogo da memória online",
+    description:
+      "Cofre é o jogo da memória do Arcadeon: decore onde está cada peça do espólio, combine os pares e abra o cofre. Treine sozinho ou jogue online com amigos.",
+    keywords: ["jogo da memória", "jogo da memória online", "memória multiplayer", "cofre"],
+  },
 };
 
 /** Metadata da pagina de um jogo. Usar em `export const metadata = gameMetadata("slug")`. */

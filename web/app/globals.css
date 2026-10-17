@@ -33,6 +33,7 @@
   --game-buggle: #1c8fd6;
   --game-drawit: #e3477a;
   --game-corrida: #e58a0c;
+  --game-cofre: #0f9f8f;
 }
 
 .dark {
@@ -66,6 +67,7 @@
   --game-buggle: #2ea6ee;
   --game-drawit: #f0608f;
   --game-corrida: #f4a12a;
+  --game-cofre: #2cc4b0;
 }
 
 /* Palco dos lobbies: tons escuros derivados da cor do jogo. Redefinido em [data-game]
@@ -93,6 +95,9 @@
 }
 [data-game="corrida"] {
   --game-accent: var(--game-corrida);
+}
+[data-game="cofre"] {
+  --game-accent: var(--game-cofre);
 }
 
 @theme inline {
@@ -751,6 +756,7 @@ body {
 .pattern-buggle,
 .pattern-drawit,
 .pattern-corrida,
+.pattern-cofre,
 .pattern-brand {
   background-color: var(--pattern-color);
 }
@@ -772,6 +778,11 @@ body {
 .pattern-corrida {
   --pattern-color: var(--game-corrida);
   background-image: repeating-linear-gradient(45deg, rgb(0 0 0 / 0.12) 0 10px, transparent 10px 20px);
+}
+.pattern-cofre {
+  --pattern-color: var(--game-cofre);
+  background-image: repeating-conic-gradient(rgb(0 0 0 / 0.1) 0 25%, transparent 0 50%);
+  background-size: 18px 18px;
 }
 /* marca: as quatro texturas juntas, pra vazios que nao sao de um jogo so */
 .pattern-brand {
@@ -894,9 +905,9 @@ body {
     opacity: 0.25;
   }
 }
-/* tabuleiro movel: a celula sai da posicao da outra (--dx/--dy) ate a sua */
+/* tabuleiro movel: a celula sai da posicao da outra (--dx/--dy) ate a sua, brilhando */
 .cofre-swap {
-  animation: cofre-swap 600ms ease-in-out;
+  animation: cofre-swap 600ms ease-in-out, cofre-swap-glow 600ms ease-in-out;
   z-index: 2;
 }
 @keyframes cofre-swap {
@@ -926,8 +937,8 @@ body {
   .cofre-motion .cofre-taken {
     animation-duration: 1ms !important;
   }
-  /* sem deslize: so o brilho mostra quem trocou */
+  /* sem deslize: so o brilho (que nao e movimento) mostra quem trocou; vence a regra global de 1ms */
   .cofre-motion .cofre-swap {
-    animation: none;
+    animation: cofre-swap-glow 600ms ease-in-out !important;
   }
 }

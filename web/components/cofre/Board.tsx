@@ -9,7 +9,7 @@ export interface BoardCell {
   state: CellState;
 }
 
-const SWAP_CLASSES = ["cofre-swap", "cofre-swap-glow"];
+const SWAP_CLASSES = ["cofre-swap"];
 
 export function Board({
   cols,
