@@ -50,11 +50,11 @@ export const games: GameInfo[] = [
     title: "Cofre",
     description: "Jogo da memória de assalto: decore, combine e leve o espólio.",
     icon: "🔐",
-    status: "coming-soon",
+    status: "available",
     multiplayer: true,
     accent: "var(--game-cofre)",
     players: "Até 8",
-    tags: ["Online", "Diário"],
+    tags: ["Online", "Treino"],
   },
 ];
 
