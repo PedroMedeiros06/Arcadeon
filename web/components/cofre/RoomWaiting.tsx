@@ -52,7 +52,7 @@ export function RoomWaiting({
           <div className="flex flex-col items-center gap-3 rounded-3xl border-2 border-[var(--border)] bg-[var(--card)] p-5">
             <p className="text-sm font-bold text-[var(--fg-muted)]">Chame a equipe pelo QR ou pelo código</p>
             <div className="rounded-xl bg-white p-3">{joinUrl && <QRCodeSVG value={joinUrl} size={150} fgColor="#0e1215" />}</div>
-            <p className="font-mono text-3xl font-black tracking-[0.3em] text-[var(--fg)]">{room.code}</p>
+            <p className="select-all font-mono text-3xl font-black tracking-[0.3em] text-[var(--fg)]">{room.code}</p>
           </div>
 
           <div className="flex flex-col gap-2 rounded-3xl border-2 border-[var(--border)] bg-[var(--card)] p-3">
