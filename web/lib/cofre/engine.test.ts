@@ -6,7 +6,10 @@ import {
   LOOT_FACES,
   createGame,
   flip,
+  activePlayers,
   mulberry32,
+  passTurn,
+  removePlayer,
   placements,
   resolveMiss,
   soloScore,
@@ -207,4 +210,64 @@ test("placements desempata por pares e erros", () => {
 
 test("soloScore soma jogadas x10 e segundos", () => {
   assert.equal(soloScore(14, 63), 203);
+});
+
+test("resolveMiss pula jogador que saiu", () => {
+  let s = stateWith(["a", "b", "a", "b"], 3);
+  s = removePlayer(s, 1);
+  s = flip(s, 0).state;
+  s = flip(s, 1).state;
+  const r = resolveMiss(s, mulberry32(1));
+  assert.equal(r.state.turn, 2);
+});
+
+test("passTurn (tempo esgotado) esconde a carta virada, passa a vez e nao conta erro", () => {
+  let s = stateWith(["a", "b", "a", "b"], 2);
+  s = flip(s, 0).state;
+  const p = passTurn(s);
+  assert.equal(p.turn, 1);
+  assert.deepEqual(p.flipped, []);
+  assert.equal(p.cells[0].state, "hidden");
+  assert.equal(p.players[0].misses, 0);
+  assert.equal(p.moves, 0);
+});
+
+test("passTurn durante erro pendente esconde as duas e limpa o pendente", () => {
+  let s = stateWith(["a", "b", "a", "b"], 2);
+  s = flip(s, 0).state;
+  s = flip(s, 1).state;
+  const p = passTurn(s);
+  assert.equal(p.pendingMiss, false);
+  assert.equal(p.cells[0].state, "hidden");
+  assert.equal(p.cells[1].state, "hidden");
+  assert.equal(p.turn, 1);
+});
+
+test("removePlayer na vez dele passa a vez; fora da vez so marca", () => {
+  let s = stateWith(["a", "b", "a", "b"], 3);
+  s = flip(s, 0).state;
+  const r = removePlayer(s, 0);
+  assert.equal(r.players[0].left, true);
+  assert.equal(r.turn, 1);
+  assert.equal(r.cells[0].state, "hidden");
+  const r2 = removePlayer(s, 2);
+  assert.equal(r2.turn, 0);
+  assert.equal(r2.cells[0].state, "up");
+  assert.deepEqual(activePlayers(r2), [0, 1]);
+});
+
+test("placements ignora quem saiu", () => {
+  const players = [
+    { points: 5, pairs: 5, misses: 0, left: true },
+    { points: 2, pairs: 2, misses: 1 },
+    { points: 3, pairs: 3, misses: 1 },
+  ];
+  assert.deepEqual(placements(players), [0, 2, 1]);
+});
+
+test("copia do servidor e identica", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const web = await readFile(new URL("./engine.ts", import.meta.url), "utf8");
+  const server = await readFile(new URL("../../../server/src/cofreEngine.ts", import.meta.url), "utf8");
+  assert.equal(server, web);
 });
