@@ -65,6 +65,8 @@ export interface PlayerScore {
   points: number;
   pairs: number;
   misses: number;
+  /** saiu da partida: perde a vez e fica fora da colocacao */
+  left?: boolean;
 }
 
 export interface GameState {
@@ -173,8 +175,35 @@ export function resolveMiss(state: GameState, rng: Rng): { state: GameState; swa
       swap = [a, b];
     }
   }
-  const turn = (state.turn + 1) % state.players.length;
-  return { state: { ...state, cells, flipped: [], pendingMiss: false, turn }, swap };
+  return { state: { ...state, cells, flipped: [], pendingMiss: false, turn: nextTurn(state) }, swap };
+}
+
+/** Indices de quem ainda esta na partida. */
+export function activePlayers(state: GameState): number[] {
+  return state.players.flatMap((p, i) => (p.left ? [] : [i]));
+}
+
+function nextTurn(state: GameState): number {
+  const n = state.players.length;
+  for (let step = 1; step <= n; step++) {
+    const i = (state.turn + step) % n;
+    if (!state.players[i].left) return i;
+  }
+  return state.turn;
+}
+
+/** Tempo esgotado: esconde o que estiver virado e passa a vez. Nao conta jogada nem erro. */
+export function passTurn(state: GameState): GameState {
+  if (state.finished) return state;
+  const cells = state.cells.map((c, i) => (state.flipped.includes(i) && c.state === "up" ? { ...c, state: "hidden" as const } : c));
+  return { ...state, cells, flipped: [], pendingMiss: false, turn: nextTurn(state) };
+}
+
+/** Jogador saiu: fica marcado (o indice nao muda) e, se era a vez dele, a vez passa. */
+export function removePlayer(state: GameState, index: number): GameState {
+  const players = state.players.map((p, i) => (i === index ? { ...p, left: true } : p));
+  const next = { ...state, players };
+  return index === state.turn ? passTurn(next) : next;
 }
 
 function better(x: PlayerScore, y: PlayerScore): boolean {
@@ -183,9 +212,9 @@ function better(x: PlayerScore, y: PlayerScore): boolean {
   return x.misses < y.misses;
 }
 
-/** Colocacao de cada jogador (1 = primeiro). Empate total divide a colocacao. */
+/** Colocacao de cada jogador (1 = primeiro). Empate total divide a colocacao. Quem saiu fica com 0. */
 export function placements(players: PlayerScore[]): number[] {
-  return players.map((p) => 1 + players.filter((o) => better(o, p)).length);
+  return players.map((p) => (p.left ? 0 : 1 + players.filter((o) => !o.left && better(o, p)).length));
 }
 
 /** Nota do solo: menor e melhor. */

@@ -874,6 +874,11 @@ body {
 
 /* ---------- Cofre ---------- */
 
+/* segurar a carta no celular nao abre o menu de imagem nem seleciona */
+[data-game="cofre"] img {
+  -webkit-touch-callout: none;
+}
+
 /* carta: virada 3D em rotateY; o conteudo das faces fica no componente */
 .cofre-card {
   perspective: 800px;
