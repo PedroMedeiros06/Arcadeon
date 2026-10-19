@@ -1,9 +1,12 @@
 "use client";
 
+import { useEffect } from "react";
 import { Hourglass, LogOut } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
+import { playSfx } from "@/lib/cofre/sound";
 import type { CofreRoomState } from "@/lib/cofre/types";
 import { Board, type BoardCell } from "./Board";
+import { SoundToggle } from "./SoundToggle";
 
 export function OnlineMatch({
   room,
@@ -29,14 +32,22 @@ export function OnlineMatch({
   onLeave: () => void;
 }) {
   const board = room.board;
-  if (!board) return null;
   const myTurn = room.turnSocketId === mySocketId;
   const turnSeat = room.seats.find((s) => s.socketId === room.turnSocketId);
   const locked = now < room.lockedUntil;
-  const canFlip = room.phase === "playing" && myTurn && !locked && board.flipped.length < 2 && !pendingFlip;
+  const canFlip = room.phase === "playing" && myTurn && !locked && (board?.flipped.length ?? 2) < 2 && !pendingFlip;
   const msLeft = room.phaseEndsAt ? Math.max(0, room.phaseEndsAt - Math.max(now, room.lockedUntil)) : null;
   const totalMs = room.config.turnSeconds * 1000;
   const ending = msLeft !== null && msLeft <= 3000 && room.phase === "playing";
+  const secondsLeft = msLeft === null ? null : Math.ceil(msLeft / 1000);
+  const tickSecond = ending && myTurn && secondsLeft !== null && secondsLeft > 0 ? secondsLeft : null;
+
+  // tique-taque nos 3 ultimos segundos da minha vez
+  useEffect(() => {
+    if (tickSecond !== null) playSfx("tick");
+  }, [tickSecond]);
+
+  if (!board) return null;
 
   const cells: BoardCell[] = board.cells.map((c, i) =>
     peekFaces && c.state === "hidden" ? { face: peekFaces[i] ?? null, state: "up" } : { face: c.face, state: c.state }
@@ -67,14 +78,17 @@ export function OnlineMatch({
           >
             {status}
           </span>
+          <div className="flex items-center gap-2">
+          <SoundToggle />
           <span
             className={`flex min-w-[64px] items-center justify-center gap-1 rounded-xl px-2.5 py-1.5 text-sm font-black tabular-nums ${
               ending ? "bg-[var(--danger)] text-white" : "bg-[var(--bg)] text-[var(--fg)]"
             }`}
           >
             <Hourglass className="h-3.5 w-3.5" />
-            {msLeft === null ? "—" : `${Math.ceil(msLeft / 1000)}s`}
+            {secondsLeft === null ? "—" : `${secondsLeft}s`}
           </span>
+          </div>
         </div>
         {msLeft !== null && totalMs > 0 && room.phase === "playing" && (
           <div className="h-1 w-full bg-[var(--border)]">

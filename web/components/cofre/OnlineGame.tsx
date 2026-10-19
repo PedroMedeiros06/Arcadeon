@@ -9,6 +9,8 @@ import { useLeaveGuard } from "@/lib/useLeaveGuard";
 import { logActivity } from "@/lib/activity";
 import { setStatus } from "@/lib/social/presence";
 import { getCofreSocket } from "@/lib/cofre/socket";
+import { initCofreSound, playSfx } from "@/lib/cofre/sound";
+import { onlineCues, type CueSnapshot } from "@/lib/cofre/soundCues";
 import type { CoinsAwarded, CofreRoomConfig, CofreRoomState, PlayerAvatar } from "@/lib/cofre/types";
 import { OnlineLobby } from "./OnlineLobby";
 import { OnlineMatch } from "./OnlineMatch";
@@ -22,6 +24,17 @@ const FLIP_BACK_MS = 320;
 const TOAST_MS = 1600;
 
 type Toast = { text: string; tone: "good" | "bad" | "gold"; seq: number };
+
+function cueSnapshot(state: CofreRoomState, mySocketId: string): CueSnapshot {
+  return {
+    phase: state.phase,
+    flippedCount: state.board?.flipped.length ?? 0,
+    turnSocketId: state.turnSocketId,
+    lastEvent: state.lastEvent,
+    swapSeq: state.swap?.seq ?? 0,
+    myPlace: state.seats.find((s) => s.socketId === mySocketId)?.place ?? 0,
+  };
+}
 
 function toastFor(state: CofreRoomState, mySocketId: string): Toast | null {
   const ev = state.lastEvent;
@@ -56,6 +69,7 @@ export function OnlineGame({ joinCode, onExit }: { joinCode: string | null; onEx
   // diferenca relogio do servidor - relogio local; so pra exibir tempo, nunca decide nada
   const clockOffsetRef = useRef(0);
   const hasRoomRef = useRef(false);
+  const cueRef = useRef<CueSnapshot | null>(null);
   const autoJoinSentRef = useRef(false);
   const lastSwapSeqRef = useRef(0);
   const lastEventSeqRef = useRef(0);
@@ -71,8 +85,14 @@ export function OnlineGame({ joinCode, onExit }: { joinCode: string | null; onEx
   }, []);
 
   useEffect(() => {
+    initCofreSound();
     const timers = timersRef;
     function handleRoomUpdated(state: CofreRoomState) {
+      const cue = cueSnapshot(state, socket.id ?? "");
+      const sounds = onlineCues(cueRef.current, cue, socket.id ?? "");
+      cueRef.current = cue;
+      sounds.now.forEach((s) => playSfx(s));
+      if (sounds.afterFlipBack.length) later(() => sounds.afterFlipBack.forEach((s) => playSfx(s)), FLIP_BACK_MS);
       clockOffsetRef.current = state.serverNow - Date.now();
       setNow(state.serverNow);
       setPendingFlip(false);
@@ -118,6 +138,7 @@ export function OnlineGame({ joinCode, onExit }: { joinCode: string | null; onEx
     }
     function handleRoomClosed() {
       hasRoomRef.current = false;
+      cueRef.current = null;
       setRoom(null);
       setNotice("A sala foi encerrada.");
     }
@@ -130,6 +151,7 @@ export function OnlineGame({ joinCode, onExit }: { joinCode: string | null; onEx
       // sem reconexao: o servidor ja removeu a gente da sala
       if (hasRoomRef.current) setNotice("Conexão perdida. Você saiu da sala.");
       hasRoomRef.current = false;
+      cueRef.current = null;
       setRoom(null);
     }
 

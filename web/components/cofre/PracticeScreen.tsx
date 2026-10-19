@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, RotateCcw, Shuffle } from "lucide-react";
 import { useLocalFlag } from "@/lib/race/useLocalFlag";
 import { BOARD_SIZES, createGame, flip, mulberry32, resolveMiss, soloScore, type BoardSize, type GameState, type Rng } from "@/lib/cofre/engine";
+import { initCofreSound, playSfx } from "@/lib/cofre/sound";
 import { Board, type BoardCell } from "./Board";
+import { SoundToggle } from "./SoundToggle";
 
 const SIZES = Object.keys(BOARD_SIZES) as BoardSize[];
 /** tempo que as duas cartas erradas ficam a mostra */
@@ -43,12 +45,12 @@ export function PracticeScreen({ onExit }: { onExit: () => void }) {
   };
 
   // timeout velho nunca pode mexer num jogo novo nem numa tela desmontada
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    initCofreSound();
+    return () => {
       if (missTimer.current !== null) window.clearTimeout(missTimer.current);
-    },
-    []
-  );
+    };
+  }, []);
 
   const running = startedAt !== null && endedAt === null;
   useEffect(() => {
@@ -83,8 +85,16 @@ export function PracticeScreen({ onExit }: { onExit: () => void }) {
       setNow(t);
     }
     setGame(result.state);
-    if (result.event.kind === "match" && result.event.finished) setEndedAt(t);
+    playSfx("flip");
+    if (result.event.kind === "match") {
+      playSfx(result.event.points === 3 ? "coringa" : "match");
+      if (result.event.finished) {
+        setEndedAt(t);
+        playSfx("open");
+      }
+    }
     if (result.event.kind === "miss") {
+      playSfx("miss");
       const missed = result.state;
       missTimer.current = window.setTimeout(() => {
         missTimer.current = null;
@@ -102,6 +112,7 @@ export function PracticeScreen({ onExit }: { onExit: () => void }) {
           setGame(resolved.state);
           setSwapping(false);
           swapKey.current += 1;
+          playSfx("swap");
           setSwap({ a: swapped[0], b: swapped[1], key: swapKey.current });
         }, FLIP_BACK_MS);
       }, MISS_REVEAL_MS);
@@ -172,7 +183,8 @@ export function PracticeScreen({ onExit }: { onExit: () => void }) {
         >
           <ArrowLeft className="h-4 w-4" /> Sair
         </button>
-        <div className="flex gap-2 text-sm font-bold tabular-nums">
+        <div className="flex items-center gap-2 text-sm font-bold tabular-nums">
+          <SoundToggle />
           <span className="rounded-xl bg-[var(--card)] px-3 py-1.5 text-[var(--fg)]">Jogadas {game.moves}</span>
           <span className="rounded-xl bg-[var(--card)] px-3 py-1.5 text-[var(--fg)]">{formatTime(elapsed)}</span>
           <span className="rounded-xl bg-[var(--card)] px-3 py-1.5 text-[var(--fg)]">
