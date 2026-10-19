@@ -6,8 +6,10 @@ import { RoundCountdown } from "@/components/buggle/RoundCountdown";
 import { JoinNameModal } from "@/components/draw/JoinNameModal";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useLeaveGuard } from "@/lib/useLeaveGuard";
+import { logActivity } from "@/lib/activity";
+import { setStatus } from "@/lib/social/presence";
 import { getCofreSocket } from "@/lib/cofre/socket";
-import type { CofreRoomConfig, CofreRoomState, PlayerAvatar } from "@/lib/cofre/types";
+import type { CoinsAwarded, CofreRoomConfig, CofreRoomState, PlayerAvatar } from "@/lib/cofre/types";
 import { OnlineLobby } from "./OnlineLobby";
 import { OnlineMatch } from "./OnlineMatch";
 import { OnlineResults } from "./OnlineResults";
@@ -49,6 +51,7 @@ export function OnlineGame({ joinCode, onExit }: { joinCode: string | null; onEx
   const [peek, setPeek] = useState<string[] | null>(null);
   const [swap, setSwap] = useState<{ a: number; b: number; key: number } | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
+  const [coins, setCoins] = useState<CoinsAwarded | null>(null);
   const [now, setNow] = useState(0);
   // diferenca relogio do servidor - relogio local; so pra exibir tempo, nunca decide nada
   const clockOffsetRef = useRef(0);
@@ -74,6 +77,7 @@ export function OnlineGame({ joinCode, onExit }: { joinCode: string | null; onEx
       setNow(state.serverNow);
       setPendingFlip(false);
       if (state.phase !== "peek") setPeek(null);
+      if (state.phase !== "results") setCoins(null);
       if (state.phase === "lobby") {
         lastSwapSeqRef.current = 0;
         setSwap(null);
@@ -102,6 +106,9 @@ export function OnlineGame({ joinCode, onExit }: { joinCode: string | null; onEx
       setPeek(data.faces);
       later(() => setPeek(null), Math.max(0, data.endsAt - data.serverNow));
     }
+    function handleCoinsAwarded(data: CoinsAwarded) {
+      setCoins(data);
+    }
     function handleFlipRejected() {
       setPendingFlip(false);
     }
@@ -129,6 +136,7 @@ export function OnlineGame({ joinCode, onExit }: { joinCode: string | null; onEx
     socket.on("room-updated", handleRoomUpdated);
     socket.on("peek", handlePeek);
     socket.on("flip-rejected", handleFlipRejected);
+    socket.on("coins-awarded", handleCoinsAwarded);
     socket.on("join-error", handleJoinError);
     socket.on("room-closed", handleRoomClosed);
     socket.on("connect", handleConnect);
@@ -139,6 +147,7 @@ export function OnlineGame({ joinCode, onExit }: { joinCode: string | null; onEx
       socket.off("room-updated", handleRoomUpdated);
       socket.off("peek", handlePeek);
       socket.off("flip-rejected", handleFlipRejected);
+      socket.off("coins-awarded", handleCoinsAwarded);
       socket.off("join-error", handleJoinError);
       socket.off("room-closed", handleRoomClosed);
       socket.off("connect", handleConnect);
@@ -163,6 +172,30 @@ export function OnlineGame({ joinCode, onExit }: { joinCode: string | null; onEx
   }, [socket]);
 
   const phase = room?.phase;
+  const roomCode = room?.code ?? null;
+  const playerCount = room?.lobby.length ?? 0;
+  const maxPlayers = room?.config.maxPlayers ?? 0;
+  useEffect(() => {
+    if (!roomCode) {
+      // saiu da sala ou ela fechou: o "Entrar" dos amigos nao pode apontar pra sala morta
+      setStatus({ state: "online", place: "hub", game: "cofre" });
+      return;
+    }
+    const playing = phase === "countdown" || phase === "peek" || phase === "playing";
+    setStatus({
+      state: playing ? "playing" : "online",
+      place: playing ? "match" : "lobby",
+      game: "cofre",
+      roomCode,
+      players: playerCount,
+      maxPlayers,
+    });
+  }, [roomCode, phase, playerCount, maxPlayers]);
+
+  useEffect(() => {
+    if (phase === "playing") void logActivity("cofre");
+  }, [phase]);
+
   useEffect(() => {
     if (phase !== "countdown" && phase !== "peek" && phase !== "playing") return;
     const id = window.setInterval(() => setNow(Date.now() + clockOffsetRef.current), 200);
@@ -306,7 +339,7 @@ export function OnlineGame({ joinCode, onExit }: { joinCode: string | null; onEx
     return (
       <>
         {header}
-        <OnlineResults room={room} mySocketId={mySocketId} onPlayAgain={() => socket.emit("restart-game")} onLeave={() => requestLeave("room")} />
+        <OnlineResults room={room} mySocketId={mySocketId} coins={coins} onPlayAgain={() => socket.emit("restart-game")} onLeave={() => requestLeave("room")} />
         {leaveDialog}
       </>
     );

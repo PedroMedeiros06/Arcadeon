@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { PlayerAvatar } from "./rooms";
 import { sanitizeAvatar, sanitizeName } from "./raceRooms";
 import {
@@ -64,6 +65,8 @@ export interface CofreRoom {
   lastEvent: CofreEvent | null;
   eventSeq: number;
   endReason: GameEndReason | null;
+  /** id da partida pras moedas (award_match_coins e idempotente por ele) */
+  matchId: string | null;
   timer: NodeJS.Timeout | null;
   timerToken: number;
 }
@@ -89,6 +92,7 @@ const socketToRoom = new Map<string, string>();
 type RoomListener = (room: CofreRoom) => void;
 let onAutoAdvance: RoomListener = () => {};
 let onPeek: (room: CofreRoom, faces: string[], endsAt: number) => void = () => {};
+let onGameFinished: RoomListener = () => {};
 
 /** cofreSocket registra aqui o broadcast disparado quando um timer muda o estado sozinho. */
 export function setCofreAutoAdvanceListener(listener: RoomListener): void {
@@ -98,6 +102,11 @@ export function setCofreAutoAdvanceListener(listener: RoomListener): void {
 /** Espiada inicial: unico momento em que faces escondidas saem do servidor (de proposito). */
 export function setCofrePeekListener(listener: (room: CofreRoom, faces: string[], endsAt: number) => void): void {
   onPeek = listener;
+}
+
+/** Chamado uma vez quando a partida termina (moedas e ranking). */
+export function setCofreGameFinishedListener(listener: RoomListener): void {
+  onGameFinished = listener;
 }
 
 export function setCofrePlayerUser(socketId: string, userId: string | null): void {
@@ -155,6 +164,7 @@ export function createCofreRoom(hostSocketId: string, config: CofreRoomConfig, n
     lastEvent: null,
     eventSeq: 0,
     endReason: null,
+    matchId: null,
     timer: null,
     timerToken: 0,
   };
@@ -241,6 +251,7 @@ export function startCofreGame(room: CofreRoom): boolean {
   room.swap = null;
   room.lastEvent = null;
   room.endReason = null;
+  room.matchId = randomUUID();
   room.lockedUntil = 0;
   room.phase = "countdown";
   room.phaseEndsAt = Date.now() + COUNTDOWN_MS;
@@ -333,6 +344,7 @@ function finishGame(room: CofreRoom, reason: GameEndReason): void {
   room.phase = "results";
   room.endReason = reason;
   room.phaseEndsAt = null;
+  onGameFinished(room);
 }
 
 export function restartCofreGame(room: CofreRoom): boolean {

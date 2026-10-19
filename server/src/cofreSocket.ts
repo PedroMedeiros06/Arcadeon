@@ -13,6 +13,7 @@ import {
   sanitizeConfig,
   sanitizeName,
   setCofreAutoAdvanceListener,
+  setCofreGameFinishedListener,
   setCofrePeekListener,
   setCofrePlayerUser,
   startCofreGame,
@@ -20,6 +21,7 @@ import {
   updateCofreConfig,
   updateCofrePlayerAvatar,
 } from "./cofreRooms";
+import { recordCofreMatch } from "./cofreStats";
 import { verifyAccessToken } from "./raceStats";
 
 const RATE_LIMIT_MS = 150;
@@ -86,6 +88,12 @@ export function registerCofreNamespace(io: Server): void {
   }
 
   setCofreAutoAdvanceListener(broadcast);
+  setCofreGameFinishedListener((room) => {
+    // evento privado (excecao ao snapshot unico): o saldo de cada um so interessa a ele
+    recordCofreMatch(room, (socketIds, result) => {
+      for (const id of socketIds) nsp.to(id).emit("coins-awarded", result);
+    });
+  });
   setCofrePeekListener((room, faces, endsAt) => {
     nsp.to(room.code).emit("peek", { faces, endsAt, serverNow: Date.now() });
   });
