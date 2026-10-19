@@ -72,3 +72,10 @@ export interface CofreRoomState {
 }
 
 export type FlipRejection = "not-in-game" | "not-your-turn" | "locked" | "invalid";
+
+/** Retorno de `award_match_coins`, mandado so pro socket do proprio jogador. */
+export interface CoinsAwarded {
+  awarded: number;
+  capped: boolean;
+  coins: number;
+}

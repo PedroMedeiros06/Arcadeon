@@ -46,8 +46,9 @@ export const GAME_NAMES: Record<string, { name: string; of: string; at: string; 
   buggle: { name: "Buggle", of: "do", at: "no", to: "pro" },
   drawit: { name: "Rabiscado", of: "do", at: "no", to: "pro" },
   corrida: { name: "Corrida", of: "da", at: "na", to: "pra" },
+  cofre: { name: "Cofre", of: "do", at: "no", to: "pro" },
 };
-const MULTIPLAYER = ["buggle", "drawit", "corrida"];
+const MULTIPLAYER = ["buggle", "drawit", "corrida", "cofre"];
 const PLACES: Place[] = ["hub", "shop", "leaderboard", "profile", "lobby", "match"];
 export const OFFLINE_AFTER_MS = 120_000;
 

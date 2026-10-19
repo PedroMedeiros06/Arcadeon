@@ -4,6 +4,7 @@ import {
   BOARD_SIZES,
   CORINGA,
   LOOT_FACES,
+  LOOT_TIERS,
   createGame,
   flip,
   activePlayers,
@@ -270,4 +271,21 @@ test("copia do servidor e identica", async () => {
   const web = await readFile(new URL("./engine.ts", import.meta.url), "utf8");
   const server = await readFile(new URL("../../../server/src/cofreEngine.ts", import.meta.url), "utf8");
   assert.equal(server, web);
+});
+
+test("tabuleiro usa primeiro as faces com arte pronta e so completa com as outras", () => {
+  for (let seed = 1; seed <= 30; seed++) {
+    const small = createGame(opts("4x4"), 2, mulberry32(seed));
+    assert.ok(small.cells.every((c) => LOOT_TIERS[0].includes(c.face)), `seed ${seed}`);
+    const big = new Set(createGame(opts("6x4"), 2, mulberry32(seed)).cells.map((c) => c.face));
+    assert.ok(LOOT_TIERS[0].every((f) => big.has(f)), `seed ${seed}`);
+  }
+  assert.deepEqual([...LOOT_FACES].sort(), LOOT_TIERS.flat().sort());
+});
+
+test("Coringa entra no lugar de uma face sem arte quando ha", () => {
+  const g = createGame(opts("6x4", { coringa: true }), 2, mulberry32(5));
+  const faces = new Set(g.cells.map((c) => c.face));
+  assert.ok(faces.has(CORINGA));
+  assert.ok(LOOT_TIERS[0].every((f) => faces.has(f)));
 });

@@ -288,3 +288,11 @@ test("texto e link do convite", () => {
   const [c] = parseInvites([invite({ game: "corrida" })], NOW)!;
   assert.equal(inviteText(c), "raposa te chamou pra Corrida");
 });
+
+test("Cofre: status, botao entrar e convite", () => {
+  assert.equal(presenceText(presence({ place: "lobby", game: "cofre", roomCode: "K7M2Q" }), NOW).label, "Online · na sala de espera do Cofre");
+  assert.equal(joinHref(presence({ place: "lobby", game: "cofre", roomCode: "K7M2Q" }), NOW), "/games/cofre?join=K7M2Q");
+  const [c] = parseInvites([invite({ game: "cofre" })], NOW)!;
+  assert.equal(inviteText(c), "raposa te chamou pro Cofre");
+  assert.equal(inviteHref(c), "/games/cofre?join=K7M2Q");
+});

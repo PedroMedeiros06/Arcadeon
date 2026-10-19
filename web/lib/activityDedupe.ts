@@ -1,4 +1,4 @@
-export type ActivityGame = "hub" | "termo" | "buggle" | "drawit" | "corrida";
+export type ActivityGame = "hub" | "termo" | "buggle" | "drawit" | "corrida" | "cofre";
 
 /** No maximo um registro por jogo a cada 10 minutos por aba. */
 export const DEDUPE_MS = 10 * 60 * 1000;

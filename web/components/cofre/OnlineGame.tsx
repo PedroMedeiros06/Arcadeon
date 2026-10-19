@@ -6,8 +6,12 @@ import { RoundCountdown } from "@/components/buggle/RoundCountdown";
 import { JoinNameModal } from "@/components/draw/JoinNameModal";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useLeaveGuard } from "@/lib/useLeaveGuard";
+import { logActivity } from "@/lib/activity";
+import { setStatus } from "@/lib/social/presence";
 import { getCofreSocket } from "@/lib/cofre/socket";
-import type { CofreRoomConfig, CofreRoomState, PlayerAvatar } from "@/lib/cofre/types";
+import { initCofreSound, playSfx } from "@/lib/cofre/sound";
+import { onlineCues, type CueSnapshot } from "@/lib/cofre/soundCues";
+import type { CoinsAwarded, CofreRoomConfig, CofreRoomState, PlayerAvatar } from "@/lib/cofre/types";
 import { OnlineLobby } from "./OnlineLobby";
 import { OnlineMatch } from "./OnlineMatch";
 import { OnlineResults } from "./OnlineResults";
@@ -20,6 +24,17 @@ const FLIP_BACK_MS = 320;
 const TOAST_MS = 1600;
 
 type Toast = { text: string; tone: "good" | "bad" | "gold"; seq: number };
+
+function cueSnapshot(state: CofreRoomState, mySocketId: string): CueSnapshot {
+  return {
+    phase: state.phase,
+    flippedCount: state.board?.flipped.length ?? 0,
+    turnSocketId: state.turnSocketId,
+    lastEvent: state.lastEvent,
+    swapSeq: state.swap?.seq ?? 0,
+    myPlace: state.seats.find((s) => s.socketId === mySocketId)?.place ?? 0,
+  };
+}
 
 function toastFor(state: CofreRoomState, mySocketId: string): Toast | null {
   const ev = state.lastEvent;
@@ -49,10 +64,12 @@ export function OnlineGame({ joinCode, onExit }: { joinCode: string | null; onEx
   const [peek, setPeek] = useState<string[] | null>(null);
   const [swap, setSwap] = useState<{ a: number; b: number; key: number } | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
+  const [coins, setCoins] = useState<CoinsAwarded | null>(null);
   const [now, setNow] = useState(0);
   // diferenca relogio do servidor - relogio local; so pra exibir tempo, nunca decide nada
   const clockOffsetRef = useRef(0);
   const hasRoomRef = useRef(false);
+  const cueRef = useRef<CueSnapshot | null>(null);
   const autoJoinSentRef = useRef(false);
   const lastSwapSeqRef = useRef(0);
   const lastEventSeqRef = useRef(0);
@@ -68,12 +85,19 @@ export function OnlineGame({ joinCode, onExit }: { joinCode: string | null; onEx
   }, []);
 
   useEffect(() => {
+    initCofreSound();
     const timers = timersRef;
     function handleRoomUpdated(state: CofreRoomState) {
+      const cue = cueSnapshot(state, socket.id ?? "");
+      const sounds = onlineCues(cueRef.current, cue, socket.id ?? "");
+      cueRef.current = cue;
+      sounds.now.forEach((s) => playSfx(s));
+      if (sounds.afterFlipBack.length) later(() => sounds.afterFlipBack.forEach((s) => playSfx(s)), FLIP_BACK_MS);
       clockOffsetRef.current = state.serverNow - Date.now();
       setNow(state.serverNow);
       setPendingFlip(false);
       if (state.phase !== "peek") setPeek(null);
+      if (state.phase !== "results") setCoins(null);
       if (state.phase === "lobby") {
         lastSwapSeqRef.current = 0;
         setSwap(null);
@@ -102,6 +126,9 @@ export function OnlineGame({ joinCode, onExit }: { joinCode: string | null; onEx
       setPeek(data.faces);
       later(() => setPeek(null), Math.max(0, data.endsAt - data.serverNow));
     }
+    function handleCoinsAwarded(data: CoinsAwarded) {
+      setCoins(data);
+    }
     function handleFlipRejected() {
       setPendingFlip(false);
     }
@@ -111,6 +138,7 @@ export function OnlineGame({ joinCode, onExit }: { joinCode: string | null; onEx
     }
     function handleRoomClosed() {
       hasRoomRef.current = false;
+      cueRef.current = null;
       setRoom(null);
       setNotice("A sala foi encerrada.");
     }
@@ -123,12 +151,14 @@ export function OnlineGame({ joinCode, onExit }: { joinCode: string | null; onEx
       // sem reconexao: o servidor ja removeu a gente da sala
       if (hasRoomRef.current) setNotice("Conexão perdida. Você saiu da sala.");
       hasRoomRef.current = false;
+      cueRef.current = null;
       setRoom(null);
     }
 
     socket.on("room-updated", handleRoomUpdated);
     socket.on("peek", handlePeek);
     socket.on("flip-rejected", handleFlipRejected);
+    socket.on("coins-awarded", handleCoinsAwarded);
     socket.on("join-error", handleJoinError);
     socket.on("room-closed", handleRoomClosed);
     socket.on("connect", handleConnect);
@@ -139,6 +169,7 @@ export function OnlineGame({ joinCode, onExit }: { joinCode: string | null; onEx
       socket.off("room-updated", handleRoomUpdated);
       socket.off("peek", handlePeek);
       socket.off("flip-rejected", handleFlipRejected);
+      socket.off("coins-awarded", handleCoinsAwarded);
       socket.off("join-error", handleJoinError);
       socket.off("room-closed", handleRoomClosed);
       socket.off("connect", handleConnect);
@@ -163,6 +194,30 @@ export function OnlineGame({ joinCode, onExit }: { joinCode: string | null; onEx
   }, [socket]);
 
   const phase = room?.phase;
+  const roomCode = room?.code ?? null;
+  const playerCount = room?.lobby.length ?? 0;
+  const maxPlayers = room?.config.maxPlayers ?? 0;
+  useEffect(() => {
+    if (!roomCode) {
+      // saiu da sala ou ela fechou: o "Entrar" dos amigos nao pode apontar pra sala morta
+      setStatus({ state: "online", place: "hub", game: "cofre" });
+      return;
+    }
+    const playing = phase === "countdown" || phase === "peek" || phase === "playing";
+    setStatus({
+      state: playing ? "playing" : "online",
+      place: playing ? "match" : "lobby",
+      game: "cofre",
+      roomCode,
+      players: playerCount,
+      maxPlayers,
+    });
+  }, [roomCode, phase, playerCount, maxPlayers]);
+
+  useEffect(() => {
+    if (phase === "playing") void logActivity("cofre");
+  }, [phase]);
+
   useEffect(() => {
     if (phase !== "countdown" && phase !== "peek" && phase !== "playing") return;
     const id = window.setInterval(() => setNow(Date.now() + clockOffsetRef.current), 200);
@@ -306,7 +361,7 @@ export function OnlineGame({ joinCode, onExit }: { joinCode: string | null; onEx
     return (
       <>
         {header}
-        <OnlineResults room={room} mySocketId={mySocketId} onPlayAgain={() => socket.emit("restart-game")} onLeave={() => requestLeave("room")} />
+        <OnlineResults room={room} mySocketId={mySocketId} coins={coins} onPlayAgain={() => socket.emit("restart-game")} onLeave={() => requestLeave("room")} />
         {leaveDialog}
       </>
     );

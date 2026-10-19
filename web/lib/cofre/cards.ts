@@ -49,6 +49,9 @@ const WITH_ART = new Set([
 
 export const CARD_BACK_SRC = "/games/cofre/cards/back.webp";
 
+/** verso + todas as artes, pra baixar antes da partida (carta virando nunca espera download) */
+export const CARD_PRELOAD_SRCS: readonly string[] = [CARD_BACK_SRC, ...Array.from(WITH_ART, (face) => `/games/cofre/cards/${face}.webp`)];
+
 export function cardArt(face: string): CardArt {
   const art = ART[face] ?? { label: face, emoji: "❔" };
   return { id: face, ...art, src: WITH_ART.has(face) ? `/games/cofre/cards/${face}.webp` : null };

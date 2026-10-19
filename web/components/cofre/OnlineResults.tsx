@@ -2,18 +2,22 @@
 
 import { Crown, RotateCcw } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
-import type { CofreRoomState } from "@/lib/cofre/types";
+import { MatchCoins } from "@/components/economy/MatchCoins";
+import type { CoinsAwarded, CofreRoomState } from "@/lib/cofre/types";
 
 const MEDALS = ["🥇", "🥈", "🥉"];
 
 export function OnlineResults({
   room,
   mySocketId,
+  coins,
   onPlayAgain,
   onLeave,
 }: {
   room: CofreRoomState;
   mySocketId: string;
+  /** moedas desta partida (so chega pra quem esta logado) */
+  coins: CoinsAwarded | null;
   onPlayAgain: () => void;
   onLeave: () => void;
 }) {
@@ -51,6 +55,11 @@ export function OnlineResults({
                 {s.name}
                 {s.place === 1 && <Crown className="h-4 w-4 fill-yellow-400 text-yellow-500" />}
               </span>
+              {s.socketId === mySocketId && coins && (
+                <span className="my-0.5 block">
+                  <MatchCoins awarded={coins.awarded} capped={coins.capped} />
+                </span>
+              )}
               <span className="text-xs font-semibold text-[var(--fg-muted)]">
                 {s.left ? "saiu da partida" : `${s.pairs} ${s.pairs === 1 ? "par" : "pares"} · ${s.misses} ${s.misses === 1 ? "erro" : "erros"}`}
               </span>

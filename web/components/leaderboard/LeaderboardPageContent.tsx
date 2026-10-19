@@ -46,6 +46,13 @@ interface RaceRow extends BaseRow {
 
 type TermoCategory = "today" | "attempts" | "time" | "wins" | "streak" | "speed";
 type RaceCategory = "streak" | "correct" | "wins";
+type CofreCategory = "wins" | "pairs" | "points";
+
+interface CofreRow extends BaseRow {
+  games_played: number;
+  pairs: number;
+  best_points: number;
+}
 
 const TERMO_MODES = [
   { count: 1, label: "Letrado" },
@@ -81,6 +88,18 @@ const RACE_VALUE_LABEL: Record<RaceCategory, (row: RaceRow) => string> = {
   streak: (row) => `${row.best_streak} seguidas`,
   correct: (row) => `${row.correct_answers} acertos`,
   wins: (row) => `${row.wins} vitórias`,
+};
+
+const COFRE_CATEGORIES: { key: CofreCategory; label: string }[] = [
+  { key: "wins", label: "Mais vitórias" },
+  { key: "pairs", label: "Mais pares" },
+  { key: "points", label: "Maior espólio" },
+];
+
+const COFRE_VALUE_LABEL: Record<CofreCategory, (row: CofreRow) => string> = {
+  wins: (row) => `${row.wins} ${row.wins === 1 ? "vitória" : "vitórias"}`,
+  pairs: (row) => `${row.pairs} pares`,
+  points: (row) => `${row.best_points} pontos`,
 };
 
 const PODIUM_ORDER = [1, 0, 2];
@@ -124,8 +143,17 @@ function buildMockRace(count: number): RaceRow[] {
   }));
 }
 
+function buildMockCofre(count: number): CofreRow[] {
+  return Array.from({ length: count }, (_, i) => ({
+    ...mockBase(i),
+    games_played: 50 - Math.floor(i / 2),
+    pairs: Math.max(1, 300 - i * 3),
+    best_points: Math.max(1, 20 - Math.floor(i / 5)),
+  }));
+}
+
 // jogos com ranking implementado; os demais aparecem como "Em breve"
-const GAMES_WITH_RANKING = new Set(["termo", "corrida"]);
+const GAMES_WITH_RANKING = new Set(["termo", "corrida", "cofre"]);
 
 export function LeaderboardPageContent() {
   const searchParams = useSearchParams();
@@ -183,6 +211,8 @@ export function LeaderboardPageContent() {
         <TermoLeaderboard />
       ) : game.slug === "corrida" ? (
         <RaceLeaderboard />
+      ) : game.slug === "cofre" ? (
+        <CofreLeaderboard />
       ) : (
         <div className="flex flex-col items-center gap-3 rounded-3xl border-2 border-[var(--border)] bg-[var(--card)] px-6 py-16 text-center">
           <GameIconBadge slug={game.slug} accent={game.accent} />
@@ -387,6 +417,55 @@ function RaceLeaderboard() {
         emptyStatsText="Você ainda não pontuou nesta categoria."
         emptyCta={{ label: "Criar sala na Corrida", href: "/games/corrida" }}
         howToScore="Termine corridas logado para subir no ranking. Conta sua maior sequência de acertos numa partida, o total de respostas certas e as vitórias."
+        myDetails={(row) => (
+          <p className="flex items-center gap-1.5 text-sm font-bold text-[var(--primary)]">
+            <CheckCircle2 className="h-4 w-4" /> {row.games_played}{" "}
+            {row.games_played === 1 ? "partida jogada" : "partidas jogadas"}
+          </p>
+        )}
+      />
+    </>
+  );
+}
+
+function CofreLeaderboard() {
+  const [category, setCategory] = useState<CofreCategory>("wins");
+  // resposta guardada com a categoria pedida: trocar de categoria volta pro "carregando" sem setState no efeito
+  const [fetched, setFetched] = useState<{ category: CofreCategory; rows: CofreRow[] } | null>(null);
+  const useMock = useSearchParams().get("mock") === "1";
+  const [mockRows] = useState(() => buildMockCofre(100));
+  const scores = useMock ? mockRows : fetched?.category === category ? fetched.rows : null;
+
+  useEffect(() => {
+    if (useMock) return;
+    const supabase = createClient();
+    // desempate: quem chegou nisso jogando menos partidas fica na frente
+    const orderColumn: Record<CofreCategory, string> = {
+      wins: "wins",
+      pairs: "pairs",
+      points: "best_points",
+    };
+
+    supabase
+      .from("cofre_leaderboard")
+      .select("id, username, avatar_emoji, avatar_bg_color, avatar_image_url, games_played, wins, pairs, best_points")
+      .gt(orderColumn[category], 0)
+      .order(orderColumn[category], { ascending: false })
+      .order("games_played", { ascending: true })
+      .limit(100)
+      .then(({ data }) => setFetched({ category, rows: data ?? [] }));
+  }, [category, useMock]);
+
+  return (
+    <>
+      <ChipRow items={COFRE_CATEGORIES} value={category} onChange={setCategory} variant="category" />
+      <RankingBoard
+        rows={scores}
+        valueLabel={COFRE_VALUE_LABEL[category]}
+        showFlame={false}
+        emptyStatsText="Você ainda não pontuou nesta categoria."
+        emptyCta={{ label: "Criar sala no Cofre", href: "/games/cofre" }}
+        howToScore="Termine partidas online logado para subir no ranking. Conta as vitórias, o total de pares levados e o maior espólio numa partida."
         myDetails={(row) => (
           <p className="flex items-center gap-1.5 text-sm font-bold text-[var(--primary)]">
             <CheckCircle2 className="h-4 w-4" /> {row.games_played}{" "}
