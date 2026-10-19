@@ -103,19 +103,32 @@ export function OnlineMatch({
       <div className="mx-auto flex w-full max-w-4xl flex-wrap justify-center gap-2 px-3 pt-3">
         {room.seats.map((s) => {
           const turn = s.socketId === room.turnSocketId;
+          const me = s.socketId === mySocketId;
           return (
             <div
               key={s.socketId}
-              className={`flex items-center gap-2 rounded-2xl border-2 py-1 pl-1 pr-3 transition ${
-                turn ? "border-[var(--game-accent)] bg-[var(--card)] shadow-md" : "border-transparent bg-[var(--card)]"
-              } ${s.left ? "opacity-40" : ""}`}
+              className={`relative flex items-center gap-2 rounded-2xl border-2 bg-[var(--card)] py-1.5 pl-1.5 pr-3 transition-all duration-300 ${
+                turn ? "-translate-y-0.5 border-[var(--game-accent)] shadow-[0_6px_18px_-6px_var(--game-accent)]" : "border-[var(--border)]"
+              } ${s.left ? "opacity-40 grayscale" : ""}`}
             >
-              <Avatar size="sm" emoji={s.avatar?.emoji} bgColor={s.avatar?.bgColor} imageUrl={s.avatar?.imageUrl} fallbackLetter={s.name.charAt(0).toUpperCase()} />
-              <span className="max-w-[7rem] truncate text-sm font-bold text-[var(--fg)]">
-                {s.name}
-                {s.socketId === mySocketId && <span className="text-[var(--fg-muted)]"> (você)</span>}
+              <span className={`relative rounded-full ${turn ? "ring-2 ring-[var(--game-accent)] ring-offset-2 ring-offset-[var(--card)]" : ""}`}>
+                <Avatar emoji={s.avatar?.emoji} bgColor={s.avatar?.bgColor} imageUrl={s.avatar?.imageUrl} fallbackLetter={s.name.charAt(0).toUpperCase()} />
+                {turn && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-3 w-3">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--game-accent)] opacity-60" />
+                    <span className="relative inline-flex h-3 w-3 rounded-full border-2 border-[var(--card)] bg-[var(--game-accent)]" />
+                  </span>
+                )}
               </span>
-              <span className="text-sm font-black tabular-nums text-[var(--game-accent)]">{s.points}</span>
+              <span className="flex min-w-0 flex-col leading-tight">
+                <span className="max-w-[6.5rem] truncate text-sm font-extrabold text-[var(--fg)]">
+                  {me ? "Você" : s.name}
+                </span>
+                <span className="text-[11px] font-semibold text-[var(--fg-muted)]">
+                  {s.left ? "saiu" : `${s.pairs} ${s.pairs === 1 ? "par" : "pares"}`}
+                </span>
+              </span>
+              <span className="ml-1 text-xl font-black tabular-nums text-[var(--game-accent)]">{s.points}</span>
             </div>
           );
         })}

@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { PlayerAvatar } from "./rooms";
-import { sanitizeAvatar, sanitizeName } from "./raceRooms";
+import { sanitizeName } from "./raceRooms";
 import {
   BOARD_SIZES,
   BoardSize,
@@ -14,7 +14,20 @@ import {
   resolveMiss,
 } from "./cofreEngine";
 
-export { sanitizeAvatar, sanitizeName };
+export { sanitizeName };
+
+// foto de perfil: so arquivos do proprio site (avatares novos em /avatars, antigos em /icons)
+const AVATAR_PATH = /^\/(avatars|icons)\/[\w-]+\.(webp|png|jpg|jpeg|svg)$/i;
+
+export function sanitizeAvatar(input: unknown): PlayerAvatar | null {
+  if (typeof input !== "object" || input === null) return null;
+  const a = input as Record<string, unknown>;
+  const emoji = typeof a.emoji === "string" && a.emoji.length <= 16 ? a.emoji : null;
+  const bgColor = typeof a.bgColor === "string" && /^#[0-9a-f]{3,8}$/i.test(a.bgColor) ? a.bgColor : null;
+  const imageUrl = typeof a.imageUrl === "string" && a.imageUrl.length <= 200 && AVATAR_PATH.test(a.imageUrl) ? a.imageUrl : null;
+  if (!emoji && !bgColor && !imageUrl) return null;
+  return { emoji, bgColor, imageUrl };
+}
 
 export type TurnSeconds = 0 | 8 | 12 | 20;
 

@@ -11,26 +11,16 @@ export const BOARD_SIZES: Record<BoardSize, { cols: number; rows: number }> = {
   "6x6": { cols: 6, rows: 6 },
 };
 
-export const LOOT_FACES: readonly string[] = [
-  "diamante",
-  "barra-ouro",
-  "relogio",
-  "coroa",
-  "perolas",
-  "chave",
-  "rubi",
-  "dobrao",
-  "calice",
-  "anel",
-  "dragao-jade",
-  "ovo-imperial",
-  "maleta",
-  "quadro",
-  "ficha",
-  "bussola",
-  "safira",
-  "mascara",
+/**
+ * Faces do espolio em ordem de preferencia: o tabuleiro sorteia primeiro entre as da 1a lista
+ * (arte pronta) e so completa com as da 2a quando precisa de mais pares.
+ */
+export const LOOT_TIERS: readonly (readonly string[])[] = [
+  ["diamante", "barra-ouro", "relogio", "coroa", "perolas", "chave", "rubi", "dobrao", "calice", "anel", "dragao-jade"],
+  ["ovo-imperial", "maleta", "quadro", "ficha", "bussola", "safira", "mascara"],
 ];
+
+export const LOOT_FACES: readonly string[] = LOOT_TIERS.flat();
 
 export const CORINGA = "coringa";
 
@@ -102,7 +92,8 @@ function shuffle<T>(items: readonly T[], rng: Rng): T[] {
 
 export function createGame(options: CofreOptions, playerCount: number, rng: Rng): GameState {
   const { cols, rows } = BOARD_SIZES[options.size];
-  const faces = shuffle(LOOT_FACES, rng).slice(0, (cols * rows) / 2);
+  // ultima posicao e a menos preferida: o Coringa entra no lugar dela
+  const faces = LOOT_TIERS.flatMap((tier) => shuffle(tier, rng)).slice(0, (cols * rows) / 2);
   if (options.coringa) faces[faces.length - 1] = CORINGA;
   const cells = shuffle([...faces, ...faces], rng).map((face): Cell => ({ face, state: "hidden" }));
   return {

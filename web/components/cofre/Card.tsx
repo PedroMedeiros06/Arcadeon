@@ -66,13 +66,17 @@ export function Card({
         >
           {art &&
             (!artFailed ? (
+              // key: troca de face cria outra <img>; reaproveitar a mesma mostrava a arte antiga ate a nova baixar
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={art.src ?? undefined} alt="" draggable={false} onError={() => setFailedSrc(art.src)} className="h-full w-full object-contain p-[7%]" />
+              <img key={art.src} src={art.src ?? undefined} alt="" draggable={false} decoding="async" onError={() => setFailedSrc(art.src)} className="h-full w-full object-contain p-[7%]" />
             ) : (
-              <>
-                <span className="text-[min(9vw,2.6rem)] leading-none">{art.emoji}</span>
-                <span className="mt-1 line-clamp-2 px-1 text-center text-[10px] font-bold leading-tight text-white/75 sm:text-xs">{art.label}</span>
-              </>
+              // arte ainda nao feita: emoji grande num brilho dourado, no mesmo clima das outras cartas
+              <span className="absolute inset-[6%] flex flex-col items-center justify-center rounded-lg bg-[radial-gradient(circle_at_50%_42%,rgb(242_193_78/0.32),transparent_62%)]">
+                <span className="text-[min(10vw,3rem)] leading-none drop-shadow-[0_4px_10px_rgb(0_0_0/0.6)]">{art.emoji}</span>
+                <span className="mt-1.5 line-clamp-2 px-1 text-center text-[10px] font-extrabold uppercase leading-tight tracking-wide text-[#f2c14e]/90 sm:text-xs">
+                  {art.label}
+                </span>
+              </span>
             ))}
         </span>
       </span>
