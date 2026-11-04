@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getGame } from "./games";
+import { gamePath, getGame } from "./games";
 
 export const SITE_NAME = "Arcadeon";
 
@@ -63,7 +63,7 @@ export const GAME_SEO: Record<string, { title: string; description: string; keyw
 export function gameMetadata(slug: string): Metadata {
   const seo = GAME_SEO[slug];
   const game = getGame(slug);
-  const path = `/games/${slug}`;
+  const path = gamePath(slug);
   return {
     title: seo.title,
     description: seo.description,
@@ -103,7 +103,7 @@ export function siteJsonLd() {
           item: {
             "@type": "VideoGame",
             name: getGame(slug).title,
-            url: `${SITE_URL}/games/${slug}`,
+            url: `${SITE_URL}${gamePath(slug)}`,
             description: GAME_SEO[slug].description,
             inLanguage: "pt-BR",
             gamePlatform: "Navegador",

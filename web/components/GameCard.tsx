@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Play, User, Users } from "lucide-react";
 import { useBlockTransition } from "@/lib/transition/TransitionProvider";
 import { formatCountdown, msUntilBrasiliaMidnight } from "@/lib/time";
+import { gamePath } from "@/lib/games";
 import type { GameInfo } from "@/lib/types";
 import { GAME_ICONS } from "./gameIcons";
 
@@ -122,7 +123,7 @@ export function GameCard({ game, layout = "default" }: { game: GameInfo; layout?
   return (
     <button
       type="button"
-      onClick={() => navigate(`/games/${game.slug}`)}
+      onClick={() => navigate(gamePath(game.slug))}
       className="group block h-full w-full rounded-3xl text-left"
     >
       {card}

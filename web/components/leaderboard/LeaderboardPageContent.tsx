@@ -365,7 +365,7 @@ function TermoLeaderboard() {
         valueLabel={TERMO_VALUE_LABEL[category]}
         showFlame={category === "streak"}
         emptyStatsText="Você ainda não pontuou neste modo."
-        emptyCta={{ label: "Jogar Letrado", href: "/games/termo" }}
+        emptyCta={{ label: "Jogar Letrado", href: "/games/letrado" }}
         howToScore="Jogue o Letrado diário para subir no ranking. A categoria Hoje zera todo dia; as outras avaliam tentativas, tempo, vitórias, sequência e o recorde no Contra o Tempo."
         myDetails={(row) => (
           <p className="flex items-center gap-1.5 text-sm font-bold text-[var(--primary)]">

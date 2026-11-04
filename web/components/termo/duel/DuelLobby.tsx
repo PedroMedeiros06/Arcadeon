@@ -50,7 +50,7 @@ export function DuelLobby({ duel, busy, waitingFor, onStart, onLeave }: DuelLobb
   const mode = MODES.find((m) => m.count === duel.boardCount)?.label ?? "Letrado";
 
   async function copyLink() {
-    const url = `${window.location.origin}/games/termo?join=${duel.code}`;
+    const url = `${window.location.origin}/games/letrado?join=${duel.code}`;
     try {
       if (navigator.share && window.matchMedia("(pointer: coarse)").matches) {
         await navigator.share({ text: `Duelo no Letrado ${mode}! Entra aí: ${url}` });

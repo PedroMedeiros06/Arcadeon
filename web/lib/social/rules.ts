@@ -1,3 +1,5 @@
+import { gamePath, gameSlugFromRoute } from "../games.ts";
+
 export type Place = "hub" | "shop" | "leaderboard" | "profile" | "lobby" | "match";
 export type PresenceState = "online" | "playing";
 
@@ -56,7 +58,7 @@ const EMPTY = { game: null, roomCode: null, players: null, maxPlayers: null };
 
 export function routeStatus(pathname: string): { kind: "hub"; place: Place } | { kind: "game"; game: string } {
   const game = pathname.match(/^\/games\/([^/?#]+)/);
-  if (game) return { kind: "game", game: game[1] };
+  if (game) return { kind: "game", game: gameSlugFromRoute(game[1]) };
   if (pathname.startsWith("/shop")) return { kind: "hub", place: "shop" };
   if (pathname.startsWith("/leaderboard")) return { kind: "hub", place: "leaderboard" };
   if (pathname.startsWith("/profile") || pathname.startsWith("/inventory")) return { kind: "hub", place: "profile" };
@@ -121,7 +123,7 @@ export function joinHref(p: Presence | null, now: number): string | null {
   if (!p || !isOnline(p, now) || !p.roomCode || !p.game) return null;
   if (p.place !== "lobby" && p.place !== "match") return null;
   if (!MULTIPLAYER.includes(p.game)) return null;
-  return `/games/${p.game}?join=${p.roomCode}`;
+  return `${gamePath(p.game)}?join=${p.roomCode}`;
 }
 
 export function sortFriends<T extends { username: string; presence: Presence | null }>(list: T[], now: number): T[] {
@@ -228,7 +230,7 @@ export function inviteText(i: GameInvite): string {
 }
 
 export function inviteHref(i: GameInvite): string {
-  return `/games/${i.game}?join=${i.roomCode}`;
+  return `${gamePath(i.game)}?join=${i.roomCode}`;
 }
 
 /** Convites que ainda valem agora (a lista fica aberta e eles vencem). */

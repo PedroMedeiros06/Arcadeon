@@ -37,7 +37,7 @@ export function SidebarDaily() {
 
   return (
     <Link
-      href="/games/termo"
+      href="/games/letrado"
       className="flex flex-col gap-2 rounded-2xl border-2 border-[var(--border)] bg-[var(--bg)] p-4 transition hover:border-[var(--border-hover)]"
     >
       <span className="flex items-center gap-2 text-sm font-extrabold text-[var(--fg)]">

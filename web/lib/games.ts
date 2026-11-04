@@ -58,6 +58,19 @@ export const games: GameInfo[] = [
   },
 ];
 
+// O id interno do Letrado continua "termo" (banco, presenca, missoes); so o endereco mudou.
+const ROUTE_SEGMENT: Record<string, string> = { termo: "letrado" };
+
+/** Endereco da pagina do jogo. */
+export function gamePath(slug: string): string {
+  return `/games/${ROUTE_SEGMENT[slug] ?? slug}`;
+}
+
+/** Id do jogo a partir do trecho da URL (/games/<trecho>). */
+export function gameSlugFromRoute(segment: string): string {
+  return Object.keys(ROUTE_SEGMENT).find((slug) => ROUTE_SEGMENT[slug] === segment) ?? segment;
+}
+
 export function getGame(slug: string): GameInfo {
   const game = games.find((g) => g.slug === slug);
   if (!game) throw new Error(`Jogo desconhecido: ${slug}`);

@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { games } from "@/lib/games";
+import { gamePath, games } from "@/lib/games";
 import { SITE_URL } from "@/lib/seo";
 
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -9,7 +9,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ...games
       .filter((g) => g.status === "available")
       .map((g) => ({
-        url: `${SITE_URL}/games/${g.slug}`,
+        url: `${SITE_URL}${gamePath(g.slug)}`,
         lastModified: now,
         // o Letrado muda todo dia (palavra do dia)
         changeFrequency: g.slug === "termo" ? ("daily" as const) : ("weekly" as const),

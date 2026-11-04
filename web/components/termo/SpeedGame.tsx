@@ -206,7 +206,7 @@ export function SpeedGame({ acceptedWords, accents, onShare, message, setMessage
   if (phase === "finished" && run) {
     const shareText = `Letrado Contra o Tempo ⏱\n${run.solved} palavra${run.solved === 1 ? "" : "s"} em 3 minutos\n${run.history
       .map((h) => (h.solved ? "🟩" : "🟥"))
-      .join("")}\n\n${window.location.origin}/games/termo`;
+      .join("")}\n\n${window.location.origin}/games/letrado`;
     return (
       <div className="flex w-full max-w-sm flex-col items-center gap-4 rounded-3xl border-2 border-[var(--border)] bg-[var(--card)] p-5 text-center sm:p-7">
         <div className="text-5xl">⏱</div>

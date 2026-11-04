@@ -8,7 +8,7 @@ import { useBlockTransition } from "@/lib/transition/TransitionProvider";
 import { type DailyModeStatus, type DailyStatus } from "@/lib/termo/daily";
 import { getDailyStatusShared } from "@/lib/home/dailyStatus";
 import { modeLabel, type BoardCount } from "@/lib/termo/logic";
-import { getGame } from "@/lib/games";
+import { gamePath, getGame } from "@/lib/games";
 import { GAME_ICONS } from "@/components/gameIcons";
 import { FeatureCarousel, type FeatureSlide } from "./FeatureCarousel";
 import { HomeAside } from "./HomeAside";
@@ -166,7 +166,7 @@ function LetradoDailySlide() {
       )}
       <PlayButton
         accent="var(--game-termo)"
-        href="/games/termo"
+        href="/games/letrado"
         label={allDone ? "Ver resultado" : anyStarted ? "Continuar" : "Jogar agora"}
       />
     </SlideShell>
@@ -177,10 +177,10 @@ function LetradoDailySlide() {
 
 function LetradoModesSlide() {
   const { navigate } = useBlockTransition();
-  // TODO: abrir direto no modo quando /games/termo aceitar ?modo= (pedido em Pedidos-ao-Servidor)
+  // TODO: abrir direto no modo quando /games/letrado aceitar ?modo= (pedido em Pedidos-ao-Servidor)
   const modes = [
-    { label: "Contra o Tempo", text: "Quantas palavras você acerta antes do relógio zerar?", Icon: Timer, href: "/games/termo" },
-    { label: "Vilão", text: "A palavra muda pra fugir de você. Encurrale ela.", Icon: Skull, href: "/games/termo" },
+    { label: "Contra o Tempo", text: "Quantas palavras você acerta antes do relógio zerar?", Icon: Timer, href: "/games/letrado" },
+    { label: "Vilão", text: "A palavra muda pra fugir de você. Encurrale ela.", Icon: Skull, href: "/games/letrado" },
   ];
   return (
     <SlideShell
@@ -247,7 +247,7 @@ function OnlineGameSlide({
           <Users className="h-3.5 w-3.5" /> {game.players} jogadores
         </span>
       </div>
-      <PlayButton accent={game.accent} href={`/games/${slug}`} label="Criar sala" />
+      <PlayButton accent={game.accent} href={gamePath(slug)} label="Criar sala" />
     </SlideShell>
   );
 }

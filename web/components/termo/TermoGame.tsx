@@ -532,7 +532,7 @@ export function TermoGame() {
         guesses: game.guesses,
         evals: game.evals,
         won: game.won,
-        url: `${window.location.origin}/games/termo`,
+        url: `${window.location.origin}/games/letrado`,
         hard: game.hard,
         hintsUsed: game.hints.length,
         colorblind,
@@ -548,7 +548,7 @@ export function TermoGame() {
       timeSeconds: game.won ? game.timeSeconds : null,
       name: username,
     });
-    const url = `${window.location.origin}/games/termo?desafio=${code}`;
+    const url = `${window.location.origin}/games/letrado?desafio=${code}`;
     const brag = game.won ? `Acertei em ${game.guesses.length} tentativas.` : "Não consegui acertar.";
     const result = await shareResult(`Te desafio no Letrado ${game.boardCount > 1 ? MODES.find((m) => m.count === game.boardCount)?.label : ""}! ${brag} Consegue fazer melhor?\n${url}`);
     if (result === "copied") setMessage("Link do desafio copiado!");

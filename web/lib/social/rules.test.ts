@@ -63,7 +63,7 @@ test("na rota do jogo, o hub nao apaga a sala que o jogo marcou", () => {
 });
 
 test("chegando num jogo, o hub marca so a chegada", () => {
-  assert.deepEqual(nextStatus(null, "/games/termo"), {
+  assert.deepEqual(nextStatus(null, "/games/letrado"), {
     state: "online",
     place: "hub",
     game: "termo",
@@ -287,6 +287,8 @@ test("texto e link do convite", () => {
   assert.equal(inviteHref(i), "/games/drawit?join=K7M2Q");
   const [c] = parseInvites([invite({ game: "corrida" })], NOW)!;
   assert.equal(inviteText(c), "raposa te chamou pra Corrida");
+  // o Letrado mora em /games/letrado, mas o id do jogo continua "termo"
+  assert.equal(inviteHref({ ...i, game: "termo" }), "/games/letrado?join=K7M2Q");
 });
 
 test("Cofre: status, botao entrar e convite", () => {
