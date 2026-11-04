@@ -56,6 +56,17 @@ export const games: GameInfo[] = [
     players: "Até 8",
     tags: ["Online", "Treino"],
   },
+  {
+    slug: "nove",
+    title: "Nove",
+    description: "Vire cartas e complete sua cartela de 1 a 9 antes do adversário.",
+    icon: "🃏",
+    status: "available",
+    multiplayer: true,
+    accent: "var(--game-nove)",
+    players: "1x1",
+    tags: ["Online", "Treino"],
+  },
 ];
 
 // O id interno do Letrado continua "termo" (banco, presenca, missoes); so o endereco mudou.

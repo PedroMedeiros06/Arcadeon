@@ -34,6 +34,7 @@
   --game-drawit: #e3477a;
   --game-corrida: #e58a0c;
   --game-cofre: #0f9f8f;
+  --game-nove: #7c4dff;
 }
 
 .dark {
@@ -68,6 +69,7 @@
   --game-drawit: #f0608f;
   --game-corrida: #f4a12a;
   --game-cofre: #2cc4b0;
+  --game-nove: #a78bfa;
 }
 
 /* Palco dos lobbies: tons escuros derivados da cor do jogo. Redefinido em [data-game]
@@ -98,6 +100,9 @@
 }
 [data-game="cofre"] {
   --game-accent: var(--game-cofre);
+}
+[data-game="nove"] {
+  --game-accent: var(--game-nove);
 }
 
 @theme inline {
@@ -757,6 +762,7 @@ body {
 .pattern-drawit,
 .pattern-corrida,
 .pattern-cofre,
+.pattern-nove,
 .pattern-brand {
   background-color: var(--pattern-color);
 }
@@ -783,6 +789,11 @@ body {
   --pattern-color: var(--game-cofre);
   background-image: repeating-conic-gradient(rgb(0 0 0 / 0.1) 0 25%, transparent 0 50%);
   background-size: 18px 18px;
+}
+.pattern-nove {
+  --pattern-color: var(--game-nove);
+  background-image: linear-gradient(135deg, rgb(255 255 255 / 0.16) 25%, transparent 25% 50%, rgb(255 255 255 / 0.16) 50% 75%, transparent 75%);
+  background-size: 24px 24px;
 }
 /* marca: as quatro texturas juntas, pra vazios que nao sao de um jogo so */
 .pattern-brand {
@@ -945,5 +956,56 @@ body {
   /* sem deslize: so o brilho (que nao e movimento) mostra quem trocou; vence a regra global de 1ms */
   .cofre-motion .cofre-swap {
     animation: cofre-swap-glow 600ms ease-in-out !important;
+  }
+}
+
+/* ---------- Nove ---------- */
+.nove-card-back {
+  background: repeating-linear-gradient(45deg, #1d1a2a 0 0.5em, #25213a 0.5em 1em);
+}
+.nove-flip-in {
+  animation: nove-flip-in 450ms cubic-bezier(0.2, 0.8, 0.3, 1.2);
+}
+@keyframes nove-flip-in {
+  0% {
+    transform: perspective(600px) translateX(-60%) rotateY(-90deg) scale(0.85);
+    opacity: 0.4;
+  }
+  100% {
+    transform: perspective(600px) translateX(0) rotateY(0) scale(1);
+    opacity: 1;
+  }
+}
+.nove-pop {
+  animation: nove-pop 500ms ease-out;
+}
+@keyframes nove-pop {
+  0% {
+    transform: scale(0.4);
+  }
+  60% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.nove-glow {
+  animation: nove-glow 1.4s ease-in-out infinite;
+}
+@keyframes nove-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 var(--game-accent);
+  }
+  50% {
+    box-shadow: 0 0 0 0.35rem color-mix(in srgb, var(--game-accent) 45%, transparent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nove-motion .nove-flip-in,
+  .nove-motion .nove-pop,
+  .nove-motion .nove-glow {
+    animation: none;
   }
 }
