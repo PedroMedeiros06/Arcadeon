@@ -34,4 +34,5 @@ Compartilhado (só a linha do Nove): `web/lib/games.ts`, `web/lib/seo.ts`, `web/
 
 - Worktree/branch próprio (`nove/...`). Commit por caminho, mensagens `Nove: ...` com `Co-Authored-By`. Push/merge só com ok do usuário. Não rode prettier.
 - Testes: `cd web && npm test`. Simulador: `NOVE_FAST_TIMERS=1 PORT=3321 npx tsx src/index.ts` e `NOVE_URL=http://localhost:3321 npx tsx scripts/nove-sim.ts`. Teste local: servidor com `CLIENT_ORIGIN=http://localhost:3320`, web com `NEXT_PUBLIC_BUGGLE_SERVER_URL=http://localhost:3321 next dev -p 3320`.
+- `gameIcons.ts` está sendo renomeado pra `gameIcons.tsx` por outra sessão: quando isso entrar, confira que `nove: Layers` continua lá.
 - **Nunca** faça junction/symlink de `node_modules` entre worktrees: `npm ci` num worktree com junction apagou o node_modules da árvore principal (2026-11-03). Instale de verdade.
