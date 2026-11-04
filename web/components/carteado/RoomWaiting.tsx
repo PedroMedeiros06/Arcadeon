@@ -5,7 +5,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { ArrowLeft, Crown, Pencil, Users } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
 import { AvatarEditModal } from "@/components/buggle/AvatarEditModal";
-import type { NoveRoomConfig, NoveRoomState, PlayerAvatar } from "@/lib/nove/types";
+import type { CarteadoRoomConfig, CarteadoRoomState, PlayerAvatar } from "@/lib/carteado/types";
 import { TurnTimeField } from "./TurnTimeField";
 
 export function RoomWaiting({
@@ -17,18 +17,18 @@ export function RoomWaiting({
   onRename,
   onUpdateAvatar,
 }: {
-  room: NoveRoomState;
+  room: CarteadoRoomState;
   mySocketId: string;
   onStart: () => void;
   onLeaveRoom: () => void;
-  onUpdateConfig: (config: NoveRoomConfig) => void;
+  onUpdateConfig: (config: CarteadoRoomConfig) => void;
   onRename: (name: string) => void;
   onUpdateAvatar: (avatar: PlayerAvatar) => void;
 }) {
   const isHost = room.hostSocketId === mySocketId;
   const me = room.lobby.find((p) => p.socketId === mySocketId);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
-  const joinUrl = typeof window !== "undefined" ? `${window.location.origin}/games/nove?join=${room.code}` : "";
+  const joinUrl = typeof window !== "undefined" ? `${window.location.origin}/games/carteado?join=${room.code}` : "";
   const full = room.lobby.length >= room.maxPlayers;
 
   return (

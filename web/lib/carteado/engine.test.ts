@@ -177,6 +177,6 @@ test("partidas aleatorias sempre terminam", () => {
 test("copia do servidor e identica", async () => {
   const { readFile } = await import("node:fs/promises");
   const web = await readFile(new URL("./engine.ts", import.meta.url), "utf8");
-  const server = await readFile(new URL("../../../server/src/noveEngine.ts", import.meta.url), "utf8");
+  const server = await readFile(new URL("../../../server/src/carteadoEngine.ts", import.meta.url), "utf8");
   assert.equal(server, web);
 });

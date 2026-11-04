@@ -1,12 +1,12 @@
 import { PlayerAvatar } from "./rooms";
 import { sanitizeAvatar, sanitizeName } from "./cofreRooms";
-import { COLORS, CardColor, FlipEvent, GameState, chooseColor, createGame, flip, removePlayer } from "./noveEngine";
+import { COLORS, CardColor, FlipEvent, GameState, chooseColor, createGame, flip, removePlayer } from "./carteadoEngine";
 
 export { sanitizeAvatar, sanitizeName };
 
 export type TurnSeconds = 0 | 10 | 20;
 
-export interface NoveRoomConfig {
+export interface CarteadoRoomConfig {
   /** 0 = sem limite; acabou o tempo, o servidor vira (ou escolhe a cor) pelo jogador */
   turnSeconds: TurnSeconds;
 }
@@ -14,7 +14,7 @@ export interface NoveRoomConfig {
 /** O jogo e' 1x1. */
 export const MAX_PLAYERS = 2;
 
-export interface NovePlayer {
+export interface CarteadoPlayer {
   socketId: string;
   name: string;
   avatar: PlayerAvatar | null;
@@ -22,23 +22,23 @@ export interface NovePlayer {
   joinSeq: number;
 }
 
-export type NovePhase = "lobby" | "countdown" | "playing" | "results";
+export type CarteadoPhase = "lobby" | "countdown" | "playing" | "results";
 
 type CardEventKind = Exclude<FlipEvent["kind"], "invalid">;
 
-export type NoveEvent =
+export type CarteadoEvent =
   | { seq: number; kind: CardEventKind; by: string; auto: boolean; required?: CardColor }
   | { seq: number; kind: "color"; by: string; color: CardColor; auto: boolean }
   | { seq: number; kind: "left"; by: string };
 
 export type GameEndReason = "finished" | "players-left";
 
-export interface NoveRoom {
+export interface CarteadoRoom {
   code: string;
   hostSocketId: string;
-  config: NoveRoomConfig;
-  players: Map<string, NovePlayer>;
-  phase: NovePhase;
+  config: CarteadoRoomConfig;
+  players: Map<string, CarteadoPlayer>;
+  phase: CarteadoPhase;
   nextJoinSeq: number;
   game: GameState | null;
   /** socketId de cada indice de game.players (fixo durante a partida) */
@@ -47,15 +47,15 @@ export interface NoveRoom {
   phaseEndsAt: number | null;
   /** ninguem vira carta antes disso (animacao da carta virando) */
   lockedUntil: number;
-  lastEvent: NoveEvent | null;
+  lastEvent: CarteadoEvent | null;
   eventSeq: number;
   endReason: GameEndReason | null;
   timer: NodeJS.Timeout | null;
   timerToken: number;
 }
 
-// NOVE_FAST_TIMERS so encurta duracoes (simulador); regras e validacoes sao as mesmas
-const FAST = process.env.NOVE_FAST_TIMERS === "1";
+// CARTEADO_FAST_TIMERS so encurta duracoes (simulador); regras e validacoes sao as mesmas
+const FAST = process.env.CARTEADO_FAST_TIMERS === "1";
 export const COUNTDOWN_MS = FAST ? 300 : 3800;
 /** carta virando + tempo pra ler o que saiu */
 export const FLIP_LOCK_MS = FAST ? 60 : 1100;
@@ -63,22 +63,22 @@ export const FINISH_DELAY_MS = FAST ? 100 : 1600;
 const FAST_TURN_MS = 400;
 const TURN_SECONDS: TurnSeconds[] = [0, 10, 20];
 
-const rooms = new Map<string, NoveRoom>();
+const rooms = new Map<string, CarteadoRoom>();
 const socketToRoom = new Map<string, string>();
 
-let onAutoAdvance: (room: NoveRoom) => void = () => {};
+let onAutoAdvance: (room: CarteadoRoom) => void = () => {};
 
-/** noveSocket registra aqui o broadcast disparado quando um timer muda o estado sozinho. */
-export function setNoveAutoAdvanceListener(listener: (room: NoveRoom) => void): void {
+/** carteadoSocket registra aqui o broadcast disparado quando um timer muda o estado sozinho. */
+export function setCarteadoAutoAdvanceListener(listener: (room: CarteadoRoom) => void): void {
   onAutoAdvance = listener;
 }
 
-export function setNovePlayerUser(socketId: string, userId: string | null): void {
+export function setCarteadoPlayerUser(socketId: string, userId: string | null): void {
   const player = getRoomForSocket(socketId)?.players.get(socketId);
   if (player) player.userId = userId;
 }
 
-export function sanitizeConfig(input: unknown): NoveRoomConfig {
+export function sanitizeConfig(input: unknown): CarteadoRoomConfig {
   const c = (typeof input === "object" && input !== null ? input : {}) as Record<string, unknown>;
   return { turnSeconds: TURN_SECONDS.includes(c.turnSeconds as TurnSeconds) ? (c.turnSeconds as TurnSeconds) : 10 };
 }
@@ -94,17 +94,17 @@ function generateCode(): string {
   return code;
 }
 
-export function hasNoveRoom(code: string): boolean {
+export function hasCarteadoRoom(code: string): boolean {
   return rooms.has(code);
 }
 
-export function getRoomForSocket(socketId: string): NoveRoom | undefined {
+export function getRoomForSocket(socketId: string): CarteadoRoom | undefined {
   const code = socketToRoom.get(socketId);
   return code ? rooms.get(code) : undefined;
 }
 
-export function createNoveRoom(hostSocketId: string, config: NoveRoomConfig, name: string, avatar: PlayerAvatar | null): NoveRoom {
-  const room: NoveRoom = {
+export function createCarteadoRoom(hostSocketId: string, config: CarteadoRoomConfig, name: string, avatar: PlayerAvatar | null): CarteadoRoom {
+  const room: CarteadoRoom = {
     code: generateCode(),
     hostSocketId,
     config,
@@ -128,9 +128,9 @@ export function createNoveRoom(hostSocketId: string, config: NoveRoomConfig, nam
   return room;
 }
 
-export type JoinResult = { room: NoveRoom } | { error: string };
+export type JoinResult = { room: CarteadoRoom } | { error: string };
 
-export function joinNoveRoom(code: string, socketId: string, name: string, avatar: PlayerAvatar | null): JoinResult {
+export function joinCarteadoRoom(code: string, socketId: string, name: string, avatar: PlayerAvatar | null): JoinResult {
   const room = rooms.get(code);
   if (!room) return { error: "Sala não encontrada." };
   if (room.phase !== "lobby") return { error: "A partida já começou." };
@@ -140,21 +140,21 @@ export function joinNoveRoom(code: string, socketId: string, name: string, avata
   return { room };
 }
 
-export function renameNovePlayer(room: NoveRoom, socketId: string, name: string): boolean {
+export function renameCarteadoPlayer(room: CarteadoRoom, socketId: string, name: string): boolean {
   const player = room.players.get(socketId);
   if (!player || room.phase !== "lobby") return false;
   player.name = name;
   return true;
 }
 
-export function updateNovePlayerAvatar(room: NoveRoom, socketId: string, avatar: PlayerAvatar | null): boolean {
+export function updateCarteadoPlayerAvatar(room: CarteadoRoom, socketId: string, avatar: PlayerAvatar | null): boolean {
   const player = room.players.get(socketId);
   if (!player || room.phase !== "lobby") return false;
   player.avatar = avatar;
   return true;
 }
 
-export function updateNoveConfig(room: NoveRoom, config: NoveRoomConfig): boolean {
+export function updateCarteadoConfig(room: CarteadoRoom, config: CarteadoRoomConfig): boolean {
   if (room.phase !== "lobby") return false;
   room.config = config;
   return true;
@@ -162,13 +162,13 @@ export function updateNoveConfig(room: NoveRoom, config: NoveRoomConfig): boolea
 
 // ---------- timers (um por sala, invalidados por token) ----------
 
-function clearRoomTimer(room: NoveRoom): void {
+function clearRoomTimer(room: CarteadoRoom): void {
   if (room.timer) clearTimeout(room.timer);
   room.timer = null;
   room.timerToken++;
 }
 
-function scheduleRoomTimer(room: NoveRoom, at: number, action: (room: NoveRoom) => void): void {
+function scheduleRoomTimer(room: CarteadoRoom, at: number, action: (room: CarteadoRoom) => void): void {
   clearRoomTimer(room);
   const token = room.timerToken;
   room.timer = setTimeout(() => {
@@ -180,16 +180,16 @@ function scheduleRoomTimer(room: NoveRoom, at: number, action: (room: NoveRoom) 
   }, Math.max(0, at - Date.now()));
 }
 
-type NewEvent = NoveEvent extends infer E ? (E extends NoveEvent ? Omit<E, "seq"> : never) : never;
+type NewEvent = CarteadoEvent extends infer E ? (E extends CarteadoEvent ? Omit<E, "seq"> : never) : never;
 
-function pushEvent(room: NoveRoom, event: NewEvent): void {
+function pushEvent(room: CarteadoRoom, event: NewEvent): void {
   room.eventSeq++;
-  room.lastEvent = { ...event, seq: room.eventSeq } as NoveEvent;
+  room.lastEvent = { ...event, seq: room.eventSeq } as CarteadoEvent;
 }
 
 // ---------- fases ----------
 
-export function startNoveGame(room: NoveRoom): boolean {
+export function startCarteadoGame(room: CarteadoRoom): boolean {
   if (room.phase !== "lobby" || room.players.size < 2) return false;
   const players = Array.from(room.players.values()).sort((a, b) => a.joinSeq - b.joinSeq);
   room.seats = players.map((p) => p.socketId);
@@ -205,13 +205,13 @@ export function startNoveGame(room: NoveRoom): boolean {
   return true;
 }
 
-function turnMs(room: NoveRoom): number {
+function turnMs(room: CarteadoRoom): number {
   if (room.config.turnSeconds === 0) return 0;
   return FAST ? FAST_TURN_MS : room.config.turnSeconds * 1000;
 }
 
 /** Comeca (ou renova) o relogio da vez atual, a partir do fim da trava de animacao. */
-function startTurn(room: NoveRoom): void {
+function startTurn(room: CarteadoRoom): void {
   room.phase = "playing";
   const ms = turnMs(room);
   if (ms === 0) {
@@ -224,14 +224,14 @@ function startTurn(room: NoveRoom): void {
 }
 
 /** Tempo acabou: o servidor joga pelo jogador (sorte pura, entao nao ha penalidade). */
-function timeoutTurn(room: NoveRoom): void {
+function timeoutTurn(room: CarteadoRoom): void {
   if (room.phase !== "playing" || !room.game) return;
   const by = room.seats[room.game.turn];
   if (room.game.pendingWild) applyColor(room, by, COLORS[Math.floor(Math.random() * COLORS.length)], true);
   else applyFlip(room, by, true);
 }
 
-function applyFlip(room: NoveRoom, socketId: string, auto: boolean): void {
+function applyFlip(room: CarteadoRoom, socketId: string, auto: boolean): void {
   const game = room.game!;
   const { state, event } = flip(game, Math.random);
   if (event.kind === "invalid") return;
@@ -247,7 +247,7 @@ function applyFlip(room: NoveRoom, socketId: string, auto: boolean): void {
   }
 }
 
-function applyColor(room: NoveRoom, socketId: string, color: CardColor, auto: boolean): void {
+function applyColor(room: CarteadoRoom, socketId: string, color: CardColor, auto: boolean): void {
   room.game = chooseColor(room.game!, color);
   pushEvent(room, { kind: "color", by: socketId, color, auto });
   startTurn(room);
@@ -256,7 +256,7 @@ function applyColor(room: NoveRoom, socketId: string, color: CardColor, auto: bo
 export type ActionRejection = "not-in-game" | "not-your-turn" | "locked" | "invalid";
 type ActionResult = { ok: true } | { ok: false; reason: ActionRejection };
 
-function canAct(room: NoveRoom, socketId: string): ActionResult {
+function canAct(room: CarteadoRoom, socketId: string): ActionResult {
   const game = room.game;
   if (room.phase !== "playing" || !game || game.finished) return { ok: false, reason: "not-in-game" };
   if (room.seats[game.turn] !== socketId) return { ok: false, reason: "not-your-turn" };
@@ -264,7 +264,7 @@ function canAct(room: NoveRoom, socketId: string): ActionResult {
   return { ok: true };
 }
 
-export function flipNoveCard(room: NoveRoom, socketId: string): ActionResult {
+export function flipCarteadoCard(room: CarteadoRoom, socketId: string): ActionResult {
   const check = canAct(room, socketId);
   if (!check.ok) return check;
   if (room.game!.pendingWild) return { ok: false, reason: "invalid" };
@@ -272,7 +272,7 @@ export function flipNoveCard(room: NoveRoom, socketId: string): ActionResult {
   return { ok: true };
 }
 
-export function chooseNoveColor(room: NoveRoom, socketId: string, color: unknown): ActionResult {
+export function chooseCarteadoColor(room: CarteadoRoom, socketId: string, color: unknown): ActionResult {
   const check = canAct(room, socketId);
   if (!check.ok) return check;
   if (!room.game!.pendingWild || !COLORS.includes(color as CardColor)) return { ok: false, reason: "invalid" };
@@ -280,14 +280,14 @@ export function chooseNoveColor(room: NoveRoom, socketId: string, color: unknown
   return { ok: true };
 }
 
-function finishGame(room: NoveRoom, reason: GameEndReason): void {
+function finishGame(room: CarteadoRoom, reason: GameEndReason): void {
   clearRoomTimer(room);
   room.phase = "results";
   room.endReason = reason;
   room.phaseEndsAt = null;
 }
 
-export function restartNoveGame(room: NoveRoom): boolean {
+export function restartCarteadoGame(room: CarteadoRoom): boolean {
   if (room.phase !== "results") return false;
   clearRoomTimer(room);
   room.phase = "lobby";
@@ -302,7 +302,7 @@ export function restartNoveGame(room: NoveRoom): boolean {
 }
 
 /** Remove o jogador de tudo. Retorna a sala (se ainda existe) ou o codigo da sala fechada. */
-export function leaveNoveRoom(socketId: string): { room: NoveRoom | null; closedCode: string | null } {
+export function leaveCarteadoRoom(socketId: string): { room: CarteadoRoom | null; closedCode: string | null } {
   const code = socketToRoom.get(socketId);
   socketToRoom.delete(socketId);
   const room = code ? rooms.get(code) : undefined;

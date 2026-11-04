@@ -34,7 +34,7 @@
   --game-drawit: #e3477a;
   --game-corrida: #e58a0c;
   --game-cofre: #0f9f8f;
-  --game-nove: #7c4dff;
+  --game-carteado: #7c4dff;
 }
 
 .dark {
@@ -69,7 +69,7 @@
   --game-drawit: #f0608f;
   --game-corrida: #f4a12a;
   --game-cofre: #2cc4b0;
-  --game-nove: #a78bfa;
+  --game-carteado: #a78bfa;
 }
 
 /* Palco dos lobbies: tons escuros derivados da cor do jogo. Redefinido em [data-game]
@@ -101,8 +101,8 @@
 [data-game="cofre"] {
   --game-accent: var(--game-cofre);
 }
-[data-game="nove"] {
-  --game-accent: var(--game-nove);
+[data-game="carteado"] {
+  --game-accent: var(--game-carteado);
 }
 
 @theme inline {
@@ -762,7 +762,7 @@ body {
 .pattern-drawit,
 .pattern-corrida,
 .pattern-cofre,
-.pattern-nove,
+.pattern-carteado,
 .pattern-brand {
   background-color: var(--pattern-color);
 }
@@ -790,8 +790,8 @@ body {
   background-image: repeating-conic-gradient(rgb(0 0 0 / 0.1) 0 25%, transparent 0 50%);
   background-size: 18px 18px;
 }
-.pattern-nove {
-  --pattern-color: var(--game-nove);
+.pattern-carteado {
+  --pattern-color: var(--game-carteado);
   background-image: linear-gradient(135deg, rgb(255 255 255 / 0.16) 25%, transparent 25% 50%, rgb(255 255 255 / 0.16) 50% 75%, transparent 75%);
   background-size: 24px 24px;
 }
@@ -959,14 +959,14 @@ body {
   }
 }
 
-/* ---------- Nove ---------- */
-.nove-card-back {
+/* ---------- Carteado ---------- */
+.carteado-card-back {
   background: repeating-linear-gradient(45deg, #1d1a2a 0 0.5em, #25213a 0.5em 1em);
 }
-.nove-flip-in {
-  animation: nove-flip-in 450ms cubic-bezier(0.2, 0.8, 0.3, 1.2);
+.carteado-flip-in {
+  animation: carteado-flip-in 450ms cubic-bezier(0.2, 0.8, 0.3, 1.2);
 }
-@keyframes nove-flip-in {
+@keyframes carteado-flip-in {
   0% {
     transform: perspective(600px) translateX(-60%) rotateY(-90deg) scale(0.85);
     opacity: 0.4;
@@ -976,10 +976,10 @@ body {
     opacity: 1;
   }
 }
-.nove-pop {
-  animation: nove-pop 500ms ease-out;
+.carteado-pop {
+  animation: carteado-pop 500ms ease-out;
 }
-@keyframes nove-pop {
+@keyframes carteado-pop {
   0% {
     transform: scale(0.4);
   }
@@ -990,10 +990,10 @@ body {
     transform: scale(1);
   }
 }
-.nove-glow {
-  animation: nove-glow 1.4s ease-in-out infinite;
+.carteado-glow {
+  animation: carteado-glow 1.4s ease-in-out infinite;
 }
-@keyframes nove-glow {
+@keyframes carteado-glow {
   0%,
   100% {
     box-shadow: 0 0 0 0 var(--game-accent);
@@ -1003,9 +1003,9 @@ body {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .nove-motion .nove-flip-in,
-  .nove-motion .nove-pop,
-  .nove-motion .nove-glow {
+  .carteado-motion .carteado-flip-in,
+  .carteado-motion .carteado-pop,
+  .carteado-motion .carteado-glow {
     animation: none;
   }
 }

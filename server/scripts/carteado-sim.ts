@@ -1,14 +1,14 @@
 /**
- * Simulador multi-cliente do Nove.
+ * Simulador multi-cliente do Carteado.
  * Uso: suba o servidor com timers rapidos e rode o simulador apontando pra ele:
- *   NOVE_FAST_TIMERS=1 PORT=3321 npx tsx src/index.ts
- *   NOVE_URL=http://localhost:3321 npx tsx scripts/nove-sim.ts
+ *   CARTEADO_FAST_TIMERS=1 PORT=3321 npx tsx src/index.ts
+ *   CARTEADO_URL=http://localhost:3321 npx tsx scripts/carteado-sim.ts
  *
  * Tudo e' conferido pelo snapshot publico; nenhum hook de debug no servidor.
  */
 import { io, Socket } from "socket.io-client";
 
-const URL = `${process.env.NOVE_URL ?? "http://localhost:3321"}/nove`;
+const URL = `${process.env.CARTEADO_URL ?? "http://localhost:3321"}/carteado`;
 const COLORS = ["verde", "vermelho", "azul", "amarelo"];
 
 interface Seat {

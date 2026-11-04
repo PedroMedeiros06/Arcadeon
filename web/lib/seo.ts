@@ -57,13 +57,13 @@ export const GAME_SEO: Record<string, { title: string; description: string; keyw
       "Cofre é o jogo da memória do Arcadeon: decore onde está cada peça do espólio, combine os pares e abra o cofre. Treine sozinho ou jogue online com amigos.",
     keywords: ["jogo da memória", "jogo da memória online", "memória multiplayer", "cofre"],
   },
-  nove: {
+  carteado: {
     color: "#8b5cf6",
     tagline: "Vire cartas e complete a cartela de 1 a 9.",
-    title: "Nove — jogo de cartas online 1x1",
+    title: "Carteado — jogo de cartas online 1x1",
     description:
-      "Nove é o jogo de cartas do Arcadeon: vire cartas de 0 a 9 em quatro cores, complete sua cartela antes do adversário e use a carta preta pra travar a cor dele. Jogue online com um amigo ou treine contra o robô.",
-    keywords: ["jogo de cartas online", "jogo de cartas 1x1", "cartela de números", "nove"],
+      "Carteado é o jogo de cartas do Arcadeon: vire cartas de 0 a 9 em quatro cores, complete sua cartela antes do adversário e use a carta preta pra travar a cor dele. Jogue online com um amigo ou treine contra o robô.",
+    keywords: ["jogo de cartas online", "jogo de cartas 1x1", "cartela de números", "carteado"],
   },
 };
 

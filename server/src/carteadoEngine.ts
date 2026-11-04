@@ -1,5 +1,5 @@
-// Regras puras do Nove (cartas 0-9 em 4 cores, cartela 3x3 de 1 a 9). Sem imports e sem I/O:
-// o servidor tem uma copia identica em server/src/noveEngine.ts (teste compara os dois).
+// Regras puras do Carteado (cartas 0-9 em 4 cores, cartela 3x3 de 1 a 9). Sem imports e sem I/O:
+// o servidor tem uma copia identica em server/src/carteadoEngine.ts (teste compara os dois).
 // Toda funcao devolve estado novo e nunca muta a entrada.
 
 export const COLORS = ["verde", "vermelho", "azul", "amarelo"] as const;

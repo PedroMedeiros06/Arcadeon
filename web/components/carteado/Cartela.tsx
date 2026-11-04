@@ -1,5 +1,5 @@
-import type { CardColor } from "@/lib/nove/engine";
-import { COLOR_HEX } from "@/lib/nove/cards";
+import type { CardColor } from "@/lib/carteado/engine";
+import { COLOR_HEX } from "@/lib/carteado/cards";
 
 /** Cartela 3x3 de 1 a 9. fresh = indice que acabou de ser preenchido (anima). */
 export function Cartela({ cells, fresh, size = "lg" }: { cells: (CardColor | null)[]; fresh: number | null; size?: "lg" | "sm" }) {
@@ -11,7 +11,7 @@ export function Cartela({ cells, fresh, size = "lg" }: { cells: (CardColor | nul
           key={i}
           className={`flex aspect-square items-center justify-center font-display font-black ${big ? "rounded-xl text-3xl" : "rounded-md text-sm"} ${
             color ? "text-white shadow-[inset_0_-0.2em_0_rgba(0,0,0,0.18)]" : "border-2 border-dashed border-[var(--border)] text-[var(--fg-muted)] opacity-60"
-          } ${color && fresh === i ? "nove-pop" : ""}`}
+          } ${color && fresh === i ? "carteado-pop" : ""}`}
           style={color ? { background: COLOR_HEX[color] } : undefined}
         >
           {i + 1}

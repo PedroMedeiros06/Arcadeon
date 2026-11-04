@@ -2,7 +2,7 @@
 
 import { Crown, RotateCcw } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
-import type { NoveRoomState } from "@/lib/nove/types";
+import type { CarteadoRoomState } from "@/lib/carteado/types";
 import { Cartela } from "./Cartela";
 
 export function OnlineResults({
@@ -11,7 +11,7 @@ export function OnlineResults({
   onPlayAgain,
   onLeave,
 }: {
-  room: NoveRoomState;
+  room: CarteadoRoomState;
   mySocketId: string;
   onPlayAgain: () => void;
   onLeave: () => void;

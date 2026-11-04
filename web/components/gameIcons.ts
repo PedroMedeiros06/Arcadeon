@@ -7,5 +7,5 @@ export const GAME_ICONS: Record<string, LucideIcon> = {
   drawit: Palette,
   corrida: Flag,
   cofre: Vault,
-  nove: Layers,
+  carteado: Layers,
 };

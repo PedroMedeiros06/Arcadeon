@@ -6,28 +6,31 @@ import { RoundCountdown } from "@/components/buggle/RoundCountdown";
 import { JoinNameModal } from "@/components/draw/JoinNameModal";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useLeaveGuard } from "@/lib/useLeaveGuard";
-import { getNoveSocket } from "@/lib/nove/socket";
-import { describeEvent, type EventTone } from "@/lib/nove/cards";
-import type { CardColor } from "@/lib/nove/engine";
-import type { NoveRoomConfig, NoveRoomState, PlayerAvatar } from "@/lib/nove/types";
+import { useLocalFlag } from "@/lib/race/useLocalFlag";
+import { getCarteadoSocket } from "@/lib/carteado/socket";
+import { describeEvent, type EventTone } from "@/lib/carteado/cards";
+import type { CardColor } from "@/lib/carteado/engine";
+import type { CarteadoRoomConfig, CarteadoRoomState, PlayerAvatar } from "@/lib/carteado/types";
 import { MatchView } from "./MatchView";
-import { OnlineLobby } from "./OnlineLobby";
+import { CarteadoTutorial } from "./CarteadoTutorial";
+import { Lobby } from "./Lobby";
 import { OnlineResults } from "./OnlineResults";
 import { RoomWaiting } from "./RoomWaiting";
 
 // ultimo 0.8s do countdown do servidor e' o "VAI!"
 const GO_MS = 800;
 const TOAST_MS = 1800;
+const TUTORIAL_KEY = "carteadoTutorialSeen";
 
 type Toast = { text: string; tone: EventTone; seq: number };
 
-export function OnlineGame({ joinCode, onExit }: { joinCode: string | null; onExit: () => void }) {
+export function OnlineGame({ joinCode, onPractice }: { joinCode: string | null; onPractice: () => void }) {
   const { username, loading: authLoading, equippedAvatar, session } = useAuth();
-  const [socket] = useState(getNoveSocket);
+  const [socket] = useState(getCarteadoSocket);
   // comeca desconectado nos dois lados (SSR e client) pra nao dar hydration mismatch
   const [connected, setConnected] = useState(false);
   const [mySocketId, setMySocketId] = useState("");
-  const [room, setRoom] = useState<NoveRoomState | null>(null);
+  const [room, setRoom] = useState<CarteadoRoomState | null>(null);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pendingAutoJoin, setPendingAutoJoin] = useState(!!joinCode);
@@ -35,6 +38,9 @@ export function OnlineGame({ joinCode, onExit }: { joinCode: string | null; onEx
   const [toast, setToast] = useState<Toast | null>(null);
   const [fresh, setFresh] = useState<{ mine: boolean; index: number } | null>(null);
   const [now, setNow] = useState(0);
+  const [lobbyMode, setLobbyMode] = useState<"choose" | "create" | "join">("choose");
+  const [tutorialSeen, setTutorialSeen] = useLocalFlag(TUTORIAL_KEY, true);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
   // diferenca relogio do servidor - relogio local; so pra exibir tempo, nunca decide nada
   const clockOffsetRef = useRef(0);
   const hasRoomRef = useRef(false);
@@ -53,7 +59,7 @@ export function OnlineGame({ joinCode, onExit }: { joinCode: string | null; onEx
 
   useEffect(() => {
     const timers = timersRef;
-    function handleRoomUpdated(state: NoveRoomState) {
+    function handleRoomUpdated(state: CarteadoRoomState) {
       clockOffsetRef.current = state.serverNow - Date.now();
       setNow(state.serverNow);
       setPendingAction(false);
@@ -164,7 +170,7 @@ export function OnlineGame({ joinCode, onExit }: { joinCode: string | null; onEx
     debounceRef.current[key] = window.setTimeout(fn, ms);
   }
 
-  function handleCreate(config: NoveRoomConfig, name: string) {
+  function handleCreate(config: CarteadoRoomConfig, name: string) {
     setNotice(null);
     socket.emit("create-room", { config, name, avatar: currentAvatar() });
   }
@@ -210,7 +216,15 @@ export function OnlineGame({ joinCode, onExit }: { joinCode: string | null; onEx
     confirmLabel: "Sair",
   });
 
-  const header = <GameHeader slug="nove" onLeaveRoom={room ? () => requestLeave("room") : undefined} onHubClick={room ? () => requestLeave("hub") : undefined} />;
+  const header = <GameHeader slug="carteado" onLeaveRoom={room ? () => requestLeave("room") : undefined} onHubClick={room ? () => requestLeave("hub") : undefined} />;
+
+  function closeTutorial() {
+    setTutorialSeen(true);
+    setTutorialOpen(false);
+  }
+  // primeira visita abre sozinho; depois so pelo "Como jogar"
+  const showTutorial = tutorialOpen || (!tutorialSeen && (!room || room.phase === "lobby"));
+  const tutorial = showTutorial ? <CarteadoTutorial onClose={closeTutorial} /> : null;
 
   if (!room && joinCode && pendingAutoJoin) {
     if (authLoading || !connected) {
@@ -236,17 +250,20 @@ export function OnlineGame({ joinCode, onExit }: { joinCode: string | null; onEx
   if (!room) {
     return (
       <>
-        {header}
-        <OnlineLobby
+        {lobbyMode !== "create" && header}
+        {notice && lobbyMode === "choose" && <p className="mt-4 text-center text-sm font-bold text-[var(--danger)]">{notice}</p>}
+        <Lobby
           defaultName={username ?? ""}
           isNameLocked={!!username}
           connected={connected}
-          joinError={joinError}
-          notice={notice}
           onCreate={handleCreate}
           onJoin={handleJoin}
-          onBack={onExit}
+          onPractice={onPractice}
+          joinError={joinError}
+          onModeChange={setLobbyMode}
+          onHowToPlay={() => setTutorialOpen(true)}
         />
+        {tutorial}
       </>
     );
   }
@@ -268,6 +285,7 @@ export function OnlineGame({ joinCode, onExit }: { joinCode: string | null; onEx
           onRename={(name) => debounced("rename", () => name.trim() && socket.emit("rename-player", { name }), 350)}
           onUpdateAvatar={(avatar) => socket.emit("update-avatar", { avatar })}
         />
+        {tutorial}
         {leaveDialog}
       </>
     );

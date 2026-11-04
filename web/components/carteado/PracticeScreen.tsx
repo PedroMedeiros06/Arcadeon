@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { RotateCcw } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { COLORS, chooseColor, createGame, flip, type CardColor, type FlipEvent, type GameState } from "@/lib/nove/engine";
-import { describeEvent, type EventTone } from "@/lib/nove/cards";
-import type { PlayerAvatar } from "@/lib/nove/types";
+import { COLORS, chooseColor, createGame, flip, type CardColor, type FlipEvent, type GameState } from "@/lib/carteado/engine";
+import { describeEvent, type EventTone } from "@/lib/carteado/cards";
+import type { PlayerAvatar } from "@/lib/carteado/types";
 import { MatchView } from "./MatchView";
 
 /** mesmo ritmo do servidor: carta virando + tempo pra ler */

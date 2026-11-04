@@ -1,17 +1,17 @@
 import { Ban } from "lucide-react";
-import type { Card } from "@/lib/nove/engine";
-import { COLOR_HEX } from "@/lib/nove/cards";
+import type { Card } from "@/lib/carteado/engine";
+import { COLOR_HEX } from "@/lib/carteado/cards";
 
 const WILD_RING = `conic-gradient(${COLOR_HEX.verde} 0 25%, ${COLOR_HEX.vermelho} 0 50%, ${COLOR_HEX.azul} 0 75%, ${COLOR_HEX.amarelo} 0)`;
 
 /** Carta da mesa. card = null mostra o verso. width em px; a altura segue 5:7. */
-export function NoveCard({ card, width = 112, className = "" }: { card: Card | null; width?: number; className?: string }) {
+export function CarteadoCard({ card, width = 112, className = "" }: { card: Card | null; width?: number; className?: string }) {
   const style = { width, height: Math.round((width * 7) / 5), fontSize: width / 112 + "rem" };
-  const frame = `nove-card relative flex shrink-0 select-none items-center justify-center overflow-hidden rounded-[0.9em] shadow-[0_0.4em_1em_-0.3em_rgba(0,0,0,0.5)] ${className}`;
+  const frame = `carteado-card relative flex shrink-0 select-none items-center justify-center overflow-hidden rounded-[0.9em] shadow-[0_0.4em_1em_-0.3em_rgba(0,0,0,0.5)] ${className}`;
 
   if (!card) {
     return (
-      <div className={`${frame} nove-card-back`} style={style} aria-label="Carta virada para baixo">
+      <div className={`${frame} carteado-card-back`} style={style} aria-label="Carta virada para baixo">
         <div className="absolute inset-[0.35em] rounded-[0.65em] border-[0.18em] border-white/25" />
         <div className="flex h-[3.4em] w-[3.4em] items-center justify-center rounded-full" style={{ background: WILD_RING }}>
           <span className="flex h-[76%] w-[76%] items-center justify-center rounded-full bg-[#15121f] font-display text-[1.6em] font-black text-white">9</span>

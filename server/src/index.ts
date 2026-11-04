@@ -21,11 +21,11 @@ import {
 import { registerDrawNamespace } from "./drawSocket";
 import { registerRaceNamespace } from "./raceSocket";
 import { registerCofreNamespace } from "./cofreSocket";
-import { registerNoveNamespace } from "./noveSocket";
+import { registerCarteadoNamespace } from "./carteadoSocket";
 import { getDrawRoom } from "./drawRooms";
 import { hasRaceRoom } from "./raceRooms";
 import { hasCofreRoom } from "./cofreRooms";
-import { hasNoveRoom } from "./noveRooms";
+import { hasCarteadoRoom } from "./carteadoRooms";
 import { verifyAccessToken } from "./raceStats";
 import { recordBuggleRound } from "./buggleStats";
 
@@ -51,7 +51,7 @@ app.get("/rooms/:code", (req, res) => {
     if (getDrawRoom(code)) games.push("drawit");
     if (hasRaceRoom(code)) games.push("corrida");
     if (hasCofreRoom(code)) games.push("cofre");
-    if (hasNoveRoom(code)) games.push("nove");
+    if (hasCarteadoRoom(code)) games.push("carteado");
   }
   res.set("Cache-Control", "no-store");
   res.json({ games });
@@ -269,8 +269,8 @@ registerRaceNamespace(io);
 // ---------- Cofre ----------
 registerCofreNamespace(io);
 
-// ---------- Nove ----------
-registerNoveNamespace(io);
+// ---------- Carteado ----------
+registerCarteadoNamespace(io);
 
 httpServer.listen(PORT, () => {
   console.log(`server listening on http://localhost:${PORT}`);

@@ -1,10 +1,10 @@
 "use client";
 
-import type { NoveRoomConfig, TurnSeconds } from "@/lib/nove/types";
+import type { CarteadoRoomConfig, TurnSeconds } from "@/lib/carteado/types";
 
 const TURN_SECONDS: TurnSeconds[] = [10, 20, 0];
 
-export const chipClass = (active: boolean) =>
+const chipClass = (active: boolean) =>
   `rounded-xl border-2 px-3 py-2 text-sm font-bold transition ${
     active
       ? "border-[var(--game-accent)] bg-[var(--game-accent)] text-white"
@@ -12,7 +12,7 @@ export const chipClass = (active: boolean) =>
   }`;
 
 /** Unica opcao da sala: tempo de cada vez. readOnly = quem nao e anfitriao so ve. */
-export function TurnTimeField({ config, onChange, readOnly = false }: { config: NoveRoomConfig; onChange: (c: NoveRoomConfig) => void; readOnly?: boolean }) {
+export function TurnTimeField({ config, onChange, readOnly = false }: { config: CarteadoRoomConfig; onChange: (c: CarteadoRoomConfig) => void; readOnly?: boolean }) {
   return (
     <div className="flex flex-col gap-2">
       <span className="text-sm font-bold text-[var(--fg)]">Tempo por vez</span>

@@ -1,24 +1,24 @@
 import { Server, Socket } from "socket.io";
 import {
   MAX_PLAYERS,
-  NoveRoom,
-  chooseNoveColor,
-  createNoveRoom,
-  flipNoveCard,
+  CarteadoRoom,
+  chooseCarteadoColor,
+  createCarteadoRoom,
+  flipCarteadoCard,
   getRoomForSocket,
-  joinNoveRoom,
-  leaveNoveRoom,
-  renameNovePlayer,
-  restartNoveGame,
+  joinCarteadoRoom,
+  leaveCarteadoRoom,
+  renameCarteadoPlayer,
+  restartCarteadoGame,
   sanitizeAvatar,
   sanitizeConfig,
   sanitizeName,
-  setNoveAutoAdvanceListener,
-  setNovePlayerUser,
-  startNoveGame,
-  updateNoveConfig,
-  updateNovePlayerAvatar,
-} from "./noveRooms";
+  setCarteadoAutoAdvanceListener,
+  setCarteadoPlayerUser,
+  startCarteadoGame,
+  updateCarteadoConfig,
+  updateCarteadoPlayerAvatar,
+} from "./carteadoRooms";
 import { verifyAccessToken } from "./raceStats";
 
 const RATE_LIMIT_MS = 150;
@@ -29,7 +29,7 @@ const ACTION_RATE_LIMIT_MS = 40;
  * Snapshot publico — igual pra todos na sala. Nunca contem o monte: so quantas cartas restam
  * e a ultima carta virada. As cartelas sao publicas (cada um ve a do outro).
  */
-export function publicNoveRoomState(room: NoveRoom) {
+export function publicCarteadoRoomState(room: CarteadoRoom) {
   const game = room.game;
   const inGame = room.phase !== "lobby" && !!game;
   return {
@@ -74,15 +74,15 @@ export function publicNoveRoomState(room: NoveRoom) {
   };
 }
 
-export function registerNoveNamespace(io: Server): void {
-  const nsp = io.of("/nove");
+export function registerCarteadoNamespace(io: Server): void {
+  const nsp = io.of("/carteado");
   const lastEventAt = new Map<string, Map<string, number>>();
 
-  function broadcast(room: NoveRoom) {
-    nsp.to(room.code).emit("room-updated", publicNoveRoomState(room));
+  function broadcast(room: CarteadoRoom) {
+    nsp.to(room.code).emit("room-updated", publicCarteadoRoomState(room));
   }
 
-  setNoveAutoAdvanceListener(broadcast);
+  setCarteadoAutoAdvanceListener(broadcast);
 
   const identities = new Map<string, string>();
   const identifySeq = new Map<string, number>();
@@ -105,13 +105,13 @@ export function registerNoveNamespace(io: Server): void {
   }
 
   /** Sala e' descoberta pelo socket, nunca pelo code do cliente — impede mexer em sala alheia. */
-  function hostRoom(socket: Socket): NoveRoom | null {
+  function hostRoom(socket: Socket): CarteadoRoom | null {
     const room = getRoomForSocket(socket.id);
     return room && room.hostSocketId === socket.id ? room : null;
   }
 
   function handleLeave(socket: Socket) {
-    const { room, closedCode } = leaveNoveRoom(socket.id);
+    const { room, closedCode } = leaveCarteadoRoom(socket.id);
     if (room) {
       socket.leave(room.code);
       broadcast(room);
@@ -129,15 +129,15 @@ export function registerNoveNamespace(io: Server): void {
       if (identifySeq.get(socket.id) !== seq || !socket.connected) return;
       if (userId) identities.set(socket.id, userId);
       else identities.delete(socket.id);
-      setNovePlayerUser(socket.id, userId);
+      setCarteadoPlayerUser(socket.id, userId);
     });
 
     socket.on("create-room", (raw: unknown) => {
       if (throttled(socket, "create-room")) return;
       if (getRoomForSocket(socket.id)) handleLeave(socket);
       const data = asObject(raw);
-      const room = createNoveRoom(socket.id, sanitizeConfig(data.config), sanitizeName(data.name), sanitizeAvatar(data.avatar));
-      setNovePlayerUser(socket.id, identities.get(socket.id) ?? null);
+      const room = createCarteadoRoom(socket.id, sanitizeConfig(data.config), sanitizeName(data.name), sanitizeAvatar(data.avatar));
+      setCarteadoPlayerUser(socket.id, identities.get(socket.id) ?? null);
       socket.join(room.code);
       broadcast(room);
     });
@@ -147,12 +147,12 @@ export function registerNoveNamespace(io: Server): void {
       const data = asObject(raw);
       if (typeof data.code !== "string") return;
       if (getRoomForSocket(socket.id)) handleLeave(socket);
-      const result = joinNoveRoom(data.code.trim().toUpperCase(), socket.id, sanitizeName(data.name), sanitizeAvatar(data.avatar));
+      const result = joinCarteadoRoom(data.code.trim().toUpperCase(), socket.id, sanitizeName(data.name), sanitizeAvatar(data.avatar));
       if ("error" in result) {
         socket.emit("join-error", { message: result.error });
         return;
       }
-      setNovePlayerUser(socket.id, identities.get(socket.id) ?? null);
+      setCarteadoPlayerUser(socket.id, identities.get(socket.id) ?? null);
       socket.join(result.room.code);
       broadcast(result.room);
     });
@@ -160,38 +160,38 @@ export function registerNoveNamespace(io: Server): void {
     socket.on("rename-player", (raw: unknown) => {
       if (throttled(socket, "rename-player")) return;
       const room = getRoomForSocket(socket.id);
-      if (room && renameNovePlayer(room, socket.id, sanitizeName(asObject(raw).name))) broadcast(room);
+      if (room && renameCarteadoPlayer(room, socket.id, sanitizeName(asObject(raw).name))) broadcast(room);
     });
 
     socket.on("update-avatar", (raw: unknown) => {
       if (throttled(socket, "update-avatar")) return;
       const room = getRoomForSocket(socket.id);
-      if (room && updateNovePlayerAvatar(room, socket.id, sanitizeAvatar(asObject(raw).avatar))) broadcast(room);
+      if (room && updateCarteadoPlayerAvatar(room, socket.id, sanitizeAvatar(asObject(raw).avatar))) broadcast(room);
     });
 
     socket.on("update-config", (raw: unknown) => {
       if (throttled(socket, "update-config")) return;
       const room = hostRoom(socket);
-      if (room && updateNoveConfig(room, sanitizeConfig(asObject(raw).config))) broadcast(room);
+      if (room && updateCarteadoConfig(room, sanitizeConfig(asObject(raw).config))) broadcast(room);
     });
 
     socket.on("start-game", () => {
       if (throttled(socket, "start-game")) return;
       const room = hostRoom(socket);
-      if (room && startNoveGame(room)) broadcast(room);
+      if (room && startCarteadoGame(room)) broadcast(room);
     });
 
     socket.on("restart-game", () => {
       if (throttled(socket, "restart-game")) return;
       const room = hostRoom(socket);
-      if (room && restartNoveGame(room)) broadcast(room);
+      if (room && restartCarteadoGame(room)) broadcast(room);
     });
 
     socket.on("flip", () => {
       if (throttled(socket, "flip", ACTION_RATE_LIMIT_MS)) return;
       const room = getRoomForSocket(socket.id);
       if (!room) return;
-      const result = flipNoveCard(room, socket.id);
+      const result = flipCarteadoCard(room, socket.id);
       if (!result.ok) socket.emit("action-rejected", { reason: result.reason });
       else broadcast(room);
     });
@@ -200,7 +200,7 @@ export function registerNoveNamespace(io: Server): void {
       if (throttled(socket, "choose-color", ACTION_RATE_LIMIT_MS)) return;
       const room = getRoomForSocket(socket.id);
       if (!room) return;
-      const result = chooseNoveColor(room, socket.id, asObject(raw).color);
+      const result = chooseCarteadoColor(room, socket.id, asObject(raw).color);
       if (!result.ok) socket.emit("action-rejected", { reason: result.reason });
       else broadcast(room);
     });

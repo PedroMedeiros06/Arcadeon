@@ -1,14 +1,14 @@
-// Espelha server/src/noveRooms.ts + publicNoveRoomState (noveSocket.ts)
+// Espelha server/src/carteadoRooms.ts + publicCarteadoRoomState (carteadoSocket.ts)
 import type { Card, CardColor, FlipEvent } from "./engine";
 
 export type TurnSeconds = 0 | 10 | 20;
 
-export interface NoveRoomConfig {
+export interface CarteadoRoomConfig {
   /** 0 = sem limite */
   turnSeconds: TurnSeconds;
 }
 
-export const DEFAULT_ROOM_CONFIG: NoveRoomConfig = { turnSeconds: 10 };
+export const DEFAULT_ROOM_CONFIG: CarteadoRoomConfig = { turnSeconds: 10 };
 
 export interface PlayerAvatar {
   emoji: string | null;
@@ -16,16 +16,16 @@ export interface PlayerAvatar {
   imageUrl: string | null;
 }
 
-export type NovePhase = "lobby" | "countdown" | "playing" | "results";
+export type CarteadoPhase = "lobby" | "countdown" | "playing" | "results";
 
 export type CardEventKind = Exclude<FlipEvent["kind"], "invalid">;
 
-export type NoveEvent =
+export type CarteadoEvent =
   | { seq: number; kind: CardEventKind; by: string; auto: boolean; required?: CardColor }
   | { seq: number; kind: "color"; by: string; color: CardColor; auto: boolean }
   | { seq: number; kind: "left"; by: string };
 
-export interface NoveSeat {
+export interface CarteadoSeat {
   socketId: string;
   name: string;
   avatar: PlayerAvatar | null;
@@ -34,12 +34,12 @@ export interface NoveSeat {
   left: boolean;
 }
 
-export interface NoveRoomState {
+export interface CarteadoRoomState {
   code: string;
   hostSocketId: string;
-  config: NoveRoomConfig;
+  config: CarteadoRoomConfig;
   maxPlayers: number;
-  phase: NovePhase;
+  phase: CarteadoPhase;
   phaseEndsAt: number | null;
   lockedUntil: number;
   serverNow: number;
@@ -53,7 +53,7 @@ export interface NoveRoomState {
   } | null;
   turnSocketId: string | null;
   winnerSocketId: string | null;
-  lastEvent: NoveEvent | null;
+  lastEvent: CarteadoEvent | null;
   lobby: { socketId: string; name: string; avatar: PlayerAvatar | null }[];
-  seats: NoveSeat[];
+  seats: CarteadoSeat[];
 }

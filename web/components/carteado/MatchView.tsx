@@ -2,11 +2,11 @@
 
 import { Hourglass, LogOut } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
-import { COLORS, type Card, type CardColor } from "@/lib/nove/engine";
-import { COLOR_HEX, COLOR_LABEL, type EventTone } from "@/lib/nove/cards";
-import type { PlayerAvatar } from "@/lib/nove/types";
+import { COLORS, type Card, type CardColor } from "@/lib/carteado/engine";
+import { COLOR_HEX, COLOR_LABEL, type EventTone } from "@/lib/carteado/cards";
+import type { PlayerAvatar } from "@/lib/carteado/types";
 import { Cartela } from "./Cartela";
-import { NoveCard } from "./NoveCard";
+import { CarteadoCard } from "./CarteadoCard";
 
 export interface MatchSide {
   name: string;
@@ -59,7 +59,7 @@ export function MatchView({
   const oppFilled = opp.cells.filter(Boolean).length;
 
   return (
-    <div className="nove-motion flex w-full flex-1 flex-col">
+    <div className="carteado-motion flex w-full flex-1 flex-col">
       <div className="sticky top-0 z-30 border-b-2 border-[var(--border)] bg-[var(--card)]">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-3 py-2">
           <button
@@ -120,17 +120,17 @@ export function MatchView({
             className={`group relative transition ${canFlip ? "cursor-pointer hover:-translate-y-1" : "cursor-default"}`}
           >
             <span className="absolute left-1.5 top-1.5 opacity-50">
-              <NoveCard card={null} width={84} />
+              <CarteadoCard card={null} width={84} />
             </span>
             <span className="absolute left-0.5 top-0.5 opacity-75">
-              <NoveCard card={null} width={84} />
+              <CarteadoCard card={null} width={84} />
             </span>
-            <NoveCard card={null} width={84} className={canFlip ? "nove-glow" : ""} />
+            <CarteadoCard card={null} width={84} className={canFlip ? "carteado-glow" : ""} />
             <span className="absolute -bottom-6 left-0 right-0 text-center text-xs font-bold text-[var(--fg-muted)]">{drawCount} no monte</span>
           </button>
           <div className="flex h-[134px] w-[96px] items-center justify-center">
             {lastCard ? (
-              <NoveCard key={flipKey} card={lastCard} width={96} className="nove-flip-in" />
+              <CarteadoCard key={flipKey} card={lastCard} width={96} className="carteado-flip-in" />
             ) : (
               <div className="flex h-full w-full items-center justify-center rounded-2xl border-2 border-dashed border-[var(--border)] p-2 text-center text-xs font-bold text-[var(--fg-muted)]">
                 Vire a primeira carta

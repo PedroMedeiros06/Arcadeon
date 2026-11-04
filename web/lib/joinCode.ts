@@ -1,6 +1,6 @@
 export const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 export const CODE_LENGTH = 5;
-export type RoomGame = "buggle" | "drawit" | "corrida" | "cofre" | "nove";
+export type RoomGame = "buggle" | "drawit" | "corrida" | "cofre" | "carteado";
 
 export type JoinTarget =
   | { kind: "go"; href: string }
