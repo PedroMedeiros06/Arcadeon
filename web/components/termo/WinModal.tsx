@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Award, Bot, Clock, Coins, Flame, Infinity as InfinityIcon, RotateCcw, Share2, Shield, Swords, Target } from "lucide-react";
+import { Award, Bot, Clock, Flame, Infinity as InfinityIcon, RotateCcw, Share2, Shield, Swords, Target } from "lucide-react";
+import { CoinIcon } from "@/components/CoinIcon";
 import { LoginModal } from "@/components/LoginModal";
 import { Leaderboard } from "./Leaderboard";
 import { NextWordCountdown } from "./Extras";
@@ -161,7 +162,7 @@ export function WinModal({
           <div className="mt-3 flex flex-wrap justify-center gap-1.5">
             {coinsAwarded > 0 && (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-sm font-extrabold text-white">
-                <Coins className="h-4 w-4" /> +{coinsAwarded} moedas
+                <CoinIcon className="h-4 w-4" /> +{coinsAwarded} moedas
               </span>
             )}
             {shieldsUsed > 0 && (

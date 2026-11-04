@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Coins, Flame, LogIn, Trophy } from "lucide-react";
+import { Flame, LogIn, Trophy } from "lucide-react";
+import { CoinIcon } from "@/components/CoinIcon";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { createClient } from "@/lib/supabase/client";
 import { getArcadeonStreakShared } from "@/lib/economy/api";
@@ -76,7 +77,7 @@ export function HomeAside() {
       <Link href="/shop" className={`${CARD} transition hover:border-[var(--border-hover)] active:scale-[0.98]`}>
         <span className="text-xs font-medium text-[var(--fg-muted)]">Suas moedas</span>
         <span className="flex items-center gap-2 font-display text-2xl font-extrabold tabular-nums text-[var(--fg)]">
-          <Coins className="h-5 w-5 text-[var(--primary)]" /> {coins}
+          <CoinIcon className="h-5 w-5" /> {coins}
         </span>
       </Link>
       <Link

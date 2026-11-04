@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Coins, Shield } from "lucide-react";
+import { Shield } from "lucide-react";
+import { CoinIcon } from "@/components/CoinIcon";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { buyStreakShield, errorMessage } from "@/lib/termo/daily";
@@ -73,7 +74,7 @@ export function ShieldShopCard() {
           title={!user ? "Entre na sua conta para comprar" : full ? "Limite de escudos atingido" : undefined}
           className="flex items-center gap-1 rounded-xl bg-[var(--primary)] px-4 py-2 text-sm font-extrabold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <Coins className="h-4 w-4" /> {PRICE}
+          <CoinIcon className="h-4 w-4" /> {PRICE}
         </button>
       </div>
     </section>

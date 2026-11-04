@@ -3,12 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Coins, LogOut, ShoppingBag, UserRound } from "lucide-react";
+import { LogOut, ShoppingBag, UserRound } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { LoginModal } from "./LoginModal";
 import { ThemeToggle } from "./ThemeToggle";
 import { Avatar } from "./Avatar";
 import { NotificationBell } from "./social/NotificationBell";
+import { CoinIcon } from "./CoinIcon";
 
 function AccountMenu() {
   const { user, username, coins, equippedAvatar, signOut } = useAuth();
@@ -62,7 +63,7 @@ function AccountMenu() {
           <div className="px-3 pb-2 pt-1">
             <p className="truncate text-sm font-extrabold text-[var(--fg)]">{name}</p>
             <p className="flex items-center gap-1 text-xs font-medium text-[var(--fg-muted)]">
-              <Coins className="h-3.5 w-3.5 text-[var(--primary)]" /> {coins} moedas
+              <CoinIcon className="h-3.5 w-3.5" /> {coins} moedas
             </p>
           </div>
           <div className="my-1 border-t-2 border-[var(--border)]" />
@@ -127,7 +128,7 @@ export function Header() {
                 className="flex items-center gap-1.5 rounded-full bg-[var(--primary-tint)] px-3 py-1.5 text-sm font-bold tabular-nums text-[var(--primary)]"
                 title="Moedas"
               >
-                <Coins className="h-4 w-4" /> {coins}
+                <CoinIcon className="h-4 w-4" /> {coins}
               </span>
               <AccountMenu />
             </>

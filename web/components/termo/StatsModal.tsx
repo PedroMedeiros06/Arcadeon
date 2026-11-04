@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Check, Coins, Flame, Lock, Shield, Timer, X } from "lucide-react";
+import { Check, Flame, Lock, Shield, Timer, X } from "lucide-react";
+import { CoinIcon } from "@/components/CoinIcon";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { MODES, type BoardCount } from "@/lib/termo/logic";
@@ -202,7 +203,7 @@ export function StatsModal({ initialMode, highlightAttempts, onClose }: StatsMod
                   disabled={buying || (stats.shields ?? 0) >= 2 || coins < 30}
                   className="flex shrink-0 items-center gap-1 rounded-xl bg-[var(--primary)] px-3 py-1.5 text-xs font-extrabold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <Coins className="h-3.5 w-3.5" /> 30
+                  <CoinIcon className="h-3.5 w-3.5" /> 30
                 </button>
               </div>
             ) : (

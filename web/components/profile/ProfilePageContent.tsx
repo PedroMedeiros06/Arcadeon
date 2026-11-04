@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Check, Coins, Gamepad2, Pencil, ShoppingBag, Sparkles, X } from "lucide-react";
+import { Check, Gamepad2, Pencil, ShoppingBag, Sparkles, X } from "lucide-react";
+import { CoinIcon } from "@/components/CoinIcon";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { equipAvatar, getInventory, getShopCatalog, updateUsername } from "@/lib/inventory";
 import { Avatar } from "@/components/Avatar";
@@ -15,8 +16,10 @@ type InventoryTab = "avatars" | "items";
 
 const USERNAME_RULE = /^[A-Za-z0-9_.-]{3,20}$/;
 
+const USERNAME_CHANGE_COST = 100;
+
 function UsernameEditor({ current }: { current: string }) {
-  const { refreshProfile } = useAuth();
+  const { refreshProfile, coins } = useAuth();
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(current);
   const [saving, setSaving] = useState(false);
@@ -42,6 +45,10 @@ function UsernameEditor({ current }: { current: string }) {
     }
     if (!USERNAME_RULE.test(name)) {
       setError("Use de 3 a 20 caracteres: letras, números, ponto, hífen ou _.");
+      return;
+    }
+    if (coins < USERNAME_CHANGE_COST) {
+      setError(`Você precisa de ${USERNAME_CHANGE_COST} moedas para trocar o nome.`);
       return;
     }
     setSaving(true);
@@ -93,8 +100,8 @@ function UsernameEditor({ current }: { current: string }) {
         />
         <button
           type="submit"
-          disabled={saving}
-          aria-label="Salvar nome"
+          disabled={saving || coins < USERNAME_CHANGE_COST}
+          aria-label={`Salvar nome por ${USERNAME_CHANGE_COST} moedas`}
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--primary)] text-white transition hover:brightness-110 disabled:opacity-50"
         >
           <Check className="h-5 w-5" />
@@ -109,7 +116,7 @@ function UsernameEditor({ current }: { current: string }) {
         </button>
       </div>
       <p className={`text-xs ${error ? "font-semibold text-[var(--danger)]" : "text-[var(--fg-muted)]"}`}>
-        {error ?? "3 a 20 caracteres: letras, números, ponto, hífen ou _. Também serve pra entrar."}
+        {error ?? `Trocar o nome custa ${USERNAME_CHANGE_COST} moedas. 3 a 20 caracteres: letras, números, ponto, hífen ou _. Também serve pra entrar.`}
       </p>
     </form>
   );
@@ -189,7 +196,7 @@ export function ProfilePageContent() {
           </p>
           <div className="mt-1 flex flex-wrap gap-2">
             <span className="flex items-center gap-1.5 rounded-full bg-[var(--primary-tint)] px-3 py-1.5 text-sm font-bold tabular-nums text-[var(--primary)]">
-              <Coins className="h-4 w-4" /> {coins} moedas
+            <CoinIcon className="h-4 w-4" /> {coins} moedas
             </span>
             <Link
               href="/shop"

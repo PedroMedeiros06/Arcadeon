@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Check, Coins, Gamepad2, Lock, Trophy, X } from "lucide-react";
+import { Check, Gamepad2, Lock, Trophy, X } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { equipAvatar, getInventory, getShopCatalog, purchaseAvatar } from "@/lib/inventory";
 import { Avatar } from "@/components/Avatar";
 import { LoginModal } from "@/components/LoginModal";
 import type { Avatar as AvatarType } from "@/lib/types";
 import { ShieldShopCard } from "@/components/termo/ShieldShopCard";
+import { CoinIcon } from "@/components/CoinIcon";
 
 interface Purchase {
   avatar: AvatarType;
@@ -17,7 +18,7 @@ interface Purchase {
 function PriceTag({ value }: { value: number }) {
   return (
     <span className="flex items-center gap-1 tabular-nums">
-      <Coins className="h-3.5 w-3.5" /> {value}
+      <CoinIcon className="h-3.5 w-3.5" /> {value}
     </span>
   );
 }
@@ -88,7 +89,7 @@ export function ShopPageContent() {
         <div>
           <p className="text-xs font-medium text-[var(--fg-muted)]">Seu saldo</p>
           <p className="flex items-center gap-2 font-display text-2xl font-extrabold tabular-nums text-[var(--fg)]">
-            <Coins className="h-5 w-5 text-[var(--primary)]" /> {user ? coins : "—"}
+            <CoinIcon className="h-5 w-5" /> {user ? coins : "—"}
           </p>
         </div>
         <p className="max-w-xs text-sm text-[var(--fg-muted)]">

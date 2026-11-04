@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { Coins } from "lucide-react";
+import { CoinIcon } from "@/components/CoinIcon";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { matchCoinsLabel } from "@/lib/economy/matchCoins";
 
@@ -29,7 +29,7 @@ export function MatchCoins({ awarded, capped }: { awarded: number; capped: boole
         awarded > 0 ? "bg-[var(--primary-tint)] text-[var(--primary)]" : "bg-[var(--bg)] text-[var(--fg-muted)]"
       }`}
     >
-      <Coins className="h-3.5 w-3.5" aria-hidden /> {label}
+      <CoinIcon className="h-3.5 w-3.5" /> {label}
     </span>
   );
 }
