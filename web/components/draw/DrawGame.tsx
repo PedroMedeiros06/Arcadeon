@@ -7,6 +7,8 @@ import { Loader2, Pencil, WifiOff } from "lucide-react";
 import { clearDrawSession, getDrawSocket, loadDrawSession, saveDrawSession } from "@/lib/draw/socket";
 import { initDrawSound, playDrawSfx } from "@/lib/draw/sound";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { logActivity } from "@/lib/activity";
+import { setStatus } from "@/lib/social/presence";
 import { Lobby } from "./Lobby";
 import { RoomWaiting } from "./RoomWaiting";
 import { WordPicker, PickCountdown } from "./WordPicker";
@@ -29,6 +31,7 @@ import type {
   FillEvent,
   GalleryDrawing,
   GuessResult,
+  MatchCoinsResult,
   Point,
   ShapeEvent,
   Team,
@@ -47,7 +50,7 @@ function feedId(): string {
 type Connection = "online" | "reconnecting";
 
 export function DrawGame() {
-  const { username, loading: authLoading } = useAuth();
+  const { username, loading: authLoading, session } = useAuth();
   const searchParams = useSearchParams();
   const joinCodeFromUrl = searchParams.get("join");
   const [room, setRoom] = useState<DrawRoomState | null>(null);
@@ -73,6 +76,11 @@ export function DrawGame() {
   const [gallery, setGallery] = useState<GalleryDrawing[]>([]);
   const [tutorialSeen, setTutorialSeen] = useLocalFlag(TUTORIAL_KEY, true);
   const [tutorialOpen, setTutorialOpen] = useState(false);
+  /** moedas da partida que acabou (so chega pra quem esta logado) */
+  const [coins, setCoins] = useState<MatchCoinsResult | null>(null);
+  // token mais recente, lido no connect (o listener do socket e registrado uma vez so)
+  const accessToken = session?.access_token ?? null;
+  const accessTokenRef = useRef(accessToken);
 
   useEffect(() => {
     initDrawSound();
@@ -106,6 +114,7 @@ export function DrawGame() {
       setGallery([]);
       setFeed([]);
       setLastTurn(null);
+      setCoins(null);
       setNotice(message);
     }
 
@@ -127,6 +136,8 @@ export function DrawGame() {
 
     function handleConnect() {
       setConnection("online");
+      // antes do resume: o servidor liga a conta ao jogador (moedas, missoes, "Adicionar")
+      socket.emit("identify", { accessToken: accessTokenRef.current });
       tryResume();
     }
     function handleDisconnect() {
@@ -150,9 +161,12 @@ export function DrawGame() {
       setJoinError(null);
       setClockOffset(state.serverNow - Date.now());
       if (state.phase !== "lobby") setStartError(null);
+      if (state.phase !== "results") setCoins(null);
 
       const me = state.myId;
       const phaseChanged = prev?.phase !== state.phase;
+      // partida comecou (medicao de retencao; a funcao deduplica e nunca lanca)
+      if (prev?.phase === "lobby" && state.phase !== "lobby") void logActivity("drawit");
       if (state.phase === "lobby" && prev?.phase === "lobby" && state.players.length > prev.players.length) {
         playDrawSfx("join");
       }
@@ -275,6 +289,9 @@ export function DrawGame() {
     function handleGameEnded(data: { players: { id: string }[] }) {
       playDrawSfx(data.players[0]?.id === prevRoomRef.current?.myId ? "win" : "gameEnd");
     }
+    function handleCoinsAwarded(data: MatchCoinsResult) {
+      if (prevRoomRef.current?.phase === "results") setCoins(data);
+    }
 
     // aba voltou do segundo plano (celular bloqueado, troca de app): garante estado fresco
     function handleVisibility() {
@@ -300,6 +317,7 @@ export function DrawGame() {
     socket.on("chat-message", handleChatMessage);
     socket.on("chat-blocked", handleChatBlocked);
     socket.on("start-error", handleStartError);
+    socket.on("coins-awarded", handleCoinsAwarded);
     document.addEventListener("visibilitychange", handleVisibility);
 
     if (socket.connected) tryResume();
@@ -323,9 +341,38 @@ export function DrawGame() {
       socket.off("chat-message", handleChatMessage);
       socket.off("chat-blocked", handleChatBlocked);
       socket.off("start-error", handleStartError);
+      socket.off("coins-awarded", handleCoinsAwarded);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, []);
+
+  // login/logout/refresh do token: avisa o servidor (no connect o handleConnect ja manda)
+  useEffect(() => {
+    accessTokenRef.current = accessToken;
+    if (authLoading) return;
+    const socket = socketRef.current;
+    if (socket.connected) socket.emit("identify", { accessToken });
+  }, [accessToken, authLoading]);
+
+  // status pros amigos: sala de espera, partida, de volta pra sala no fim; fora da sala, so na pagina
+  const statusCode = room?.code ?? null;
+  const statusPlace = !room ? null : room.phase === "lobby" || room.phase === "results" ? "lobby" : "match";
+  const statusPlayers = room?.players.length ?? 0;
+  const statusMax = room?.config.maxPlayers ?? 0;
+  useEffect(() => {
+    if (!statusCode || !statusPlace) {
+      setStatus({ state: "online", place: "hub", game: "drawit" });
+      return;
+    }
+    setStatus({
+      state: statusPlace === "match" ? "playing" : "online",
+      place: statusPlace,
+      game: "drawit",
+      roomCode: statusCode,
+      players: statusPlayers,
+      maxPlayers: statusMax,
+    });
+  }, [statusCode, statusPlace, statusPlayers, statusMax]);
 
   useEffect(() => {
     if (!joinCodeFromUrl || authLoading || room || resuming) return;
@@ -378,6 +425,7 @@ export function DrawGame() {
     setRoom(null);
     setLobbyMode("choose");
     setGallery([]);
+    setCoins(null);
   }
 
   // confirmacao antes de sair (botoes, Hub, voltar do navegador, fechar aba); vale em qualquer fase da sala
@@ -507,7 +555,7 @@ export function DrawGame() {
 
   if (room.phase === "results") {
     const ranking = room.players
-      .map((p) => ({ id: p.id, name: p.name, score: p.score, team: p.team }))
+      .map((p) => ({ id: p.id, name: p.name, score: p.score, team: p.team, userId: p.userId }))
       .sort((a, b) => b.score - a.score);
     return (
       <>
@@ -524,6 +572,7 @@ export function DrawGame() {
           myId={myId}
           isHost={amHost}
           showTeams={room.config.mode === "teams"}
+          coins={coins}
           onPlayAgain={() => emit("restart-game")}
         />
         {leaveDialog}

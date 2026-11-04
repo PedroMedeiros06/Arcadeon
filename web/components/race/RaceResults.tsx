@@ -2,11 +2,15 @@
 
 import { Crown, LogOut, RotateCcw, Target, Timer } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
-import type { RaceRoomState } from "@/lib/race/types";
+import { MatchCoins } from "@/components/economy/MatchCoins";
+import { AddFriendButton } from "@/components/social/AddFriendButton";
+import type { MatchCoinsAward, RaceRoomState } from "@/lib/race/types";
 
 interface RaceResultsProps {
   room: RaceRoomState;
   mySocketId: string;
+  /** retorno do evento privado `coins-awarded` (null = anonimo, abandono ou ainda nao chegou) */
+  coins: MatchCoinsAward | null;
   onPlayAgain: () => void;
   onLeave: () => void;
 }
@@ -28,7 +32,7 @@ const TITLES = {
 } as const;
 
 /** Tela final como chegada de corrida: podio com metros, lista curta (acertos, 🔥 maxima, tempo medio). */
-export function RaceResults({ room, mySocketId, onPlayAgain, onLeave }: RaceResultsProps) {
+export function RaceResults({ room, mySocketId, coins, onPlayAgain, onLeave }: RaceResultsProps) {
   const ranked = [...room.players].sort((a, b) => a.rank - b.rank);
   const isHost = room.hostSocketId === mySocketId;
   const meters = (d: number) => Math.min(d, room.finishProgress);
@@ -80,11 +84,17 @@ export function RaceResults({ room, mySocketId, onPlayAgain, onLeave }: RaceResu
       <div className="w-full max-w-md overflow-hidden rounded-2xl border-2 border-[var(--border)] bg-[var(--card)]">
         {ranked.map((p, i) => {
           const pct = (meters(p.distance) / room.finishProgress) * 100;
+          const isMe = p.socketId === mySocketId;
+          const extra = isMe ? (
+            coins && <MatchCoins awarded={coins.awarded} capped={coins.capped} />
+          ) : (
+            p.userId && <AddFriendButton userId={p.userId} username={p.name} />
+          );
           return (
             <div
               key={p.socketId}
               className={`animate-fade-up flex flex-col gap-1 border-b border-[var(--border)] px-3 py-2 last:border-b-0 ${
-                p.socketId === mySocketId ? "bg-[var(--primary-tint)]" : ""
+                isMe ? "bg-[var(--primary-tint)]" : ""
               }`}
               style={{ animationDelay: `${450 + i * 60}ms` }}
             >
@@ -112,6 +122,7 @@ export function RaceResults({ room, mySocketId, onPlayAgain, onLeave }: RaceResu
                 </div>
                 <span className="w-12 text-right text-xs font-black tabular-nums text-[var(--fg-muted)]">{meters(p.distance)}m</span>
               </div>
+              {extra && <div className="flex pl-9">{extra}</div>}
             </div>
           );
         })}

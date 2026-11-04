@@ -19,7 +19,9 @@ import { SoundToggle } from "./SoundToggle";
 import { initRaceSound, playSfx } from "@/lib/race/sound";
 import { diffRaceSnapshots } from "@/lib/race/raceFx";
 import { useLocalFlag } from "@/lib/race/useLocalFlag";
-import type { AnswerRejection, PlayerAvatar, RaceRoomConfig, RaceRoomState } from "@/lib/race/types";
+import { logActivity } from "@/lib/activity";
+import { setStatus } from "@/lib/social/presence";
+import type { AnswerRejection, MatchCoinsAward, PlayerAvatar, RaceRoomConfig, RaceRoomState } from "@/lib/race/types";
 
 // ultimo 0.8s do countdown do servidor e' o "VAI!"
 const GO_MS = 800;
@@ -61,6 +63,8 @@ export function RaceGame() {
   const [overtakers, setOvertakers] = useState<string[]>([]);
   const [tutorialSeen, setTutorialSeen] = useLocalFlag(TUTORIAL_KEY, true);
   const [tutorialOpen, setTutorialOpen] = useState(false);
+  // moedas da ultima partida: pode chegar antes ou depois do snapshot de "results"
+  const [coins, setCoins] = useState<MatchCoinsAward | null>(null);
 
   useEffect(() => {
     function handleRoomUpdated(state: RaceRoomState) {
@@ -76,6 +80,9 @@ export function RaceGame() {
       for (const sfx of fx.sounds) setTimeout(() => playSfx(sfx.name, sfx.level), sfx.delay);
       if (state.phase === "question-results") setOvertakers(fx.overtakers);
       else if (state.phase === "question") setOvertakers([]);
+      const prevPhase = prevRoomRef.current?.phase;
+      if (state.phase !== prevPhase && (state.phase === "countdown" || state.phase === "lobby")) setCoins(null);
+      if (state.phase === "countdown" && prevPhase !== "countdown") void logActivity("corrida");
       prevRoomRef.current = state;
       hasRoomRef.current = true;
       setPendingAutoJoin(false);
@@ -92,6 +99,9 @@ export function RaceGame() {
     }
     function handlePlayerAnswered(data: { socketId: string }) {
       setAnsweredIds((prev) => new Set(prev).add(data.socketId));
+    }
+    function handleCoinsAwarded(data: MatchCoinsAward) {
+      if (typeof data?.awarded === "number") setCoins(data);
     }
     function handleJoinError(data: { message: string }) {
       setJoinError(data.message);
@@ -121,6 +131,7 @@ export function RaceGame() {
     socket.on("answer-locked", handleAnswerLocked);
     socket.on("answer-rejected", handleAnswerRejected);
     socket.on("player-answered", handlePlayerAnswered);
+    socket.on("coins-awarded", handleCoinsAwarded);
     socket.on("join-error", handleJoinError);
     socket.on("room-closed", handleRoomClosed);
     socket.on("connect", handleConnect);
@@ -131,6 +142,7 @@ export function RaceGame() {
       socket.off("answer-locked", handleAnswerLocked);
       socket.off("answer-rejected", handleAnswerRejected);
       socket.off("player-answered", handlePlayerAnswered);
+      socket.off("coins-awarded", handleCoinsAwarded);
       socket.off("join-error", handleJoinError);
       socket.off("room-closed", handleRoomClosed);
       socket.off("connect", handleConnect);
@@ -157,6 +169,26 @@ export function RaceGame() {
   }, [socket]);
 
   const phase = room?.phase;
+
+  // status pros amigos: sala de espera / partida; sem sala volta a "na Corrida" (senao o "Entrar" aponta pra sala morta)
+  const roomCode = room?.code ?? null;
+  const playerCount = room?.players.length ?? 0;
+  const maxPlayers = room?.config.maxPlayers ?? 0;
+  const inMatch = phase === "countdown" || phase === "question" || phase === "question-results";
+  useEffect(() => {
+    if (!roomCode) {
+      setStatus({ state: "online", place: "hub", game: "corrida" });
+      return;
+    }
+    setStatus({
+      state: inMatch ? "playing" : "online",
+      place: inMatch ? "match" : "lobby",
+      game: "corrida",
+      roomCode,
+      players: playerCount,
+      maxPlayers,
+    });
+  }, [roomCode, inMatch, playerCount, maxPlayers]);
   useEffect(() => {
     if (phase !== "countdown" && phase !== "question" && phase !== "question-results") return;
     const id = setInterval(() => {
@@ -345,6 +377,7 @@ export function RaceGame() {
         <RaceResults
           room={room}
           mySocketId={mySocketId}
+          coins={coins}
           onPlayAgain={() => socket.emit("restart-game")}
           onLeave={() => requestLeave("room")}
         />

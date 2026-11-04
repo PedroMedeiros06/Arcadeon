@@ -53,6 +53,8 @@ import {
   startImpostorRound,
   submitImpostorGuess,
 } from "./drawImpostor";
+import { verifyAccessToken } from "./raceStats";
+import { awardDrawMatch, recordCorrectGuess } from "./drawStats";
 
 const TURN_RESULTS_MS = 5000;
 const IMPOSTOR_REVEAL_MS = 9000;
@@ -121,6 +123,8 @@ function publicDrawRoomState(room: DrawRoom, forPlayerId: string) {
       team: p.team,
       hasGuessedThisTurn: p.hasGuessedThisTurn,
       connected: isConnected(p),
+      // id publico da conta (botao "Adicionar" na tela de resultado); null = anonimo
+      userId: p.userId,
     })),
   };
 }
@@ -155,6 +159,25 @@ export function registerDrawNamespace(io: Server): Namespace {
         .map((p) => ({ id: p.id, name: p.name, score: p.score }))
         .sort((a, b) => b.score - a.score),
     });
+    payMatch(room);
+  }
+
+  /** Moedas da partida: uma vez por partida, resultado so pro socket do proprio jogador. */
+  function payMatch(room: DrawRoom) {
+    const matchId = room.matchId;
+    if (!matchId) return;
+    room.matchId = null;
+    awardDrawMatch(room, matchId, (playerId, coins) => {
+      const player = room.players.get(playerId);
+      if (!player || room.phase !== "results") return;
+      player.coins = coins;
+      if (player.socketId) nsp.to(player.socketId).emit("coins-awarded", coins);
+    });
+  }
+
+  /** F5 na tela de resultado: manda de novo o selo de moedas. */
+  function resendCoins(socket: Socket, room: DrawRoom, player: DrawPlayer) {
+    if (room.phase === "results" && player.coins) socket.emit("coins-awarded", player.coins);
   }
 
   // ---------- fluxo classico/times (todo timer passa por schedulePhaseTimer) ----------
@@ -327,7 +350,17 @@ export function registerDrawNamespace(io: Server): Namespace {
     removeNow(session.room, session.player.id);
   }
 
+  // socket -> conta Supabase verificada (via evento "identify"); vale pro jogador que o socket assumir
+  const identities = new Map<string, string | null>();
+  // descarta verificacao antiga se um identify mais novo chegou no meio
+  const identifySeq = new Map<string, number>();
+
   nsp.on("connection", (socket) => {
+    /** Copia a conta verificada deste socket pro jogador (criou, entrou ou retomou a sala). */
+    function applyIdentity(player: DrawPlayer) {
+      player.userId = identities.get(socket.id) ?? null;
+    }
+
     /** Toda acao de jogo resolve a sala pelo socket (nunca pelo code enviado pelo client). */
     function withSession(fn: (room: DrawRoom, player: DrawPlayer) => void) {
       const session = getSession(socket.id);
@@ -339,6 +372,22 @@ export function registerDrawNamespace(io: Server): Namespace {
       if (hasCanvas(room)) socket.emit("canvas-sync", { events: canvasSnapshot(room), serverNow: Date.now() });
     }
 
+    // sem throttle: connect + troca de conta podem chegar juntos e o mais novo nao pode se perder
+    socket.on("identify", async (raw: unknown) => {
+      const seq = (identifySeq.get(socket.id) ?? 0) + 1;
+      identifySeq.set(socket.id, seq);
+      const userId = await verifyAccessToken(asObject(raw).accessToken);
+      if (identifySeq.get(socket.id) !== seq || !socket.connected) return;
+      // null tambem fica guardado: "se identificou como anonimo" (saiu da conta)
+      identities.set(socket.id, userId);
+      // a verificacao costuma terminar depois do resume: atualiza quem ja esta na sala
+      const session = getSession(socket.id);
+      if (session && session.player.userId !== userId) {
+        session.player.userId = userId;
+        broadcast(session.room);
+      }
+    });
+
     socket.on("create-room", (raw: unknown) => {
       const data = asObject(raw);
       leaveCurrent(socket);
@@ -348,6 +397,7 @@ export function registerDrawNamespace(io: Server): Namespace {
         sanitizeName(data.name),
         sanitizeAvatar(data.avatar)
       );
+      applyIdentity(player);
       socket.join(room.code);
       sendSession(socket, room, player);
       sendState(room, player);
@@ -362,6 +412,7 @@ export function registerDrawNamespace(io: Server): Namespace {
         socket.emit("join-error", { message: result.error });
         return;
       }
+      applyIdentity(result.player);
       socket.join(result.room.code);
       sendSession(socket, result.room, result.player);
       broadcast(result.room);
@@ -378,10 +429,13 @@ export function registerDrawNamespace(io: Server): Namespace {
       }
       const { room, player, oldSocketId } = resumed;
       if (oldSocketId) nsp.sockets.get(oldSocketId)?.leave(room.code);
+      // so troca a conta se este socket ja se identificou (senao o identify que vem depois atualiza)
+      if (identities.has(socket.id)) applyIdentity(player);
       socket.join(room.code);
       sendSession(socket, room, player);
       broadcast(room);
       sendCanvas(room);
+      resendCoins(socket, room, player);
       ack({ ok: true });
     });
 
@@ -390,6 +444,7 @@ export function registerDrawNamespace(io: Server): Namespace {
       withSession((room, player) => {
         sendState(room, player);
         sendCanvas(room);
+        resendCoins(socket, room, player);
       });
     });
 
@@ -542,6 +597,7 @@ export function registerDrawNamespace(io: Server): Namespace {
         // (inclusive o certo, que so ele ve com a palavra)
         socket.emit("guess-result", { ...outcome, guess });
         if (outcome.correct) {
+          recordCorrectGuess(player);
           // os outros so ficam sabendo que acertou, nunca o texto
           socket.to(room.code).emit("player-guessed", {
             id: player.id,
@@ -576,6 +632,8 @@ export function registerDrawNamespace(io: Server): Namespace {
     });
 
     socket.on("disconnect", () => {
+      identities.delete(socket.id);
+      identifySeq.delete(socket.id);
       const session = markDisconnected(socket.id);
       if (!session) return;
       const { room, player } = session;

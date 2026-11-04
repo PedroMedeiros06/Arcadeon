@@ -5,6 +5,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { ArrowLeft, CircleHelp, Crown, Pencil, Settings, Smartphone, Users } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
 import { AvatarEditModal } from "@/components/buggle/AvatarEditModal";
+import { InviteFriendsButton } from "@/components/social/InviteFriendsButton";
 import { EditRoomModal, TransferHostModal } from "./RoomModals";
 import { SoundToggle } from "./SoundToggle";
 import type { PlayerAvatar, RaceRoomConfig, RaceRoomState } from "@/lib/race/types";
@@ -99,6 +100,8 @@ export function RoomWaiting({
           <p className="text-xs font-semibold text-white/75">ou digite o código</p>
           <p className="font-mono text-3xl font-extrabold tracking-[0.3em] text-white drop-shadow">{room.code}</p>
         </div>
+
+        <InviteFriendsButton game="corrida" roomCode={room.code} />
 
         <div className="text-center text-xs text-white/75">
           Até a linha de chegada · {room.config.questionSeconds}s por pergunta ·{" "}

@@ -42,6 +42,10 @@ export interface DrawPlayer {
   disconnectedAt: number | null;
   /** timers de "saiu de vez" / "perde host e vez"; limpos quando reconecta */
   disconnectTimers: NodeJS.Timeout[];
+  /** conta Supabase verificada pelo servidor (evento "identify"); null = anonimo */
+  userId: string | null;
+  /** moedas pagas no fim da partida, reenviadas no F5 da tela de resultado */
+  coins: { awarded: number; capped: boolean; coins: number } | null;
 }
 
 export type DrawRoomPhase =
@@ -159,6 +163,8 @@ export interface DrawRoom {
   /** unico timer de fase da sala (escolha, turno, resumo); invalidado por token */
   phaseTimer: NodeJS.Timeout | null;
   timerToken: number;
+  /** id unico da partida pras moedas (codigo de sala se repete); null depois de pagar */
+  matchId: string | null;
 }
 
 const RATE_LIMIT_MS = 350;
@@ -270,6 +276,8 @@ function newPlayer(socketId: string, name: string, avatar: PlayerAvatar | null, 
     lastGuessAt: 0,
     disconnectedAt: null,
     disconnectTimers: [],
+    userId: null,
+    coins: null,
   };
 }
 
@@ -329,6 +337,7 @@ export function createDrawRoom(
     phaseEndsAt: null,
     phaseTimer: null,
     timerToken: 0,
+    matchId: null,
   };
   rooms.set(room.code, room);
   socketIndex.set(socketId, { code: room.code, playerId: player.id });
@@ -534,7 +543,11 @@ export function startGame(room: DrawRoom): string | null {
   room.turnsCompletedByPlayer.clear();
   room.impostorRoundNumber = 0;
   room.lastImpostorId = null;
-  for (const player of room.players.values()) player.score = 0;
+  room.matchId = randomId(9);
+  for (const player of room.players.values()) {
+    player.score = 0;
+    player.coins = null;
+  }
 
   if (room.config.mode === "teams") {
     // alterna os times: A1, B1, A2, B2... (quem sobrar no time maior vai no fim)
@@ -558,7 +571,10 @@ export function restartGame(room: DrawRoom): boolean {
   room.impostorRoundNumber = 0;
   resetTurnState(room);
   // usedWords NAO e limpo: "jogar novamente" na mesma sala continua sem repetir palavra
-  for (const player of room.players.values()) player.score = 0;
+  for (const player of room.players.values()) {
+    player.score = 0;
+    player.coins = null;
+  }
   return true;
 }
 

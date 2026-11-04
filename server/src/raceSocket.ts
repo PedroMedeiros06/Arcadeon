@@ -24,7 +24,7 @@ import {
   updateRaceConfig,
   updateRacePlayerAvatar,
 } from "./raceRooms";
-import { recordRaceResults, verifyAccessToken } from "./raceStats";
+import { awardRaceMatch, recordRaceResults, verifyAccessToken } from "./raceStats";
 
 const RATE_LIMIT_MS = 150;
 
@@ -73,6 +73,8 @@ export function publicRaceRoomState(room: RaceRoom) {
     reveal: room.phase === "question-results" || room.phase === "results" ? room.lastReveal : null,
     players: Array.from(room.players.values()).map((p) => ({
       socketId: p.socketId,
+      // id publico da conta (botao "Adicionar" amigo na tela final); null = anonimo
+      userId: p.userId,
       name: p.name,
       avatar: p.avatar,
       distance: p.distance,
@@ -98,7 +100,14 @@ export function registerRaceNamespace(io: Server): void {
   }
 
   setRaceAutoAdvanceListener(broadcast);
-  setRaceGameFinishedListener(recordRaceResults);
+  setRaceGameFinishedListener((room) => {
+    recordRaceResults(room);
+    const placements = rankedPlayers(room).map((p) => ({ socketId: p.socketId, userId: p.userId }));
+    // evento privado (excecao ao snapshot unico): o saldo de cada um so interessa a ele
+    awardRaceMatch(room, placements, (socketIds, result) => {
+      for (const id of socketIds) nsp.to(id).emit("coins-awarded", result);
+    });
+  });
 
   // socket -> conta Supabase verificada (via evento "identify")
   const identities = new Map<string, string>();
@@ -148,7 +157,9 @@ export function registerRaceNamespace(io: Server): void {
       if (identifySeq.get(socket.id) !== seq || !socket.connected) return;
       if (userId) identities.set(socket.id, userId);
       else identities.delete(socket.id);
-      setRacePlayerUser(socket.id, userId);
+      // identify pode chegar depois do join (QR): os outros precisam do userId no snapshot
+      const changed = setRacePlayerUser(socket.id, userId);
+      if (changed) broadcast(changed);
     });
 
     socket.on("create-room", (raw: unknown) => {

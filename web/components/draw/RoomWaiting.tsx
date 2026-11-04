@@ -7,6 +7,7 @@ import { EditRoomModal } from "./EditRoomModal";
 import { TransferHostModal } from "./TransferHostModal";
 import { MODE_INFO, MODIFIER_INFO, TEAM_INFO } from "@/lib/draw/modes";
 import type { DrawPlayerPublic, DrawRoomConfig, DrawRoomState, Team } from "@/lib/draw/types";
+import { InviteFriendsButton } from "@/components/social/InviteFriendsButton";
 
 interface RoomWaitingProps {
   room: DrawRoomState;
@@ -165,6 +166,9 @@ export function RoomWaiting({
           <p className="text-xs font-semibold text-white/75">ou digite o código</p>
           <p className="font-mono text-3xl font-extrabold tracking-[0.3em] text-white drop-shadow">{room.code}</p>
         </div>
+
+        {/* so aparece com login e amigos disponiveis */}
+        <InviteFriendsButton game="drawit" roomCode={room.code} />
 
         <div className="flex max-w-sm flex-col items-center gap-1.5 text-center">
           <span className="rounded-full bg-yellow-400 px-3 py-0.5 text-xs font-extrabold uppercase tracking-wide text-[var(--stage-3)]">

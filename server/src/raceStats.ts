@@ -54,3 +54,60 @@ export function recordRaceResults(room: RaceRoom): void {
       });
   }
 }
+
+export interface MatchCoinsResult {
+  awarded: number;
+  capped: boolean;
+  coins: number;
+}
+
+function parseCoins(data: unknown): MatchCoinsResult | null {
+  const d = (typeof data === "object" && data !== null ? data : {}) as Record<string, unknown>;
+  if (typeof d.awarded !== "number" || typeof d.coins !== "number") return null;
+  return { awarded: d.awarded, capped: d.capped === true, coins: d.coins };
+}
+
+/**
+ * Moedas da partida (award_match_coins) e missao race_finish pra cada conta logada.
+ * `onCoins` recebe os sockets daquela conta e o retorno da RPC (evento privado `coins-awarded`).
+ * Abandono (players-left) nao paga nem conta missao, mesma regra da vitoria no ranking.
+ */
+export function awardRaceMatch(
+  room: RaceRoom,
+  placements: { socketId: string; userId: string | null }[],
+  onCoins: (socketIds: string[], result: MatchCoinsResult) => void
+): void {
+  const supabase = getClient();
+  if (!supabase || !room.matchId || room.endReason === "players-left") return;
+  // tudo capturado agora: "Nova corrida" troca os objetos dos jogadores antes das RPCs voltarem
+  const matchId = room.matchId;
+  const byUser = new Map<string, { placement: number; socketIds: string[] }>();
+  placements.forEach(({ socketId, userId }, i) => {
+    if (!userId) return;
+    const entry = byUser.get(userId);
+    // mesma conta em duas abas: vale a melhor colocacao (ranking ja vem ordenado)
+    if (entry) entry.socketIds.push(socketId);
+    else byUser.set(userId, { placement: i + 1, socketIds: [socketId] });
+  });
+  const loggedPlayers = byUser.size;
+  for (const [userId, { placement, socketIds }] of byUser) {
+    supabase
+      .rpc("award_match_coins", {
+        p_user_id: userId,
+        p_game: "corrida",
+        p_placement: placement,
+        p_logged_players: loggedPlayers,
+        p_match_id: matchId,
+      })
+      .then(({ data, error }) => {
+        if (error) return console.error("[race-stats] falha ao pagar moedas:", error.message);
+        const result = parseCoins(data);
+        if (result) onCoins(socketIds, result);
+      });
+    supabase
+      .rpc("mission_progress", { p_user_id: userId, p_kind: "race_finish", p_amount: 1 })
+      .then(({ error }) => {
+        if (error) console.error("[race-stats] falha ao contar missao:", error.message);
+      });
+  }
+}

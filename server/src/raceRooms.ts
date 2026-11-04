@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { PlayerAvatar } from "./rooms";
 import { RACE_QUESTIONS, RaceCategory, RaceDifficulty, RaceQuestion } from "./raceQuestions";
 import { FINISH_PROGRESS, MAX_QUESTIONS, compareStandings, distanceFor, pointsFor } from "./raceScoring";
@@ -77,6 +78,8 @@ export interface RaceRoom {
   finishing: boolean;
   winnerSocketId: string | null;
   endReason: GameEndReason | null;
+  /** id unico da partida (novo a cada largada): idempotencia das moedas no banco */
+  matchId: string | null;
   recentQuestionIds: string[];
   timer: NodeJS.Timeout | null;
   timerToken: number;
@@ -120,10 +123,13 @@ export function setRaceGameFinishedListener(listener: RoomListener): void {
   onGameFinished = listener;
 }
 
-/** Associa a conta verificada ao jogador (se ele ja estiver numa sala). */
-export function setRacePlayerUser(socketId: string, userId: string | null): void {
-  const player = getRoomForSocket(socketId)?.players.get(socketId);
-  if (player) player.userId = userId;
+/** Associa a conta verificada ao jogador (se ele ja estiver numa sala). Devolve a sala se mudou algo. */
+export function setRacePlayerUser(socketId: string, userId: string | null): RaceRoom | null {
+  const room = getRoomForSocket(socketId);
+  const player = room?.players.get(socketId);
+  if (!room || !player || player.userId === userId) return null;
+  player.userId = userId;
+  return room;
 }
 
 // ---------- sanitizacao de input ----------
@@ -224,6 +230,7 @@ export function createRaceRoom(
     finishing: false,
     winnerSocketId: null,
     endReason: null,
+    matchId: null,
     recentQuestionIds: [],
     timer: null,
     timerToken: 0,
@@ -363,6 +370,8 @@ export function startRaceGame(room: RaceRoom): boolean {
   room.finishing = false;
   room.winnerSocketId = null;
   room.endReason = null;
+  // codigo de sala se repete com o tempo; uuid garante que a RPC de moedas nao confunda partidas
+  room.matchId = randomUUID();
   room.phase = "countdown";
   room.phaseStartsAt = Date.now();
   room.phaseEndsAt = room.phaseStartsAt + COUNTDOWN_MS;

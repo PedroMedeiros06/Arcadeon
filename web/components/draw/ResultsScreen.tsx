@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import { Crown, Images, ListOrdered, Medal, Trophy } from "lucide-react";
 import { DrawingsSlideshow } from "./DrawingsSlideshow";
+import { MatchCoins } from "@/components/economy/MatchCoins";
+import { AddFriendButton } from "@/components/social/AddFriendButton";
 import { TEAM_INFO } from "@/lib/draw/modes";
-import type { GalleryDrawing, RankedPlayer } from "@/lib/draw/types";
+import type { GalleryDrawing, MatchCoinsResult, RankedPlayer } from "@/lib/draw/types";
 
 interface ResultsScreenProps {
   ranking: RankedPlayer[];
@@ -13,6 +15,8 @@ interface ResultsScreenProps {
   isHost: boolean;
   /** duelo de times: mostra o placar por time e o time vencedor */
   showTeams?: boolean;
+  /** moedas da partida (evento `coins-awarded`); null = ainda nao chegou ou anonimo */
+  coins: MatchCoinsResult | null;
   onPlayAgain: () => void;
 }
 
@@ -28,7 +32,7 @@ const MEDAL_COLORS = ["#facc15", "#cbd5e1", "#d97706"];
 // tempo mostrando o placar antes de passar sozinho pra galeria
 const RANKING_MS = 5000;
 
-export function ResultsScreen({ ranking, gallery, myId, isHost, showTeams = false, onPlayAgain }: ResultsScreenProps) {
+export function ResultsScreen({ ranking, gallery, myId, isHost, showTeams = false, coins, onPlayAgain }: ResultsScreenProps) {
   const teamTotals = showTeams
     ? (["a", "b"] as const)
         .map((team) => ({ team, score: ranking.filter((p) => p.team === team).reduce((sum, p) => sum + p.score, 0) }))
@@ -164,6 +168,8 @@ export function ResultsScreen({ ranking, gallery, myId, isHost, showTeams = fals
               {p.name}
               {p.id === myId && <span className="ml-1 text-xs text-[var(--fg-muted)]">(você)</span>}
             </span>
+            {p.id === myId && coins && <MatchCoins awarded={coins.awarded} capped={coins.capped} />}
+            {p.id !== myId && p.userId && <AddFriendButton userId={p.userId} username={p.name} />}
             {i === 0 && (
               <Crown
                 size={18}

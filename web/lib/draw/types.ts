@@ -27,6 +27,8 @@ export interface DrawPlayerPublic {
   hasGuessedThisTurn: boolean;
   /** false = caiu e esta dentro da janela de reconexao */
   connected: boolean;
+  /** conta verificada pelo servidor; null = anonimo */
+  userId: string | null;
 }
 
 export type DrawRoomPhase =
@@ -200,6 +202,14 @@ export interface RankedPlayer {
   name: string;
   score: number;
   team: Team;
+  userId: string | null;
+}
+
+/** Moedas da partida, evento `coins-awarded` (so pro proprio jogador). */
+export interface MatchCoinsResult {
+  awarded: number;
+  capped: boolean;
+  coins: number;
 }
 
 /** Desenho de um turno guardado no client pra galeria do fim de jogo. */

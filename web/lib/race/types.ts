@@ -16,6 +16,8 @@ export type RacePhase = "lobby" | "countdown" | "question" | "question-results" 
 
 export interface RacePlayerPublic {
   socketId: string;
+  /** id publico da conta; null = anonimo */
+  userId: string | null;
   name: string;
   avatar: PlayerAvatar | null;
   distance: number;
@@ -75,6 +77,13 @@ export interface RaceRoomState {
   question: RaceQuestionPublic | null;
   reveal: QuestionReveal | null;
   players: RacePlayerPublic[];
+}
+
+/** Evento privado `coins-awarded` (retorno de award_match_coins). */
+export interface MatchCoinsAward {
+  awarded: number;
+  capped: boolean;
+  coins: number;
 }
 
 export type AnswerRejection = "not-in-game" | "stale" | "too-early" | "late" | "duplicate" | "invalid";
